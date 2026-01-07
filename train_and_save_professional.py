@@ -41,6 +41,12 @@ except ImportError:
     HAS_PROPHET = False
 
 try:
+    from ultralytics import YOLO
+    HAS_ULTRALYTICS = True
+except ImportError:
+    HAS_ULTRALYTICS = False
+
+try:
     from evidently.report import Report
     from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
     HAS_EVIDENTLY = True
@@ -156,7 +162,41 @@ class MLOpsEnterprise:
             mlflow.sklearn.log_model(model, "model", registered_model_name="clustering_model")
             print(f"✅ Silhouette Score: {score:.4f}")
 
-    # --- MÓDULO 4: MONITORAMENTO & API ---
+    # --- MÓDULO 4: COMPUTER VISION (YOLOv8) ---
+    def train_cv(self, task='detect', data_config=None, model_type='yolov8n.pt', epochs=5):
+        """
+        Módulo Universal de CV: Classificação, Detecção ou Segmentação.
+        task: 'classify', 'detect', 'segment'
+        """
+        if not HAS_ULTRALYTICS:
+            print("⚠️ Ultralytics não instalado. Execute: pip install ultralytics")
+            return
+
+        print(f"\n🖼️ Treinando Computer Vision (YOLOv8 - {task})...")
+        mlflow.set_experiment(f"/cv_{task}")
+
+        # Iniciar run do MLflow
+        with mlflow.start_run(run_name=f"yolo_{task}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+            # Carregar modelo pré-treinado
+            model = YOLO(model_type)
+
+            # Fine-tuning se houver config de dados, caso contrário apenas logamos o modelo base
+            if data_config:
+                results = model.train(data=data_config, epochs=epochs, imgsz=640)
+                # Logar métricas de treino
+                mlflow.log_metrics(results.results_dict)
+            
+            # Logar o modelo no MLflow
+            # Nota: YOLO não tem log nativo perfeito no MLflow v2.x sem callback, 
+            # então logamos o arquivo .pt como artefato e o modelo via wrapper se necessário
+            model_path = f"best_{task}.pt"
+            model.export(format='onnx') # Exemplo de exportação
+            mlflow.log_artifact(model_type)
+            
+            print(f"✅ Modelo YOLO ({task}) registrado no DagsHub.")
+            return model
+
+    # --- MÓDULO 5: MONITORAMENTO & API ---
     def detect_drift(self, reference_df, current_df):
         if not HAS_EVIDENTLY: return
         report = Report(metrics=[DataDriftPreset()])
