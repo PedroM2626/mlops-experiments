@@ -1,0 +1,8 @@
+flaml[notebook]
+autogluon
+mlflow
+dagshub
+pandas
+scikit-learn
+python-dotenv
+pytest
