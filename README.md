@@ -61,11 +61,11 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ---
 
-## 📂 Estrutura do Projeto
-
-- `train_and_save_professional.py`: Framework universal de treinamento e versionamento.
-- `compare_essential.py`: Comparação de métricas entre modelos registrados.
-- `.env`: Configurações de acesso e tokens.
+## 🛠️ Estrutura do Projeto
+- `train_and_save_professional.py`: Framework universal (Core).
+- `cv_implementation.py`: Script específico para o dataset de imagens.
+- `app_serving.py`: API FastAPI gerada automaticamente.
+- `Dockerfile` & `docker-compose.yml`: Suporte a containerização.
 
 ## 🛠️ Instalação
 
@@ -116,7 +116,14 @@ docker-compose up --build
 python app_serving.py
 ```
 
-### 3. Verificar Monitoramento (Drift)
+### 4. Visão Computacional (CV)
+O framework agora suporta YOLOv8 para Classificação, Detecção e Segmentação.
+```bash
+# Rodar a implementação específica para Frida vs Dime
+python cv_implementation.py
+```
+
+### 5. Verificar Monitoramento (Drift)
 Abra o arquivo `drift_report.html` gerado na raiz do projeto ou visualize nos artefatos do MLflow no DagsHub.
 
 ## 📊 Resultados

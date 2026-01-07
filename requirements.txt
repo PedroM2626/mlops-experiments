@@ -1,45 +1,17 @@
-# Automated ML
-flaml[notebook]
-autogluon
-
-# MLOps, Tracking & Validation
 mlflow
 dagshub
-python-dotenv
-great_expectations
-optuna
-evidently
-
-# Serving & API
 fastapi
 uvicorn
-pydantic
-
-# Machine Learning & Deep Learning
-scikit-learn
 pandas
-numpy
+scikit-learn
+optuna
+python-dotenv
+matplotlib
 torch
 torchvision
-torchaudio
-transformers
-datasets
+ultralytics
 opencv-python
-pillow
-
-# Visualization & Explainability
-matplotlib
-seaborn
-shap
-
-# Inference & Deployment
-onnx
-onnxruntime
-skl2onnx
-
-# Utilities & Testing
-tqdm
-requests
-joblib
-argparse
-pytest
+evidently
+prophet
+datasets
+transformers
