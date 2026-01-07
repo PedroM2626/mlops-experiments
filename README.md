@@ -43,19 +43,21 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🚀 Funcionalidades
 
-- **MLOps Universal**: Um único script (`train_and_save_professional.py`) para NLP Clássico, Transformers e Visão Computacional.
-- **SOTA NLP**: Suporte nativo a Transformers (Hugging Face / BERT).
-- **Deep Learning & CV**: Integração com PyTorch para classificação de imagens (ResNet/MobileNet).
+- **MLOps Universal**: Um único script (`train_and_save_professional.py`) para múltiplos domínios:
+  - **ML Clássico**: Suporte agnóstico a dados tabulares e NLP.
+  - **Deep Learning**: CV (ResNet) e Transformers (BERT).
+  - **Time Series**: Previsões estatísticas via **Prophet**.
+  - **Clustering**: Agrupamento não supervisionado via **K-Means**.
 - **Explainability (XAI)**: Explicações de modelos via **SHAP**.
 - **Inference Ready**: Exportação para o formato universal **ONNX**.
 - **Model Registry**: Gestão completa de versões no DagsHub/MLflow.
-- **Artefatos Visuais**: Geração automática de Matrizes de Confusão e Curvas de Loss.
+- **Artefatos Visuais**: Geração automática de Matrizes de Confusão, Gráficos de Regressão e Clusters.
 
 ---
 
 ## 🛠️ Tecnologias
 
-- **Frameworks**: Scikit-learn, PyTorch, Transformers (Hugging Face)
+- **Frameworks**: Scikit-learn, PyTorch, Transformers, Prophet
 - **MLOps**: MLflow, DagsHub, ONNX
 - **Explainability**: SHAP
 - **Data**: Pandas, Numpy, Datasets (HF)
@@ -102,24 +104,26 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🎯 Como Usar
 
-### 1. NLP Clássico (Sklearn)
+### 1. ML Clássico (Classificação/Regressão)
 ```bash
-python train_and_save_professional.py --task nlp
+python train_and_save_professional.py --task ml
 ```
 
-### 2. Transformers (BERT/DistilBERT)
+### 2. Séries Temporais (Forecasting)
+```bash
+python train_and_save_professional.py --task ts
+```
+
+### 3. Clustering (Agrupamento)
+```bash
+python train_and_save_professional.py --task cluster
+```
+
+### 4. Transformers / Deep Learning
 ```bash
 python train_and_save_professional.py --task transformer
-```
-
-### 3. Visão Computacional (ResNet/PyTorch)
-```bash
+# ou
 python train_and_save_professional.py --task cv
-```
-
-### 4. Executar Todo o Pipeline
-```bash
-python train_and_save_professional.py --task all
 ```
 
 ## 📊 Resultados
