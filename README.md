@@ -43,26 +43,30 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🚀 Funcionalidades
 
-- **FLAML**: AutoML leve e rápido da Microsoft.
-- **AutoGluon**: AutoML robusto da Amazon (AWS).
-- **MLflow**: Rastreamento de métricas, parâmetros e artefatos.
-- **DagsHub**: Armazenamento remoto de experimentos e artefatos.
+- **NLP Profissional**: Pipeline completo para análise de sentimentos e texto.
+- **Deep Learning & Visão Computacional**: Suporte nativo a PyTorch, Transfer Learning e processamento de imagens.
+- **Integração DagsHub & MLflow**: Rastreamento automático de experimentos, métricas, modelos e artefatos (incluindo curvas de perda e matrizes de confusão).
+- **Gestão de Artefatos S3**: Upload automático de modelos pesados para o storage do DagsHub.
+- **Limpeza Automática**: Gestão de pastas temporárias para manter o ambiente limpo.
+
+---
+
+## 🛠️ Tecnologias
+
+- **Linguagem**: Python 3.10+
+- **ML/DL**: Scikit-learn, PyTorch, Torchvision
+- **MLOps**: MLflow, DagsHub
+- **Processamento**: Pandas, Numpy, OpenCV, Pillow
+- **Visualização**: Matplotlib, Seaborn
+
+---
 
 ## 📂 Estrutura do Projeto
 
-```
-.
-├── src/
-│   ├── flaml_train.py      # Lógica de treinamento com FLAML
-│   ├── autogluon_train.py  # Lógica de treinamento com AutoGluon
-│   └── utils.py            # Utilitários de configuração (MLflow/DagsHub)
-├── tests/
-│   └── test_mlops.py       # Testes unitários
-├── main.py                 # Script principal de execução
-├── requirements.txt        # Dependências do projeto
-├── .env.example            # Exemplo de variáveis de ambiente
-└── README.md               # Documentação
-```
+- `train_and_save_professional.py`: Script unificado para modelos de ML clássico (NLP).
+- `train_dl_cv_professional.py`: Script unificado para Deep Learning e Visão Computacional.
+- `compare_essential.py`: Utilitário para comparação rápida de modelos.
+- `.env`: Configurações de tokens e repositórios.
 
 ## 🛠️ Instalação
 
@@ -95,26 +99,22 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
    *Se você já rodou `dagshub login` na máquina, o script tentará usar a configuração global, mas o arquivo `.env` é recomendado para reprodutibilidade.*
 
-## ▶️ Como Executar
+## 🎯 Como Usar
 
-O arquivo `main.py` orquestra a execução dos pipelines.
+### 1. Configuração Inicial
+Crie um arquivo `.env` baseado no `.env.example`.
 
-### Executar tudo (FLAML e AutoGluon)
+### 2. Machine Learning / NLP
 ```bash
-python main.py
+python train_and_save_professional.py --mode train --model rf
 ```
 
-### Executar apenas uma ferramenta
+### 3. Deep Learning / Visão Computacional
+O script `train_dl_cv_professional.py` já vem configurado com Transfer Learning (ResNet18).
 ```bash
-python main.py --tool flaml
-# ou
-python main.py --tool autogluon
+python train_dl_cv_professional.py
 ```
-
-### Ajustar tempo de treinamento
-```bash
-python main.py --tool flaml --time_budget 60
-```
+*Este script realiza o download do dataset (ex: CIFAR10), configura o modelo, treina e faz o upload de tudo para o DagsHub.*
 
 ## 📊 Resultados
 

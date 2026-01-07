@@ -6,3 +6,11 @@ pandas
 scikit-learn
 python-dotenv
 pytest
+
+# Deep Learning & Computer Vision
+torch
+torchvision
+opencv-python
+pillow
+matplotlib
+seaborn
