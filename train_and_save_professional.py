@@ -165,28 +165,48 @@ class MLOpsEnterprise:
         mlflow.log_artifact("drift_report.html")
 
     def generate_serving_api(self, model_name):
+        print(f"\n🚀 Gerando API de Serving para {model_name}...")
         api_code = f"""
 import uvicorn
 from fastapi import FastAPI
 import mlflow.sklearn
 import dagshub
+import pandas as pd
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 dagshub.init(repo_owner='{self.repo_owner}', repo_name='{self.repo_name}', mlflow=True)
-app = FastAPI()
-model = mlflow.sklearn.load_model(f"models:/{model_name}/latest")
+
+app = FastAPI(title="MLOps Enterprise API")
+
+# Tentar carregar a versão mais recente do modelo registrado
+try:
+    model_uri = f"models:/{model_name}/latest"
+    model = mlflow.sklearn.load_model(model_uri)
+    print(f"✅ Modelo '{{model_name}}' carregado com sucesso!")
+except Exception as e:
+    print(f"⚠️ Erro ao carregar 'latest', tentando versão 1: {{e}}")
+    model_uri = f"models:/{model_name}/1"
+    model = mlflow.sklearn.load_model(model_uri)
 
 class InputData(BaseModel):
-    data: list
+    text: str
 
 @app.post("/predict")
 def predict(item: InputData):
-    return {{"prediction": model.predict([item.data])[0].tolist()}}
+    # Ajuste dinâmico dependendo do tipo de entrada que o modelo espera
+    prediction = model.predict([item.text])[0]
+    return {{"prediction": str(prediction)}}
 
 if __name__ == "__main__":
+    # Importante: host 0.0.0.0 para funcionar dentro do Docker
     uvicorn.run(app, host="0.0.0.0", port=8000)
 """
-        with open("app_serving.py", "w") as f: f.write(api_code)
+        with open("app_serving.py", "w", encoding="utf-8") as f:
+            f.write(api_code)
+        print("✅ API gerada com sucesso em 'app_serving.py'.")
 
 def main():
     parser = argparse.ArgumentParser()

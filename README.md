@@ -105,7 +105,13 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 python train_and_save_professional.py
 ```
 
-### 2. Iniciar a API de Predição (Serving)
+### 2. Iniciar a API de Predição (Docker - Recomendado)
+```bash
+# Build e execução com Docker Compose
+docker-compose up --build
+```
+
+### 3. Iniciar a API de Predição (Manual)
 ```bash
 python app_serving.py
 ```
