@@ -43,25 +43,21 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🚀 Funcionalidades
 
-- **MLOps Universal**: Um único script (`train_and_save_professional.py`) para múltiplos domínios:
-  - **ML Clássico**: Suporte agnóstico a dados tabulares e NLP.
-  - **Deep Learning**: CV (ResNet) e Transformers (BERT).
-  - **Time Series**: Previsões estatísticas via **Prophet**.
-  - **Clustering**: Agrupamento não supervisionado via **K-Means**.
-- **Explainability (XAI)**: Explicações de modelos via **SHAP**.
-- **Inference Ready**: Exportação para o formato universal **ONNX**.
-- **Model Registry**: Gestão completa de versões no DagsHub/MLflow.
-- **Artefatos Visuais**: Geração automática de Matrizes de Confusão, Gráficos de Regressão e Clusters.
+- **MLOps Enterprise**: Framework completo para o ciclo de vida de ML/DL.
+- **Data Validation**: Qualidade de dados garantida com **Great Expectations**.
+- **Auto-HPO**: Otimização automática de hiperparâmetros via **Optuna**.
+- **Professional Fine-tuning**: Ajuste fino de Transformers (Hugging Face) e modelos de Deep Learning.
+- **Universal Support**: ML Clássico (Agnóstico), CV, Time Series e Clustering.
+- **Model Registry & Tracking**: Gestão profissional de versões e experimentos no DagsHub/MLflow.
 
 ---
 
 ## 🛠️ Tecnologias
 
 - **Frameworks**: Scikit-learn, PyTorch, Transformers, Prophet
-- **MLOps**: MLflow, DagsHub, ONNX
-- **Explainability**: SHAP
+- **MLOps & Validation**: MLflow, DagsHub, Great Expectations, Optuna
+- **Inference**: ONNX, SHAP (XAI)
 - **Data**: Pandas, Numpy, Datasets (HF)
-- **Visualização**: Matplotlib, Seaborn
 
 ---
 
@@ -104,26 +100,19 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🎯 Como Usar
 
-### 1. ML Clássico (Classificação/Regressão)
+### 1. Otimização de Hiperparâmetros (HPO)
 ```bash
-python train_and_save_professional.py --task ml
+python train_and_save_professional.py --task hpo
 ```
 
-### 2. Séries Temporais (Forecasting)
+### 2. Fine-tuning de Transformers
 ```bash
-python train_and_save_professional.py --task ts
+python train_and_save_professional.py --task finetune
 ```
 
-### 3. Clustering (Agrupamento)
+### 3. Executar Todo o Ciclo (Validação + HPO + FT)
 ```bash
-python train_and_save_professional.py --task cluster
-```
-
-### 4. Transformers / Deep Learning
-```bash
-python train_and_save_professional.py --task transformer
-# ou
-python train_and_save_professional.py --task cv
+python train_and_save_professional.py --task all
 ```
 
 ## 📊 Resultados

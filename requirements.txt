@@ -2,6 +2,13 @@
 flaml[notebook]
 autogluon
 
+# MLOps, Tracking & Validation
+mlflow
+dagshub
+python-dotenv
+great_expectations
+optuna
+
 # Machine Learning & Deep Learning
 scikit-learn
 pandas
@@ -13,15 +20,6 @@ transformers
 datasets
 opencv-python
 pillow
-
-# Time Series & Statistical Models
-prophet
-statsmodels
-
-# MLOps & Tracking
-mlflow
-dagshub
-python-dotenv
 
 # Visualization & Explainability
 matplotlib
