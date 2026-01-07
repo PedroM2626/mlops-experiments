@@ -8,6 +8,12 @@ dagshub
 python-dotenv
 great_expectations
 optuna
+evidently
+
+# Serving & API
+fastapi
+uvicorn
+pydantic
 
 # Machine Learning & Deep Learning
 scikit-learn

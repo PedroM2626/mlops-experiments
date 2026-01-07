@@ -44,20 +44,20 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 ## 🚀 Funcionalidades
 
 - **MLOps Enterprise**: Framework completo para o ciclo de vida de ML/DL.
-- **Data Validation**: Qualidade de dados garantida com **Great Expectations**.
+- **Data Validation & Monitoring**: Qualidade de dados com **Great Expectations** e detecção de **Data Drift** com **Evidently AI**.
 - **Auto-HPO**: Otimização automática de hiperparâmetros via **Optuna**.
-- **Professional Fine-tuning**: Ajuste fino de Transformers (Hugging Face) e modelos de Deep Learning.
-- **Universal Support**: ML Clássico (Agnóstico), CV, Time Series e Clustering.
-- **Model Registry & Tracking**: Gestão profissional de versões e experimentos no DagsHub/MLflow.
+- **Professional Fine-tuning**: Ajuste fino de Transformers e modelos de Deep Learning.
+- **Automated Serving**: Geração automática de APIs de predição com **FastAPI**.
+- **Universal Support**: ML Clássico, CV, Time Series e Clustering.
 
 ---
 
 ## 🛠️ Tecnologias
 
 - **Frameworks**: Scikit-learn, PyTorch, Transformers, Prophet
-- **MLOps & Validation**: MLflow, DagsHub, Great Expectations, Optuna
+- **MLOps & Validation**: MLflow, DagsHub, Great Expectations, Optuna, Evidently AI
+- **Serving**: FastAPI, Uvicorn
 - **Inference**: ONNX, SHAP (XAI)
-- **Data**: Pandas, Numpy, Datasets (HF)
 
 ---
 
@@ -100,20 +100,18 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🎯 Como Usar
 
-### 1. Otimização de Hiperparâmetros (HPO)
+### 1. Treinar com HPO e Gerar API/Monitoramento
 ```bash
-python train_and_save_professional.py --task hpo
+python train_and_save_professional.py
 ```
 
-### 2. Fine-tuning de Transformers
+### 2. Iniciar a API de Predição (Serving)
 ```bash
-python train_and_save_professional.py --task finetune
+python app_serving.py
 ```
 
-### 3. Executar Todo o Ciclo (Validação + HPO + FT)
-```bash
-python train_and_save_professional.py --task all
-```
+### 3. Verificar Monitoramento (Drift)
+Abra o arquivo `drift_report.html` gerado na raiz do projeto ou visualize nos artefatos do MLflow no DagsHub.
 
 ## 📊 Resultados
 
