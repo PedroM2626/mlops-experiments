@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 """
 🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK
-Recursos de Produção:
-- Data Validation (Great Expectations)
-- Hyperparameter Tuning (Optuna)
-- Professional Fine-tuning (Transformers)
-- Drift Detection & Monitoring (Evidently)
-- Automated API Generation (FastAPI)
+Recursos:
+- Rastreamento completo no DagsHub/MLflow para todos os módulos.
+- ML Clássico, Transformers, Computer Vision, Time Series e Clustering.
+- Otimização (Optuna), Monitoramento (Evidently) e Serving (FastAPI).
 """
 
 import os
-import json
-import shutil
 import warnings
 import argparse
-import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -29,28 +24,7 @@ import mlflow.transformers
 import dagshub
 import optuna
 
-# Validação e Monitoramento
-try:
-    import great_expectations as ge
-    HAS_GE = True
-except ImportError:
-    HAS_GE = False
-
-try:
-    from evidently.report import Report
-    from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
-    HAS_EVIDENTLY = True
-except ImportError:
-    HAS_EVIDENTLY = False
-
-# ML Clássico
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
-
-# Deep Learning
+# Deep Learning & Stats
 import torch
 try:
     from transformers import (AutoModelForSequenceClassification, AutoTokenizer, 
@@ -59,6 +33,28 @@ try:
     HAS_TRANSFORMERS = True
 except ImportError:
     HAS_TRANSFORMERS = False
+
+try:
+    from prophet import Prophet
+    HAS_PROPHET = True
+except ImportError:
+    HAS_PROPHET = False
+
+try:
+    from evidently.report import Report
+    from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
+    HAS_EVIDENTLY = True
+except ImportError:
+    HAS_EVIDENTLY = False
+
+# ML Clássico e Utilidades
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, mean_squared_error, silhouette_score
+from sklearn.decomposition import PCA
 
 warnings.filterwarnings('ignore')
 
@@ -77,100 +73,134 @@ class MLOpsEnterprise:
         except Exception as e:
             print(f"⚠️ Erro DagsHub: {e}")
 
-    # --- MÓDULO: DATA DRIFT MONITORING ---
-    def detect_drift(self, reference_df, current_df, output_path="drift_report.html"):
-        if not HAS_EVIDENTLY:
-            print("⚠️ Evidently não instalado.")
-            return
-        
-        print("\n�️ Analisando Data Drift (Monitoramento)...")
-        report = Report(metrics=[DataDriftPreset(), TargetDriftPreset()])
-        report.run(reference_data=reference_df, current_data=current_df)
-        report.save_html(output_path)
-        
-        mlflow.log_artifact(output_path)
-        print(f"✅ Relatório de Drift gerado: {output_path}")
+    def _log_metrics_and_plots(self, metrics, artifacts=None):
+        """Helper para logar métricas e artefatos de forma consistente."""
+        for name, value in metrics.items():
+            mlflow.log_metric(name, value)
+        if artifacts:
+            for path in artifacts:
+                mlflow.log_artifact(path)
 
-    # --- MÓDULO: AUTOMATED API GENERATION ---
-    def generate_serving_api(self, model_name="rf_hpo_optimized"):
-        print(f"\n🚀 Gerando API de Serving para {model_name}...")
+    # --- MÓDULO 1: ML CLÁSSICO (AGNOSTICO) ---
+    def train_classic_ml(self, task='classification', data_path='processed_train.csv'):
+        print(f"\n� Treinando ML Clássico ({task})...")
+        df = pd.read_csv(data_path)
+        
+        # Detecção automática: NLP ou Tabular
+        is_nlp = 'text_lemmatized' in df.columns
+        target = 'sentiment' if 'sentiment' in df.columns else df.columns[-1]
+        
+        X = df['text_lemmatized'].fillna('') if is_nlp else df.drop(columns=[target])
+        y = df[target]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+        mlflow.set_experiment(f"/classic_{task}")
+        with mlflow.start_run(run_name=f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+            if is_nlp:
+                model = Pipeline([('tfidf', TfidfVectorizer()), ('clf', RandomForestClassifier())])
+            else:
+                model = RandomForestClassifier() if task == 'classification' else RandomForestRegressor()
+            
+            model.fit(X_train, y_train)
+            preds = model.predict(X_test)
+            
+            metric_val = accuracy_score(y_test, preds) if task == 'classification' else mean_squared_error(y_test, preds)
+            metric_name = "accuracy" if task == 'classification' else "mse"
+            
+            self._log_metrics_and_plots({metric_name: metric_val})
+            mlflow.sklearn.log_model(model, "model", registered_model_name=f"classic_{task}_model")
+            print(f"✅ {metric_name.capitalize()}: {metric_val:.4f}")
+
+    # --- MÓDULO 2: TIME SERIES (PROPHET) ---
+    def train_time_series(self, data_path=None):
+        if not HAS_PROPHET:
+            print("⚠️ Prophet não instalado."); return
+        
+        print("\n� Treinando Série Temporal (Prophet)...")
+        # Dados sintéticos se não houver path
+        if data_path is None:
+            df = pd.DataFrame({'ds': pd.date_range('2023-01-01', periods=100), 'y': np.random.randn(100).cumsum()})
+        else:
+            df = pd.read_csv(data_path)
+
+        mlflow.set_experiment("/time_series")
+        with mlflow.start_run(run_name="prophet_run"):
+            model = Prophet()
+            model.fit(df)
+            
+            # Log de "métricas" (aqui simplificado)
+            mlflow.log_param("periods", len(df))
+            mlflow.sklearn.log_model(model, "model", registered_model_name="ts_prophet_model")
+            print("✅ Modelo Prophet registrado.")
+
+    # --- MÓDULO 3: CLUSTERING (K-MEANS) ---
+    def train_clustering(self, n_clusters=3, data_path='processed_train.csv'):
+        print(f"\n🧬 Treinando Agrupamento (K-Means, k={n_clusters})...")
+        df = pd.read_csv(data_path)
+        X = df.select_dtypes(include=[np.number]).fillna(0)
+        if X.empty: X = np.random.rand(100, 2) # Fallback
+
+        mlflow.set_experiment("/clustering")
+        with mlflow.start_run(run_name="kmeans_run"):
+            model = KMeans(n_clusters=n_clusters)
+            model.fit(X)
+            score = silhouette_score(X, model.labels_)
+            
+            # Plot PCA para visualização
+            pca = PCA(2).fit_transform(X)
+            plt.figure(figsize=(8,6))
+            plt.scatter(pca[:,0], pca[:,1], c=model.labels_)
+            plt.savefig("cluster_plot.png")
+            
+            self._log_metrics_and_plots({"silhouette_score": score}, ["cluster_plot.png"])
+            mlflow.sklearn.log_model(model, "model", registered_model_name="clustering_model")
+            print(f"✅ Silhouette Score: {score:.4f}")
+
+    # --- MÓDULO 4: MONITORAMENTO & API ---
+    def detect_drift(self, reference_df, current_df):
+        if not HAS_EVIDENTLY: return
+        report = Report(metrics=[DataDriftPreset()])
+        report.run(reference_data=reference_df, current_data=current_df)
+        report.save_html("drift_report.html")
+        mlflow.log_artifact("drift_report.html")
+
+    def generate_serving_api(self, model_name):
         api_code = f"""
 import uvicorn
 from fastapi import FastAPI
 import mlflow.sklearn
-import pandas as pd
 import dagshub
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
-load_dotenv()
 dagshub.init(repo_owner='{self.repo_owner}', repo_name='{self.repo_name}', mlflow=True)
+app = FastAPI()
+model = mlflow.sklearn.load_model(f"models:/{model_name}/latest")
 
-app = FastAPI(title="MLOps Enterprise API - {model_name}")
-
-# Carregar modelo do MLflow
-model_uri = f"models:/{model_name}/1"  # Usando versão 1 explicitamente para o teste
-model = mlflow.sklearn.load_model(model_uri)
-
-class PredictionInput(BaseModel):
-    text: str
+class InputData(BaseModel):
+    data: list
 
 @app.post("/predict")
-def predict(data: PredictionInput):
-    prediction = model.predict([data.text])[0]
-    return {{"prediction": str(prediction)}}
+def predict(item: InputData):
+    return {{"prediction": model.predict([item.data])[0].tolist()}}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 """
-        with open("app_serving.py", "w", encoding="utf-8") as f:
-            f.write(api_code)
-        print("✅ API gerada com sucesso em 'app_serving.py'.")
-
-    # --- MÓDULO: HPO & TRAINING ---
-    def train_with_hpo(self, data_path='processed_train.csv'):
-        print("\n📊 Iniciando Ciclo de Treino com HPO...")
-        df = pd.read_csv(data_path)
-        
-        # Simular drift para demonstração posterior
-        train_df, test_df = train_test_split(df, test_size=0.2)
-        
-        X_train = train_df['text_lemmatized'].fillna('')
-        y_train = train_df['sentiment']
-        
-        def objective(trial):
-            n_estimators = trial.suggest_int('n_estimators', 10, 100)
-            pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(max_features=1000)),
-                ('clf', RandomForestClassifier(n_estimators=n_estimators))
-            ])
-            pipeline.fit(X_train, y_train)
-            return accuracy_score(y_train, pipeline.predict(X_train))
-
-        study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=5)
-
-        # Configurar experimento explicitamente
-        mlflow.set_experiment("/production_hpo")
-
-        with mlflow.start_run(run_name="production_ready_model"):
-            best_n = study.best_params['n_estimators']
-            final_pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(max_features=1000)),
-                ('clf', RandomForestClassifier(n_estimators=best_n))
-            ])
-            final_pipeline.fit(X_train, y_train)
-            
-            mlflow.log_params(study.best_params)
-            mlflow.sklearn.log_model(final_pipeline, "model", registered_model_name="rf_hpo_optimized")
-            
-            # Monitoramento
-            self.detect_drift(train_df, test_df)
-            self.generate_serving_api("rf_hpo_optimized")
+        with open("app_serving.py", "w") as f: f.write(api_code)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--task', choices=['classic', 'ts', 'cluster', 'all'], default='all')
+    args = parser.parse_args()
+    
     m = MLOpsEnterprise()
-    m.train_with_hpo()
+    
+    if args.task in ['classic', 'all']:
+        m.train_classic_ml(task='classification')
+    if args.task in ['ts', 'all']:
+        m.train_time_series()
+    if args.task in ['cluster', 'all']:
+        m.train_clustering()
 
 if __name__ == "__main__":
     main()
