@@ -43,30 +43,31 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🚀 Funcionalidades
 
-- **NLP Profissional**: Pipeline completo para análise de sentimentos e texto.
-- **Deep Learning & Visão Computacional**: Suporte nativo a PyTorch, Transfer Learning e processamento de imagens.
-- **Integração DagsHub & MLflow**: Rastreamento automático de experimentos, métricas, modelos e artefatos (incluindo curvas de perda e matrizes de confusão).
-- **Gestão de Artefatos S3**: Upload automático de modelos pesados para o storage do DagsHub.
-- **Limpeza Automática**: Gestão de pastas temporárias para manter o ambiente limpo.
+- **MLOps Universal**: Um único script (`train_and_save_professional.py`) para NLP Clássico, Transformers e Visão Computacional.
+- **SOTA NLP**: Suporte nativo a Transformers (Hugging Face / BERT).
+- **Deep Learning & CV**: Integração com PyTorch para classificação de imagens (ResNet/MobileNet).
+- **Explainability (XAI)**: Explicações de modelos via **SHAP**.
+- **Inference Ready**: Exportação para o formato universal **ONNX**.
+- **Model Registry**: Gestão completa de versões no DagsHub/MLflow.
+- **Artefatos Visuais**: Geração automática de Matrizes de Confusão e Curvas de Loss.
 
 ---
 
 ## 🛠️ Tecnologias
 
-- **Linguagem**: Python 3.10+
-- **ML/DL**: Scikit-learn, PyTorch, Torchvision
-- **MLOps**: MLflow, DagsHub
-- **Processamento**: Pandas, Numpy, OpenCV, Pillow
+- **Frameworks**: Scikit-learn, PyTorch, Transformers (Hugging Face)
+- **MLOps**: MLflow, DagsHub, ONNX
+- **Explainability**: SHAP
+- **Data**: Pandas, Numpy, Datasets (HF)
 - **Visualização**: Matplotlib, Seaborn
 
 ---
 
 ## 📂 Estrutura do Projeto
 
-- `train_and_save_professional.py`: Script unificado para modelos de ML clássico (NLP).
-- `train_dl_cv_professional.py`: Script unificado para Deep Learning e Visão Computacional.
-- `compare_essential.py`: Utilitário para comparação rápida de modelos.
-- `.env`: Configurações de tokens e repositórios.
+- `train_and_save_professional.py`: Framework universal de treinamento e versionamento.
+- `compare_essential.py`: Comparação de métricas entre modelos registrados.
+- `.env`: Configurações de acesso e tokens.
 
 ## 🛠️ Instalação
 
@@ -101,20 +102,25 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ## 🎯 Como Usar
 
-### 1. Configuração Inicial
-Crie um arquivo `.env` baseado no `.env.example`.
-
-### 2. Machine Learning / NLP
+### 1. NLP Clássico (Sklearn)
 ```bash
-python train_and_save_professional.py --mode train --model rf
+python train_and_save_professional.py --task nlp
 ```
 
-### 3. Deep Learning / Visão Computacional
-O script `train_dl_cv_professional.py` já vem configurado com Transfer Learning (ResNet18).
+### 2. Transformers (BERT/DistilBERT)
 ```bash
-python train_dl_cv_professional.py
+python train_and_save_professional.py --task transformer
 ```
-*Este script realiza o download do dataset (ex: CIFAR10), configura o modelo, treina e faz o upload de tudo para o DagsHub.*
+
+### 3. Visão Computacional (ResNet/PyTorch)
+```bash
+python train_and_save_professional.py --task cv
+```
+
+### 4. Executar Todo o Pipeline
+```bash
+python train_and_save_professional.py --task all
+```
 
 ## 📊 Resultados
 

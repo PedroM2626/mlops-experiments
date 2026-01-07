@@ -1,16 +1,37 @@
+# Automated ML
 flaml[notebook]
 autogluon
-mlflow
-dagshub
-pandas
-scikit-learn
-python-dotenv
-pytest
 
-# Deep Learning & Computer Vision
+# Machine Learning & Deep Learning
+scikit-learn
+pandas
+numpy
 torch
 torchvision
+torchaudio
+transformers
+datasets
 opencv-python
 pillow
+
+# MLOps & Tracking
+mlflow
+dagshub
+python-dotenv
+
+# Visualization & Explainability
 matplotlib
 seaborn
+shap
+
+# Inference & Deployment
+onnx
+onnxruntime
+skl2onnx
+
+# Utilities & Testing
+tqdm
+requests
+joblib
+argparse
+pytest
