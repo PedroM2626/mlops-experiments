@@ -99,12 +99,17 @@ import uvicorn
 from fastapi import FastAPI
 import mlflow.sklearn
 import pandas as pd
+import dagshub
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
+dagshub.init(repo_owner='{self.repo_owner}', repo_name='{self.repo_name}', mlflow=True)
 
 app = FastAPI(title="MLOps Enterprise API - {model_name}")
 
 # Carregar modelo do MLflow
-model_uri = f"models:/{model_name}/latest"
+model_uri = f"models:/{model_name}/1"  # Usando versão 1 explicitamente para o teste
 model = mlflow.sklearn.load_model(model_uri)
 
 class PredictionInput(BaseModel):
@@ -112,8 +117,7 @@ class PredictionInput(BaseModel):
 
 @app.post("/predict")
 def predict(data: PredictionInput):
-    df = pd.DataFrame([data.text], columns=['text_lemmatized'])
-    prediction = model.predict(df['text_lemmatized'])[0]
+    prediction = model.predict([data.text])[0]
     return {{"prediction": str(prediction)}}
 
 if __name__ == "__main__":
@@ -145,6 +149,9 @@ if __name__ == "__main__":
 
         study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=5)
+
+        # Configurar experimento explicitamente
+        mlflow.set_experiment("/production_hpo")
 
         with mlflow.start_run(run_name="production_ready_model"):
             best_n = study.best_params['n_estimators']
