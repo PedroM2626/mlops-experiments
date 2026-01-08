@@ -61,11 +61,36 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 
 ---
 
+## 🚀 Recursos Avançados (V2.0)
+- **AutoML**: Treinamento automático com TPOT para busca do melhor pipeline.
+- **Explainability**: SHAP e LIME integrados para transparência dos modelos.
+- **Tracking 360°**: Suporte a MLflow, DagsHub, Weights & Biases e HuggingFace Hub.
+- **Otimização**: Fine-tuning de hiperparâmetros com Optuna.
+- **Cloud Ready**: Manifestos de Kubernetes e Docker Compose incluídos.
+- **Distributed Training**: Suporte inicial para treinamento distribuído com PyTorch.
+
 ## 🛠️ Estrutura do Projeto
-- `train_and_save_professional.py`: Framework universal (Core).
-- `cv_implementation.py`: Script específico para o dataset de imagens.
-- `app_serving.py`: API FastAPI gerada automaticamente.
-- `Dockerfile` & `docker-compose.yml`: Suporte a containerização.
+- `train_and_save_professional.py`: Framework universal (Core V2).
+- `cv_implementation.py`: Script específico para Visão Computacional.
+- `tests/`: Suíte de testes automatizados (Unitários, Integração, Aceitação).
+- `k8s-deployment.yaml`: Configuração para deploy em Kubernetes.
+- `requirements.txt`: Dependências atualizadas (AutoML, CV, NLP).
+
+## 🧪 Testes
+Para rodar a suíte de testes:
+```bash
+pytest tests/
+```
+
+## ☸️ Kubernetes Deployment
+1. Crie o secret com suas credenciais:
+```bash
+kubectl create secret generic mlops-secrets --from-env-file=.env
+```
+2. Aplique o deployment:
+```bash
+kubectl apply -f k8s-deployment.yaml
+```
 
 ## 🛠️ Instalação
 

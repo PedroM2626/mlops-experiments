@@ -1,17 +1,37 @@
+# MLOps & Tracking
 mlflow
 dagshub
+wandb
 fastapi
 uvicorn
-pandas
-scikit-learn
-optuna
 python-dotenv
-matplotlib
+
+# Data Science & AutoML
+pandas
+numpy
+scikit-learn
+tpot
+autogluon
+flaml
+optuna
+shap
+lime
+
+# Computer Vision & Deep Learning
 torch
 torchvision
 ultralytics
 opencv-python
-evidently
-prophet
-datasets
+
+# NLP & Transformers
 transformers
+datasets
+huggingface_hub
+
+# Monitoring & Testing
+evidently
+pytest
+httpx
+
+# Time Series
+prophet
