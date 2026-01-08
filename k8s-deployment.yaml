@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlops-api-deployment
+  labels:
+    app: mlops-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mlops-api
+  template:
+    metadata:
+      labels:
+        app: mlops-api
+    spec:
+      containers:
+      - name: mlops-api
+        image: seu-usuario/mlops-enterprise-api:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: mlops-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlops-api-service
+spec:
+  selector:
+    app: mlops-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer
