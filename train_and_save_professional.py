@@ -111,7 +111,14 @@ class MLOpsEnterprise:
                 
             elif engine == 'autogluon' and HAS_AUTOGLUON:
                 train_data, test_data = train_test_split(df, test_size=0.2)
-                model = TabularPredictor(label=target, problem_type=task).fit(train_data, time_limit=timeout)
+                
+                # AutoGluon prefere 'binary' ou 'multiclass' em vez de 'classification'
+                ag_task = task
+                if task == 'classification':
+                    unique_count = df[target].nunique()
+                    ag_task = 'binary' if unique_count <= 2 else 'multiclass'
+                
+                model = TabularPredictor(label=target, problem_type=ag_task).fit(train_data, time_limit=timeout)
                 performance = model.evaluate(test_data)
                 score = performance.get('accuracy') or performance.get('root_mean_squared_error')
                 # Logar artefatos do AutoGluon
@@ -129,11 +136,11 @@ class MLOpsEnterprise:
             
             else:
                 print(f"⚠️ Engine {engine} não disponível ou não instalada.")
-                return None
+                return None, None
 
             self._log_metrics_and_plots({"best_score": score})
             print(f"✅ AutoML ({engine}) concluído. Score: {score}")
-            return model
+            return model, score
 
     def explain_model(self, model, X_sample, method='shap'):
         print(f"\n🔍 Explicabilidade: {method.upper()}")

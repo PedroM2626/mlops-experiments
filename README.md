@@ -72,6 +72,7 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 ## 🛠️ Estrutura do Projeto
 - `train_and_save_professional.py`: Framework universal (Core V2).
 - `cv_implementation.py`: Script específico para Visão Computacional.
+- `experiments/senti-pred/senti_comparison.py`: Comparação de AutoML para análise de sentimento.
 - `tests/`: Suíte de testes automatizados (Unitários, Integração, Aceitação).
 - `k8s-deployment.yaml`: Configuração para deploy em Kubernetes.
 - `requirements.txt`: Dependências atualizadas (AutoML, CV, NLP).
