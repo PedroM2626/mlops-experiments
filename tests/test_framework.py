@@ -33,16 +33,16 @@ def test_data_loading(dummy_data):
 # --- TESTES DE INTEGRAÇÃO ---
 def test_mlflow_connection(framework):
     import mlflow
-    # Verifica se o tracking URI está configurado (DagsHub)
     assert "dagshub.com" in mlflow.get_tracking_uri()
 
-def test_automl_pipeline(framework, dummy_data):
-    # Testa se o AutoML inicia sem erros (gerações baixas para velocidade)
+@pytest.mark.parametrize("engine", ["tpot", "flaml"])
+def test_automl_engines(framework, dummy_data, engine):
+    """Testa se as diferentes engines de AutoML iniciam sem erros."""
     try:
-        model = framework.train_automl(dummy_data, generations=1, population_size=5)
+        model = framework.train_automl(dummy_data, engine=engine, timeout=10)
         assert model is not None
     except Exception as e:
-        pytest.fail(f"AutoML falhou: {e}")
+        pytest.fail(f"AutoML engine {engine} falhou: {e}")
 
 # --- TESTES DE ACEITAÇÃO ---
 def test_full_flow_acceptance(framework, dummy_data):
