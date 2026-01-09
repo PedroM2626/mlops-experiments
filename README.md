@@ -62,7 +62,7 @@ A arquitetura e as bibliotecas integradas (FLAML e AutoGluon) suportam uma ampla
 ---
 
 ## 🚀 Recursos Avançados (V3.0)
-- **Unified AutoML Engine**: Escolha entre **AutoGluon**, **FLAML** ou **TPOT** com um único comando.
+- **Unified AutoML Engine**: Escolha entre **AutoGluon**, **FLAML**, **TPOT**, **Auto-sklearn** ou **H2O AutoML** com um único comando.
 - **Explainability**: SHAP e LIME integrados para transparência dos modelos.
 - **Tracking 360°**: Suporte a MLflow, DagsHub, Weights & Biases e HuggingFace Hub.
 - **Otimização**: Fine-tuning de hiperparâmetros com Optuna.
