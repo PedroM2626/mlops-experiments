@@ -96,6 +96,20 @@ class SentiPredExperiment(MLOpsEnterprise):
         except Exception as e:
             print(f"❌ Erro no AutoGluon: {e}")
 
+        # 5. Auto-sklearn
+        try:
+            model_as, score_as = self.train_automl(data_file, engine='autosklearn', timeout=300)
+            results['autosklearn'] = score_as
+        except Exception as e:
+            print(f"❌ Erro no Auto-sklearn: {e}")
+
+        # 6. H2O AutoML
+        try:
+            model_h2o, score_h2o = self.train_automl(data_file, engine='h2o', timeout=300)
+            results['h2o'] = score_h2o
+        except Exception as e:
+            print(f"❌ Erro no H2O: {e}")
+
         print("\n🏆 Comparação finalizada! Verifique o DagsHub para detalhes completos.")
         print(results)
 

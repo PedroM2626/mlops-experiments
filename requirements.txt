@@ -13,6 +13,8 @@ scikit-learn
 tpot
 autogluon
 flaml
+auto-sklearn
+h2o
 optuna
 shap
 lime
