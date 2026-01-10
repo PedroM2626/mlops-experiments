@@ -18,6 +18,14 @@ h2o
 optuna
 shap
 lime
+evidently
+scipy
+
+# Export & Serving
+onnx
+onnxruntime
+skl2onnx
+flask
 
 # Computer Vision & Deep Learning
 torch
@@ -31,7 +39,6 @@ datasets
 huggingface_hub
 
 # Monitoring & Testing
-evidently
 pytest
 httpx
 
