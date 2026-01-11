@@ -5,6 +5,7 @@ wandb
 fastapi
 uvicorn
 python-dotenv
+gradio
 
 # Data Science & AutoML
 pandas

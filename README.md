@@ -29,7 +29,7 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 
 - **Frameworks**: Scikit-learn, PyTorch, Transformers, Prophet, Ultralytics (YOLO)
 - **MLOps**: MLflow, DagsHub, Weights & Biases, Optuna, Evidently AI
-- **Serving & Export**: Flask, ONNX, ONNX Runtime, skl2onnx
+- **Serving & Export**: Flask, ONNX, ONNX Runtime, skl2onnx, Gradio
 - **Inference**: SHAP, LIME
 
 ## 📂 Estrutura do Projeto
@@ -62,7 +62,13 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
    model, score = mlops.train_automl("seu_dataset.csv", engine="h2o", timeout=300)
    ```
 
-4. **Rodar o Benchmark de Sentimento**:
+4. **Interface Visual (Dashboard)**:
+   ```bash
+   python gradio_app.py
+   ```
+   Acesse em seu navegador: `http://localhost:7860`
+
+5. **Rodar o Benchmark de Sentimento**:
    ```bash
    python experiments/senti-pred/senti_comparison.py
    ```
