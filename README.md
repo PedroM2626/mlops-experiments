@@ -1,6 +1,6 @@
 # Repositório de Experimentos de Machine Learning & MLOps
 
-Este repositório é dedicado a experimentos de Machine Learning e já possui uma estrutura de MLOps completa e pronta para uso. Basta configurar suas credenciais e começar a rodar.
+Este repositório é dedicado a experimentos de Machine Learning e mlops. já possui uma estrutura de MLOps completa e pronta para uso. Basta configurar suas credenciais e começar a rodar.
 
 O projeto integra ferramentas de ponta como **FLAML**, **AutoGluon**, **Auto-sklearn**, **H2O AutoML** e **TPOT** com rastreamento automático via **MLflow**, **DagsHub** e **Weights & Biases**.
 
