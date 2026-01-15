@@ -294,14 +294,33 @@ class MLOpsEnterprise:
             f.write(onx.SerializeToString())
         mlflow.log_artifact("model.onnx")
 
+    def get_system_status(self):
+        """Retorna o status das conexões e hardware."""
+        status = {
+            "GPU_Available": torch.cuda.is_available(),
+            "GPU_Device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "None",
+            "MLflow_URI": mlflow.get_tracking_uri(),
+            "DagsHub_Connected": self.repo_owner in mlflow.get_tracking_uri(),
+            "WandB_Connected": wandb.run is not None,
+            "Engines": {
+                "TPOT": HAS_TPOT,
+                "AutoGluon": HAS_AUTOGLUON,
+                "FLAML": HAS_FLAML,
+                "AutoSklearn": HAS_AUTOSKLEARN,
+                "H2O": HAS_H2O,
+                "Prophet": HAS_PROPHET,
+                "YOLO": HAS_YOLO,
+                "SHAP": HAS_SHAP,
+                "LIME": HAS_LIME
+            }
+        }
+        return status
+
     def explain_model(self, model, X_train, method='shap'):
-        """Gera explicações SHAP para o modelo."""
+        """Gera explicações SHAP ou LIME para o modelo."""
         logger.info(f"🧠 Gerando explicações: {method.upper()}")
-        if method == 'shap':
-            if not HAS_SHAP:
-                logger.warning("⚠️ SHAP não instalado. Pulando explicabilidade.")
-                return
-            # Nota: Funciona melhor com modelos baseados em árvore do sklearn
+        
+        if method == 'shap' and HAS_SHAP:
             explainer = shap.Explainer(model.predict, X_train.iloc[:100])
             shap_values = explainer(X_train.iloc[:100])
             plt.figure()
@@ -309,6 +328,22 @@ class MLOpsEnterprise:
             plt.savefig("shap_summary.png")
             mlflow.log_artifact("shap_summary.png")
             plt.close()
+            return "shap_summary.png"
+            
+        elif method == 'lime' and HAS_LIME:
+            explainer = lime.lime_tabular.LimeTabularExplainer(
+                X_train.values, 
+                feature_names=X_train.columns.tolist(),
+                mode='classification' # Simplificado
+            )
+            exp = explainer.explain_instance(X_train.values[0], model.predict_proba)
+            exp.save_to_file('lime_explanation.html')
+            mlflow.log_artifact('lime_explanation.html')
+            return 'lime_explanation.html'
+            
+        else:
+            logger.warning(f"⚠️ Método {method} não disponível ou biblioteca não instalada.")
+            return None
 
     def generate_serving_api(self, model_name="model.onnx"):
         """Gera um script Flask básico para servir o modelo ONNX."""

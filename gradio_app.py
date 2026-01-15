@@ -11,39 +11,57 @@ logger = logging.getLogger(__name__)
 # Inicializa o framework
 mlops = MLOpsEnterprise()
 
-def run_training(file_obj, task, engine, timeout):
+def get_sys_info():
+    status = mlops.get_system_status()
+    info = f"🖥️ **GPU**: {status['GPU_Device']} (Ativa: {status['GPU_Available']})\n"
+    info += f"🔗 **MLflow**: {status['MLflow_URI']}\n"
+    info += f"📦 **DagsHub**: {'✅ Conectado' if status['DagsHub_Connected'] else '❌ Desconectado'}\n"
+    info += f"📊 **WandB**: {'✅ Conectado' if status['WandB_Connected'] else '❌ Desconectado'}\n\n"
+    info += "**Engines Disponíveis:**\n"
+    for eng, available in status['Engines'].items():
+        info += f"- {eng}: {'✅' if available else '❌'}\n"
+    return info
+
+def run_standalone_validation(file):
+    if file is None: return "❌ Envie um CSV."
+    try:
+        df = pd.read_csv(file.name)
+        target = df.columns[-1]
+        valid = mlops.validate_data(df, target)
+        return f"✅ Dados Válidos!\nLinhas: {len(df)}\nColunas: {len(df.columns)}\nTarget: {target}"
+    except Exception as e:
+        return f"❌ Erro na validação: {str(e)}"
+
+def run_training(file_obj, task, engine, timeout, explain_method):
     if file_obj is None:
-        return "❌ Por favor, faça o upload de um arquivo CSV.", None, None
+        return "❌ Por favor, faça o upload de um arquivo CSV.", None, None, None
     
     try:
-        # Salva o arquivo temporariamente para processamento
         file_path = file_obj.name
         df = pd.read_csv(file_path)
         
-        # Executa o treino
         logger.info(f"Iniciando treino via Interface: {engine} ({task})")
         model, score = mlops.train_automl(file_path, task=task, engine=engine, timeout=int(timeout))
         
         if model is None:
-            return f"❌ Erro: Engine {engine} não disponível.", None, None
+            return f"❌ Erro: Engine {engine} não disponível.", None, None, None
             
-        # Gera explicações SHAP (primeiras 100 linhas)
         X_train = df.drop(columns=[df.columns[-1]])
-        mlops.explain_model(model, X_train, method='shap')
+        exp_path = mlops.explain_model(model, X_train, method=explain_method.lower())
         
         status_msg = f"✅ Treino Concluído!\nEngine: {engine.upper()}\nScore: {score:.4f}"
         
-        shap_plot = "shap_summary.png" if os.path.exists("shap_summary.png") else None
+        shap_plot = exp_path if explain_method == "SHAP" and exp_path and exp_path.endswith('.png') else None
+        lime_file = exp_path if explain_method == "LIME" and exp_path and exp_path.endswith('.html') else None
         
-        # Gera API de Serving
         mlops.generate_serving_api("model.onnx")
         api_script = "serving_api.py" if os.path.exists("serving_api.py") else None
         
-        return status_msg, shap_plot, api_script
+        return status_msg, shap_plot, lime_file, api_script
 
     except Exception as e:
         logger.error(f"Erro na interface: {e}")
-        return f"💥 Erro fatal: {str(e)}", None, None
+        return f"💥 Erro fatal: {str(e)}", None, None, None
 
 def run_drift_analysis(ref_file, cur_file):
     if ref_file is None or cur_file is None:
@@ -125,9 +143,31 @@ def run_finetuning(file, model_name, text_col, label_col):
 with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as demo:
     gr.Markdown("""
     # 🎯 MLOps Enterprise Dashboard (V5.0)
-    ### Framework Universal: AutoML, CV, NLP, Time Series e Fine-Tuning
+    ### O Framework Universal de IA e MLOps
     """)
     
+    with gr.Tab("⚙️ System Status"):
+        sys_info = gr.Markdown(get_sys_info())
+        refresh_btn = gr.Button("🔄 Atualizar Status")
+        refresh_btn.click(get_sys_info, outputs=[sys_info])
+
+    with gr.Tab("📊 Data Lab"):
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### 🔍 Validação de Dados")
+                val_input = gr.File(label="Dataset (CSV)")
+                val_btn = gr.Button("Validar Integridade")
+                val_output = gr.Textbox(label="Resultado da Validação")
+                val_btn.click(run_standalone_validation, inputs=[val_input], outputs=[val_output])
+            
+            with gr.Column():
+                gr.Markdown("### 📉 Data Drift Analysis")
+                ref_input = gr.File(label="Dataset de Referência (Treino)")
+                cur_input = gr.File(label="Dataset Atual (Produção)")
+                drift_btn = gr.Button("🔍 Analisar Drift")
+                drift_output = gr.Textbox(label="Resultado da Análise")
+                drift_btn.click(run_drift_analysis, inputs=[ref_input, cur_input], outputs=[drift_output])
+
     with gr.Tab("🚀 AutoML Training"):
         with gr.Row():
             with gr.Column():
@@ -135,17 +175,19 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
                 task_radio = gr.Radio(["classification", "regression"], label="Tipo de Tarefa", value="classification")
                 engine_dropdown = gr.Dropdown(["flaml", "autogluon", "tpot", "autosklearn", "h2o"], label="Engine de AutoML", value="flaml")
                 timeout_slider = gr.Slider(minimum=30, maximum=3600, value=60, step=30, label="Timeout (segundos)")
+                explain_radio = gr.Radio(["SHAP", "LIME"], label="Método de Explicabilidade", value="SHAP")
                 train_btn = gr.Button("🔥 Iniciar Treinamento", variant="primary")
             
             with gr.Column():
                 status_output = gr.Textbox(label="Status do Processamento")
-                shap_output = gr.Image(label="SHAP Feature Importance")
+                shap_output = gr.Image(label="SHAP Summary (Plot)")
+                lime_output = gr.File(label="LIME Explanation (HTML)")
                 api_output = gr.File(label="Serving API Script (Download)")
         
         train_btn.click(
             run_training, 
-            inputs=[file_input, task_radio, engine_dropdown, timeout_slider], 
-            outputs=[status_output, shap_output, api_output]
+            inputs=[file_input, task_radio, engine_dropdown, timeout_slider, explain_radio], 
+            outputs=[status_output, shap_output, lime_output, api_output]
         )
 
     with gr.Tab("📈 Time Series"):
@@ -211,18 +253,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
         
         nlp_btn.click(run_nlp_analysis, inputs=[nlp_text, nlp_task], outputs=[nlp_output])
 
-    with gr.Tab("📉 Data Drift Analysis"):
-        with gr.Row():
-            ref_input = gr.File(label="Dataset de Referência (Treino)", file_types=[".csv"])
-            cur_input = gr.File(label="Dataset Atual (Produção)", file_types=[".csv"])
-        drift_btn = gr.Button("🔍 Analisar Drift", variant="secondary")
-        drift_output = gr.Textbox(label="Resultado da Análise")
-        
-        drift_btn.click(
-            run_drift_analysis,
-            inputs=[ref_input, cur_input],
-            outputs=[drift_output]
-        )
+    # Remover Tab original de Drift pois agora está no Data Lab
 
     gr.Markdown("""
     ---
