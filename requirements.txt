@@ -7,9 +7,13 @@ uvicorn
 python-dotenv
 gradio
 
-# Data Science & AutoML
+# Core Dependencies
+numpy<2.0.0
 pandas
-numpy
+matplotlib
+seaborn
+
+# Data Science & AutoML
 scikit-learn
 tpot
 autogluon
@@ -28,16 +32,17 @@ onnxruntime
 skl2onnx
 flask
 
-# Computer Vision & Deep Learning
-torch
-torchvision
+# Computer Vision & NLP
 ultralytics
 opencv-python
-
-# NLP & Transformers
+torchvision
 transformers
 datasets
-huggingface_hub
+scipy
+Pillow
+prophet
+accelerate
+evaluate
 
 # Monitoring & Testing
 pytest

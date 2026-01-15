@@ -4,7 +4,7 @@ Este repositório é dedicado a experimentos de Machine Learning e mlops. já po
 
 O projeto integra ferramentas de ponta como **FLAML**, **AutoGluon**, **Auto-sklearn**, **H2O AutoML** e **TPOT** com rastreamento automático via **MLflow**, **DagsHub** e **Weights & Biases**.
 
-## 🎯 MLOps Enterprise Framework (V4.0)
+## 🎯 MLOps Enterprise Framework (V5.0)
 
 Este projeto fornece uma integração completa de pipeline de treinamento com as seguintes capacidades:
 
@@ -34,11 +34,46 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 
 ## 📂 Estrutura do Projeto
 
-- `train_and_save_professional.py`: Framework universal (Core V4.0).
+- `train_and_save_professional.py`: Framework universal (Core V5.0).
 - `experiments/senti-pred/senti_comparison.py`: Benchmark de AutoML para análise de sentimento.
 - `tests/`: Suíte de testes automatizados (`pytest`).
 - `.env.example`: Modelo para configuração de variáveis de ambiente.
 - `requirements.txt`: Dependências completas e atualizadas.
+
+### ⚠️ Notas de Compatibilidade
+- **NumPy 2.x**: O framework foi otimizado para **NumPy < 2.0.0** devido a incompatibilidades atuais com bibliotecas como AutoGluon, Ultralytics e Numba. Se encontrar erros de `multiarray`, faça o downgrade: `pip install "numpy<2"`.
+
+🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V5.0)
+==============================================
+
+## 🚀 Recursos do Framework Universal (V5.0)
+
+### 🤖 AutoML Unificado
+- **Engines Suportadas**: FLAML, AutoGluon, TPOT, Auto-sklearn e H2O AutoML.
+- **Modos**: Classificação e Regressão com exportação automática para **ONNX**.
+
+### 📈 Séries Temporais (Time Series)
+- **Engine**: Integração com **Prophet** para previsões de demanda e tendências.
+- **Visualização**: Geração automática de gráficos de forecast.
+
+### 💎 Aprendizado Não Supervisionado
+- **Clustering**: Agrupamento inteligente com **K-Means** e **DBSCAN**.
+- **Detecção de Anomalias**: Identificação de outliers com **Isolation Forest**.
+
+### 🧠 Fine-Tuning Avançado
+- **NLP**: Ajuste fino (fine-tuning) de modelos **Transformers** (BERT, DistilBERT, etc.) para tarefas específicas usando a biblioteca `transformers` e `datasets`.
+- **Transfer Learning**: Capacidade de adaptar modelos pré-treinados para novos domínios.
+
+### 📸 Visão Computacional (CV)
+- **Detecção Facial**: YOLOv8 para identificação em tempo real.
+- **Similaridade**: Busca de imagens semelhantes usando embeddings de ResNet50.
+
+### 📝 Processamento de Linguagem Natural (NLP)
+- Pipelines prontos para Sentimento, Sumarização e NER.
+
+### 📈 MLOps & Dashboard
+- **Integrações**: MLflow, DagsHub, W&B.
+- **Dashboard**: Interface Gradio completa com abas dedicadas para cada módulo.
 
 ## 🛠️ Instalação e Uso
 
