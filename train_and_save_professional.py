@@ -65,22 +65,56 @@ except ImportError:
 
 # Deep Learning & Transformers
 import torch
+import torch.nn as nn
 import torch.distributed as dist
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from torchvision import models, transforms
+from PIL import Image
+from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer, TrainingArguments, Trainer
 from datasets import Dataset
+import cv2
+from scipy.spatial.distance import cosine
+
+# Missing Engines
+try:
+    from prophet import Prophet
+    HAS_PROPHET = True
+except ImportError:
+    HAS_PROPHET = False
+
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.ensemble import IsolationForest
 
 # Explainability & Monitoring
-import shap
-import lime
-import lime.lime_tabular
-from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+try:
+    import shap
+    HAS_SHAP = True
+except ImportError:
+    HAS_SHAP = False
+
+try:
+    import lime
+    import lime.lime_tabular
+    HAS_LIME = True
+except ImportError:
+    HAS_LIME = False
+
+try:
+    from evidently.report import Report
+    from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+    HAS_EVIDENTLY = True
+except ImportError:
+    HAS_EVIDENTLY = False
 
 # ML Clássico & Export
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
-from ultralytics import YOLO
+# Computer Vision
+try:
+    from ultralytics import YOLO
+    HAS_YOLO = True
+except ImportError:
+    HAS_YOLO = False
 import onnx
 from skl2onnx import convert_sklearn
 from skl2onnx.common.data_types import FloatTensorType
@@ -132,6 +166,10 @@ class MLOpsEnterprise:
 
     def detect_drift(self, reference_df: pd.DataFrame, current_df: pd.DataFrame):
         """Detecta drift de dados usando Evidently AI."""
+        if not HAS_EVIDENTLY:
+            logger.warning("⚠️ Evidently AI não instalado. Pulando análise de drift.")
+            return None
+            
         logger.info("📉 Analisando Data Drift...")
         report = Report(metrics=[DataDriftPreset(), DataQualityPreset()])
         report.run(reference_data=reference_df, current_data=current_df)
@@ -260,6 +298,9 @@ class MLOpsEnterprise:
         """Gera explicações SHAP para o modelo."""
         logger.info(f"🧠 Gerando explicações: {method.upper()}")
         if method == 'shap':
+            if not HAS_SHAP:
+                logger.warning("⚠️ SHAP não instalado. Pulando explicabilidade.")
+                return
             # Nota: Funciona melhor com modelos baseados em árvore do sklearn
             explainer = shap.Explainer(model.predict, X_train.iloc[:100])
             shap_values = explainer(X_train.iloc[:100])
@@ -293,6 +334,164 @@ if __name__ == '__main__':
             f.write(serving_script)
         mlflow.log_artifact("serving_api.py")
         logger.info("🌐 API de serving gerada em serving_api.py")
+
+    # --- MÓDULO UNIVERSAL: COMPUTER VISION (DETECÇÃO & SIMILARIDADE) ---
+    def detect_faces(self, image_path: str):
+        """Detecta faces em uma imagem usando YOLOv8."""
+        if not HAS_YOLO:
+            logger.error("❌ YOLO não instalado.")
+            return None
+        
+        logger.info(f"📸 Detectando faces em: {image_path}")
+        # Usamos o modelo yolov8n (pode ser substituído por um modelo específico de face)
+        model = YOLO('yolov8n.pt') 
+        results = model(image_path, classes=[0]) # Classe 0 costuma ser 'person' em COCO
+        
+        # Salvar resultado
+        res_path = "face_detection_result.jpg"
+        results[0].save(res_path)
+        mlflow.log_artifact(res_path)
+        return res_path
+
+    def get_image_embedding(self, image_path: str):
+        """Gera embedding de imagem usando ResNet50."""
+        model = models.resnet50(pretrained=True)
+        model = nn.Sequential(*list(model.children())[:-1]) # Remover camada de classificação
+        model.eval()
+
+        preprocess = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+
+        img = Image.open(image_path).convert('RGB')
+        img_t = preprocess(img).unsqueeze(0)
+
+        with torch.no_grad():
+            embedding = model(img_t).flatten().numpy()
+        return embedding
+
+    def recommend_similar(self, query_img_path: str, gallery_dir: str, top_k=3):
+        """Recomenda imagens semelhantes de um diretório."""
+        logger.info(f"🔎 Buscando imagens semelhantes a {query_img_path} em {gallery_dir}")
+        query_emb = self.get_image_embedding(query_img_path)
+        
+        scores = []
+        valid_extensions = ('.jpg', '.jpeg', '.png')
+        
+        for img_name in os.listdir(gallery_dir):
+            if img_name.lower().endswith(valid_extensions):
+                path = os.path.join(gallery_dir, img_name)
+                emb = self.get_image_embedding(path)
+                sim = 1 - cosine(query_emb, emb)
+                scores.append((path, sim))
+        
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:top_k]
+
+    # --- MÓDULO UNIVERSAL: NLP ---
+    def nlp_analyze(self, text: str, task='sentiment-analysis'):
+        """Executa tarefas de NLP usando HuggingFace Pipelines."""
+        logger.info(f"📝 Executando NLP ({task})")
+        nlp_pipe = pipeline(task)
+        result = nlp_pipe(text)
+        return result
+
+    # --- MÓDULO UNIVERSAL: TIME SERIES ---
+    def train_timeseries(self, data_path: str, date_col: str, target_col: str, periods=30):
+        """Treina modelo de séries temporais com Prophet."""
+        if not HAS_PROPHET:
+            logger.error("❌ Prophet não instalado.")
+            return None, None
+        
+        logger.info(f"📈 Treinando Time Series para {target_col}")
+        df = pd.read_csv(data_path)
+        df_prophet = df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        
+        model = Prophet()
+        model.fit(df_prophet)
+        
+        future = model.make_future_dataframe(periods=periods)
+        forecast = model.predict(future)
+        
+        # Plot
+        fig = model.plot(forecast)
+        plt.savefig("forecast_plot.png")
+        mlflow.log_artifact("forecast_plot.png")
+        
+        return forecast, "forecast_plot.png"
+
+    # --- MÓDULO UNIVERSAL: CLUSTERING & ANOMALY ---
+    def train_clustering(self, data_path: str, n_clusters=3, method='kmeans'):
+        """Executa clustering não supervisionado."""
+        logger.info(f"💎 Executando Clustering ({method})")
+        df = pd.read_csv(data_path).select_dtypes(include=[np.number])
+        
+        if method == 'kmeans':
+            model = KMeans(n_clusters=n_clusters, random_state=42)
+        else:
+            model = DBSCAN(eps=0.5, min_samples=5)
+            
+        clusters = model.fit_predict(df)
+        df['cluster'] = clusters
+        
+        res_path = "clustering_results.csv"
+        df.to_csv(res_path, index=False)
+        mlflow.log_artifact(res_path)
+        return res_path
+
+    def detect_anomalies(self, data_path: str):
+        """Detecta anomalias usando Isolation Forest."""
+        logger.info("🚨 Detectando anomalias...")
+        df = pd.read_csv(data_path).select_dtypes(include=[np.number])
+        
+        model = IsolationForest(contamination=0.1, random_state=42)
+        anomalies = model.fit_predict(df)
+        df['is_anomaly'] = anomalies
+        
+        res_path = "anomalies_detected.csv"
+        df.to_csv(res_path, index=False)
+        mlflow.log_artifact(res_path)
+        return res_path
+
+    # --- MÓDULO UNIVERSAL: FINE-TUNING ---
+    def fine_tune_nlp(self, model_name: str, train_csv: str, text_col: str, label_col: str):
+        """Fine-tuning básico de modelos Transformers."""
+        logger.info(f"🧠 Iniciando Fine-tuning de {model_name}")
+        df = pd.read_csv(train_csv)
+        
+        # Preparar Dataset
+        dataset = Dataset.from_pandas(df)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        
+        def tokenize_function(examples):
+            return tokenizer(examples[text_col], padding="max_length", truncation=True)
+        
+        tokenized_datasets = dataset.map(tokenize_function, batched=True)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=df[label_col].nunique())
+        
+        training_args = TrainingArguments(
+            output_dir="./results",
+            evaluation_strategy="epoch",
+            learning_rate=2e-5,
+            per_device_train_batch_size=8,
+            num_train_epochs=1,
+            weight_decay=0.01,
+        )
+        
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_datasets,
+        )
+        
+        trainer.train()
+        model.save_pretrained("fine_tuned_model")
+        tokenizer.save_pretrained("fine_tuned_model")
+        mlflow.log_artifacts("fine_tuned_model")
+        return "fine_tuned_model"
 
 def main():
     m = MLOpsEnterprise()
