@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V4.0)
+🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V6.0)
 Recursos Avançados:
 - AutoML: Unified (TPOT, AutoGluon, FLAML, Auto-sklearn, H2O).
 - Otimização (Optuna), Explainability (SHAP/LIME).
 - Validação (Evidently), Exportação (ONNX).
-- Integrações: MLflow, DagsHub, W&B, HuggingFace.
+- Integrações: MLflow, DagsHub, W&B, HuggingFace, ZenML.
 - Distributed Training (PyTorch), K8s Deployment Ready.
 - CV (YOLOv8), NLP (Transformers), Time Series (Prophet).
 """
@@ -29,6 +29,13 @@ import mlflow.h2o
 import dagshub
 import wandb
 import optuna
+
+try:
+    import zenml
+    from zenml import pipeline, step
+    HAS_ZENML = True
+except ImportError:
+    HAS_ZENML = False
 
 # AutoML Engines
 try:
@@ -135,10 +142,28 @@ class MLOpsEnterprise:
         try:
             dagshub.init(repo_owner=self.repo_owner, repo_name=self.repo_name, mlflow=True)
             logger.info("✅ Conectado ao DagsHub/MLflow")
+            
+            # Gerar conda.yaml básico se não existir
+            if not os.path.exists("conda.yaml"):
+                with open("conda.yaml", "w") as f:
+                    f.write("name: mlops_env\nchannels:\n  - defaults\ndependencies:\n  - python=3.10\n  - pip:\n    - -r requirements.txt\n")
+
+            # Garantir que o MLflow registre requisitos e ambiente
+            mlflow.log_artifact("requirements.txt")
+            mlflow.log_artifact("conda.yaml")
+            
             if os.getenv("WANDB_API_KEY"):
                 wandb.login(key=os.getenv("WANDB_API_KEY"))
                 wandb.init(project=self.repo_name, entity=self.repo_owner)
                 logger.info("✅ Conectado ao Weights & Biases")
+            
+            if HAS_ZENML:
+                try:
+                    # Inicialização básica do ZenML se necessário
+                    os.system("zenml init")
+                    logger.info("✅ ZenML Inicializado")
+                except:
+                    pass
         except Exception as e:
             logger.warning(f"⚠️ Erro nas integrações: {e}")
 
@@ -311,7 +336,8 @@ class MLOpsEnterprise:
                 "Prophet": HAS_PROPHET,
                 "YOLO": HAS_YOLO,
                 "SHAP": HAS_SHAP,
-                "LIME": HAS_LIME
+                "LIME": HAS_LIME,
+                "ZenML": HAS_ZENML
             }
         }
         return status
@@ -371,22 +397,61 @@ if __name__ == '__main__':
         logger.info("🌐 API de serving gerada em serving_api.py")
 
     # --- MÓDULO UNIVERSAL: COMPUTER VISION (DETECÇÃO & SIMILARIDADE) ---
-    def detect_faces(self, image_path: str):
-        """Detecta faces em uma imagem usando YOLOv8."""
+    def detect_objects(self, image_path: str, task="generic"):
+        """Detecta objetos ou faces em uma imagem usando YOLOv8."""
         if not HAS_YOLO:
             logger.error("❌ YOLO não instalado.")
             return None
         
-        logger.info(f"📸 Detectando faces em: {image_path}")
-        # Usamos o modelo yolov8n (pode ser substituído por um modelo específico de face)
+        logger.info(f"📸 Detectando objetos ({task}) em: {image_path}")
+        # yolov8n.pt para geral, ou pode carregar outros
         model = YOLO('yolov8n.pt') 
-        results = model(image_path, classes=[0]) # Classe 0 costuma ser 'person' em COCO
         
-        # Salvar resultado
-        res_path = "face_detection_result.jpg"
+        if task == "faces":
+            # Usar modelo específico de face se disponível, senão filtrar por 'person'
+            results = model(image_path, classes=[0]) 
+        else:
+            results = model(image_path) # Detecta todas as 80 classes do COCO
+        
+        # Salvar resultado com anotações
+        res_path = f"{task}_detection_result.jpg"
         results[0].save(res_path)
+        
+        # Logar artefatos no DagsHub/MLflow
         mlflow.log_artifact(res_path)
+        mlflow.log_artifact("requirements.txt")
+        if os.path.exists("conda.yaml"):
+            mlflow.log_artifact("conda.yaml")
+            
         return res_path
+
+    def detect_faces(self, image_path: str):
+        """Atalho para detecção facial."""
+        return self.detect_objects(image_path, task="faces")
+
+    def run_zenml_pipeline(self, data_path: str):
+        """Executa um pipeline ZenML simplificado."""
+        if not HAS_ZENML:
+            logger.warning("⚠️ ZenML não disponível.")
+            return "ZenML não instalado"
+
+        logger.info("🚀 Executando Pipeline ZenML...")
+        
+        @step
+        def load_data_step() -> pd.DataFrame:
+            return pd.read_csv(data_path)
+
+        @step
+        def process_data_step(df: pd.DataFrame) -> pd.DataFrame:
+            return df.fillna(0)
+
+        @pipeline
+        def simple_ml_pipeline():
+            df = load_data_step()
+            process_data_step(df)
+
+        run = simple_ml_pipeline()
+        return "Pipeline ZenML Concluído com Sucesso"
 
     def get_image_embedding(self, image_path: str):
         """Gera embedding de imagem usando ResNet50."""

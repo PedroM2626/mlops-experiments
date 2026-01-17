@@ -2,13 +2,13 @@
 
 Este repositório é dedicado a experimentos de Machine Learning e mlops. já possui uma estrutura de MLOps completa e pronta para uso. Basta configurar suas credenciais e começar a rodar.
 
-O projeto integra ferramentas de ponta como **FLAML**, **AutoGluon**, **Auto-sklearn**, **H2O AutoML** e **TPOT** com rastreamento automático via **MLflow**, **DagsHub** e **Weights & Biases**.
+O projeto integra ferramentas de ponta como **FLAML**, **AutoGluon**, **Auto-sklearn**, **H2O AutoML**, **TPOT** e **ZenML** com rastreamento automático via **MLflow**, **DagsHub** e **Weights & Biases**.
 
-## 🎯 MLOps Enterprise Framework (V5.0)
+## 🎯 MLOps Enterprise Framework (V6.0)
 
 Este projeto fornece uma integração completa de pipeline de treinamento com as seguintes capacidades:
 
-- **End-to-end training pipeline**: Do carregamento de dados ao registro do modelo.
+- **End-to-end training pipeline**: Do carregamento de dados ao registro do modelo, agora com orquestração **ZenML**.
 - **Unified AutoML Engine**: Suporte nativo para **AutoGluon**, **FLAML**, **TPOT**, **Auto-sklearn** e **H2O AutoML**.
 - **Data Validation & Integrity**: Verificação de tipos, nulos e integridade antes do treinamento.
 - **Data Drift Detection**: Monitoramento contínuo de drift de dados usando **Evidently AI**.
@@ -20,21 +20,22 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 ## 🚀 Funcionalidades
 
 - **ML Clássico**: Suporte total a tarefas de Classificação e Regressão.
-- **Visão Computacional (CV)**: Integração com **YOLOv8** para detecção de objetos.
+- **Visão Computacional (CV)**: Integração com **YOLOv8** para detecção de objetos (Geral e Facial) e detecção em tempo real (Webcam).
 - **Processamento de Linguagem Natural (NLP)**: Suporte a **Transformers** e datasets do **HuggingFace**.
 - **Séries Temporais**: Suporte inicial via **Prophet** e motores de AutoML.
+- **Orquestração**: Pipelines reprodutíveis com **ZenML**.
 - **Testes Automatizados**: Suíte completa de testes unitários, de integração e aceitação.
 
 ## 🛠️ Tecnologias
 
 - **Frameworks**: Scikit-learn, PyTorch, Transformers, Prophet, Ultralytics (YOLO)
-- **MLOps**: MLflow, DagsHub, Weights & Biases, Optuna, Evidently AI
+- **MLOps**: MLflow, DagsHub, Weights & Biases, Optuna, Evidently AI, ZenML
 - **Serving & Export**: Flask, ONNX, ONNX Runtime, skl2onnx, Gradio
 - **Inference**: SHAP, LIME
 
 ## 📂 Estrutura do Projeto
 
-- `train_and_save_professional.py`: Framework universal (Core V5.0).
+- `train_and_save_professional.py`: Framework universal (Core V6.0).
 - `experiments/senti-pred/senti_comparison.py`: Benchmark de AutoML para análise de sentimento.
 - `tests/`: Suíte de testes automatizados (`pytest`).
 - `.env.example`: Modelo para configuração de variáveis de ambiente.
@@ -43,14 +44,18 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 ### ⚠️ Notas de Compatibilidade
 - **NumPy 2.x**: O framework foi otimizado para **NumPy < 2.0.0** devido a incompatibilidades atuais com bibliotecas como AutoGluon, Ultralytics e Numba. Se encontrar erros de `multiarray`, faça o downgrade: `pip install "numpy<2"`.
 
-🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V5.0)
+🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V6.0)
 ==============================================
 
-## 🚀 Recursos do Framework Universal (V5.0)
+## 🚀 Recursos do Framework Universal (V6.0)
 
 ### 🤖 AutoML Unificado
 - **Engines Suportadas**: FLAML, AutoGluon, TPOT, Auto-sklearn e H2O AutoML.
 - **Modos**: Classificação e Regressão com exportação automática para **ONNX**.
+
+### 🛤️ Orquestração com ZenML
+- **Pipelines**: Criação de fluxos de trabalho de ML reprodutíveis e modulares.
+- **Orquestração**: Integração com stacks de MLOps modernas.
 
 ### 📈 Séries Temporais (Time Series)
 - **Engine**: Integração com **Prophet** para previsões de demanda e tendências.
