@@ -2,6 +2,7 @@
 mlflow
 dagshub
 wandb
+zenml
 fastapi
 uvicorn
 python-dotenv

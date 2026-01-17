@@ -91,6 +91,25 @@ def run_face_detection(image):
     except Exception as e:
         return None, f"💥 Erro na detecção: {str(e)}"
 
+def run_object_detection(image, task="generic"):
+    if image is None:
+        return None, "❌ Por favor, envie uma imagem."
+    try:
+        temp_path = f"temp_{task}_input.jpg"
+        image.save(temp_path)
+        res_path = mlops.detect_objects(temp_path, task=task)
+        return res_path, f"✅ Detecção ({task}) Concluída!"
+    except Exception as e:
+        return None, f"💥 Erro na detecção: {str(e)}"
+
+def run_zenml_pipeline_ui(file):
+    if file is None: return "❌ Envie um CSV."
+    try:
+        res = mlops.run_zenml_pipeline(file.name)
+        return f"✅ {res}"
+    except Exception as e:
+        return f"💥 Erro no ZenML: {str(e)}"
+
 def run_image_recommendation(query_img, gallery_folder):
     if query_img is None or not gallery_folder:
         return None, "❌ Forneça uma imagem e o caminho do diretório da galeria."
@@ -142,7 +161,7 @@ def run_finetuning(file, model_name, text_col, label_col):
 # Interface Gradio
 with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as demo:
     gr.Markdown("""
-    # 🎯 MLOps Enterprise Dashboard (V5.0)
+    # 🎯 MLOps Enterprise Dashboard (V6.0)
     ### O Framework Universal de IA e MLOps
     """)
     
@@ -150,6 +169,13 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
         sys_info = gr.Markdown(get_sys_info())
         refresh_btn = gr.Button("🔄 Atualizar Status")
         refresh_btn.click(get_sys_info, outputs=[sys_info])
+    
+    with gr.Tab("🛤️ ZenML Pipelines"):
+        gr.Markdown("### 🚀 Orquestração com ZenML")
+        zen_input = gr.File(label="Dataset para Pipeline (CSV)")
+        zen_btn = gr.Button("Executar Pipeline Completo")
+        zen_output = gr.Textbox(label="Status do Pipeline")
+        zen_btn.click(run_zenml_pipeline_ui, inputs=[zen_input], outputs=[zen_output])
 
     with gr.Tab("📊 Data Lab"):
         with gr.Row():
@@ -227,11 +253,13 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
     with gr.Tab("📸 Computer Vision"):
         with gr.Row():
             with gr.Column():
-                gr.Markdown("### 👤 Detecção Facial")
-                face_input = gr.Image(type="pil", label="Upload Imagem")
-                face_btn = gr.Button("🔍 Detectar Faces")
-                face_status = gr.Textbox(label="Status")
-                face_output = gr.Image(label="Resultado da Detecção")
+                gr.Markdown("### 👤 Detecção (YOLOv8)")
+                cv_input = gr.Image(type="pil", label="Upload Imagem ou Webcam")
+                cv_task = gr.Radio(["faces", "generic"], label="Tipo de Detecção", value="generic")
+                cv_btn = gr.Button("🔍 Detectar")
+                cv_status = gr.Textbox(label="Status")
+                cv_output = gr.Image(label="Resultado da Detecção")
+                cv_btn.click(run_object_detection, inputs=[cv_input, cv_task], outputs=[cv_output, cv_status])
             
             with gr.Column():
                 gr.Markdown("### 🖼️ Recomendação de Imagens")
@@ -240,9 +268,22 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
                 rec_btn = gr.Button("🔎 Buscar Semelhantes")
                 rec_status = gr.Textbox(label="Status")
                 rec_gallery = gr.Gallery(label="Imagens Recomendadas")
+                rec_btn.click(run_image_recommendation, inputs=[query_input, gallery_path], outputs=[rec_gallery, rec_status])
 
-        face_btn.click(run_face_detection, inputs=[face_input], outputs=[face_output, face_status])
-        rec_btn.click(run_image_recommendation, inputs=[query_input, gallery_path], outputs=[rec_gallery, rec_status])
+        with gr.Row():
+            gr.Markdown("### 🎥 Detecção em Tempo Real (Webcam)")
+            rt_input = gr.Image(source="webcam", streaming=True, type="pil", label="Webcam Stream")
+            rt_output = gr.Image(label="Annotated Stream")
+            
+            # Função interna para streaming real-time
+            def stream_yolo(img):
+                if img is None: return None
+                temp_path = "temp_stream.jpg"
+                img.save(temp_path)
+                res_path = mlops.detect_objects(temp_path, task="generic")
+                return res_path
+
+            rt_input.stream(stream_yolo, inputs=[rt_input], outputs=[rt_output])
 
     with gr.Tab("📝 NLP & Sentiment"):
         with gr.Row():
