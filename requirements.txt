@@ -13,6 +13,7 @@ numpy<2.0.0
 pandas
 matplotlib
 seaborn
+tf-keras
 
 # Data Science & AutoML
 scikit-learn

@@ -1,6 +1,11 @@
 import gradio as gr
 import pandas as pd
 import os
+
+# Forçar Transformers a usar PyTorch e evitar conflitos com Keras 3 no Python 3.13
+os.environ["USE_TF"] = "0"
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 from train_and_save_professional import MLOpsEnterprise
 import logging
 
@@ -272,7 +277,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
 
         with gr.Row():
             gr.Markdown("### 🎥 Detecção em Tempo Real (Webcam)")
-            rt_input = gr.Image(source="webcam", streaming=True, type="pil", label="Webcam Stream")
+            rt_input = gr.Image(sources=["webcam"], streaming=True, type="pil", label="Webcam Stream")
             rt_output = gr.Image(label="Annotated Stream")
             
             # Função interna para streaming real-time
