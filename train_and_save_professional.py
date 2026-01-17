@@ -13,6 +13,11 @@ Recursos Avançados:
 import os
 import warnings
 import argparse
+
+# Forçar Transformers a usar PyTorch e evitar conflitos com Keras 3 no Python 3.13
+os.environ["USE_TF"] = "0"
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

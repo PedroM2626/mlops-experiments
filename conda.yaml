@@ -1,0 +1,7 @@
+name: mlops_env
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip:
+    - -r requirements.txt
