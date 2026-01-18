@@ -17,6 +17,7 @@ tf-keras
 
 # Data Science & AutoML
 scikit-learn
+xgboost
 tpot
 autogluon
 flaml

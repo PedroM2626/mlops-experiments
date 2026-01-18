@@ -180,19 +180,26 @@ class MLOpsEnterprise:
             for path in artifacts:
                 mlflow.log_artifact(path)
 
-    def validate_data(self, df: pd.DataFrame, target: str) -> bool:
-        """Valida a integridade dos dados antes do treino."""
+    def validate_data(self, df: pd.DataFrame, target: str) -> pd.DataFrame:
+        """Valida a integridade dos dados antes do treino e remove valores inválidos."""
         logger.info("🔍 Validando integridade dos dados...")
         if df.empty:
             raise ValueError("O DataFrame está vazio.")
         if target not in df.columns:
             raise ValueError(f"Target '{target}' não encontrado no DataFrame.")
         
+        # Remover NaNs e Infs da coluna target
+        initial_len = len(df)
+        df = df[np.isfinite(df[target])]
+        
+        if len(df) < initial_len:
+            logger.warning(f"⚠️ Removidos {initial_len - len(df)} registros com valores não finitos (NaN/Inf) no target.")
+
         null_counts = df.isnull().sum().sum()
         if null_counts > (len(df) * len(df.columns) * 0.5):
             logger.warning(f"⚠️ Alto índice de valores nulos detectado: {null_counts}")
             
-        return True
+        return df
 
     def detect_drift(self, reference_df: pd.DataFrame, current_df: pd.DataFrame):
         """Detecta drift de dados usando Evidently AI."""
@@ -209,16 +216,23 @@ class MLOpsEnterprise:
         return report_path
 
     # --- MÓDULO AUTOML UNIFICADO (TPOT, AutoGluon, FLAML, Auto-sklearn, H2O) ---
-    def train_automl(self, data_path, task='classification', engine='flaml', timeout=60):
+    def train_automl(self, data_path, target=None, task='classification', engine='flaml', timeout=60):
         """
         Engine Universal de AutoML.
-        engines: 'tpot', 'autogluon', 'flaml', 'autosklearn', 'h2o'
+        engines: 'tpot', 'autogluon', 'flaml', 'autosklearn', 'h2o', 'unified'
         """
+        if engine == 'unified':
+            return self._train_unified_automl(data_path, target, task, timeout)
+
         logger.info(f"\n🤖 Iniciando AutoML ({task}) com engine: {engine.upper()}...")
         df = pd.read_csv(data_path)
-        target = df.columns[-1]
         
-        self.validate_data(df, target)
+        # Se target não for especificado, assume a última coluna
+        if target is None:
+            target = df.columns[-1]
+            logger.info(f"🎯 Target não especificado. Usando última coluna: {target}")
+        
+        df = self.validate_data(df, target)
         
         mlflow.set_experiment(f"/automl_{engine}")
         with mlflow.start_run(run_name=f"{engine}_run_{datetime.now().strftime('%H%M%S')}"):
@@ -315,6 +329,30 @@ class MLOpsEnterprise:
             logger.info(f"✅ AutoML ({engine}) concluído. Score: {score}")
             return best_model, score
 
+    def _train_unified_automl(self, data_path, target, task, timeout):
+        """Executa múltiplos motores de AutoML e escolhe o melhor."""
+        engines = ['flaml']
+        if HAS_AUTOGLUON: engines.append('autogluon')
+        if HAS_TPOT: engines.append('tpot')
+        
+        logger.info(f"🧬 Iniciando AutoML UNIFICADO com engines: {engines}")
+        best_overall_model = None
+        best_overall_score = -1
+        
+        timeout_per_engine = timeout // len(engines)
+        
+        for eng in engines:
+            try:
+                model, score = self.train_automl(data_path, target, task, eng, timeout_per_engine)
+                if score > best_overall_score:
+                    best_overall_score = score
+                    best_overall_model = model
+            except Exception as e:
+                logger.warning(f"⚠️ Falha no engine {eng}: {e}")
+                
+        logger.info(f"🏆 Vencedor do AutoML Unificado: {best_overall_score:.4f}")
+        return best_overall_model, best_overall_score
+
     def export_to_onnx(self, model, sample_input):
         """Exporta o modelo para formato ONNX."""
         logger.info("🚀 Exportando para ONNX...")
@@ -323,6 +361,124 @@ class MLOpsEnterprise:
         with open("model.onnx", "wb") as f:
             f.write(onx.SerializeToString())
         mlflow.log_artifact("model.onnx")
+
+    # --- MÓDULO MANUAL: OPTUNA & DEEP LEARNING ---
+    def train_manual(self, data_path, target, model_type='rf', use_optuna=False, task='classification'):
+        """Treinamento manual com escolha de modelo e otimização opcional."""
+        logger.info(f"🛠️ Treino Manual: {model_type} | Optuna: {use_optuna}")
+        df = pd.read_csv(data_path)
+        df = self.validate_data(df, target)
+        
+        X = df.drop(columns=[target])
+        y = df[target]
+        
+        if X.select_dtypes(include=['object']).any().any():
+            X = pd.get_dummies(X)
+            
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        def objective(trial):
+            if model_type == 'rf':
+                from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+                n_estimators = trial.suggest_int('n_estimators', 10, 200)
+                max_depth = trial.suggest_int('max_depth', 2, 32)
+                if task == 'classification':
+                    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth)
+                else:
+                    clf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
+            elif model_type == 'xgb':
+                from xgboost import XGBClassifier, XGBRegressor
+                param = {
+                    'n_estimators': trial.suggest_int('n_estimators', 50, 300),
+                    'max_depth': trial.suggest_int('max_depth', 3, 10),
+                    'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3)
+                }
+                clf = XGBClassifier(**param) if task == 'classification' else XGBRegressor(**param)
+            
+            clf.fit(X_train, y_train)
+            preds = clf.predict(X_test)
+            return accuracy_score(y_test, preds) if task == 'classification' else r2_score(y_test, preds)
+
+        best_model = None
+        if use_optuna:
+            study = optuna.create_study(direction='maximize')
+            study.optimize(objective, n_trials=10)
+            logger.info(f"🏆 Melhores hiperparâmetros: {study.best_params}")
+            # Treinar modelo final com melhores params
+            if model_type == 'rf':
+                from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+                best_model = RandomForestClassifier(**study.best_params) if task == 'classification' \
+                             else RandomForestRegressor(**study.best_params)
+            elif model_type == 'xgb':
+                from xgboost import XGBClassifier, XGBRegressor
+                best_model = XGBClassifier(**study.best_params) if task == 'classification' \
+                             else XGBRegressor(**study.best_params)
+            best_model.fit(X_train, y_train)
+        else:
+            # Sem optuna, usa default
+            if model_type == 'rf':
+                from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+                best_model = RandomForestClassifier() if task == 'classification' else RandomForestRegressor()
+            elif model_type == 'xgb':
+                from xgboost import XGBClassifier, XGBRegressor
+                best_model = XGBClassifier() if task == 'classification' else XGBRegressor()
+            best_model.fit(X_train, y_train)
+
+        preds = best_model.predict(X_test)
+        score = accuracy_score(y_test, preds) if task == 'classification' else r2_score(y_test, preds)
+        
+        mlflow.sklearn.log_model(best_model, "manual_model")
+        mlflow.log_metric("manual_score", score)
+        
+        return best_model, score
+
+    def train_pytorch_tabular(self, data_path, target, epochs=10, task='classification'):
+        """Treinamento de Deep Learning (PyTorch) para dados tabulares."""
+        logger.info(f"🔥 Iniciando Deep Learning (PyTorch) Tabular...")
+        df = pd.read_csv(data_path)
+        df = self.validate_data(df, target)
+        
+        X = df.drop(columns=[target]).values.astype(np.float32)
+        y = df[target].values
+        
+        if task == 'classification':
+            from sklearn.preprocessing import LabelEncoder
+            le = LabelEncoder()
+            y = le.fit_transform(y)
+            output_dim = len(np.unique(y))
+            y = y.astype(np.int64)
+        else:
+            output_dim = 1
+            y = y.astype(np.float32).reshape(-1, 1)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        
+        X_train_t = torch.FloatTensor(X_train)
+        y_train_t = torch.LongTensor(y_train) if task == 'classification' else torch.FloatTensor(y_train)
+        
+        input_dim = X.shape[1]
+        model = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, output_dim)
+        ).to(self.device)
+        
+        criterion = nn.CrossEntropyLoss() if task == 'classification' else nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        
+        for epoch in range(epochs):
+            model.train()
+            optimizer.zero_grad()
+            outputs = model(X_train_t.to(self.device))
+            loss = criterion(outputs, y_train_t.to(self.device))
+            loss.backward()
+            optimizer.step()
+            if epoch % 5 == 0: logger.info(f"Epoch {epoch}/{epochs} | Loss: {loss.item():.4f}")
+            
+        mlflow.pytorch.log_model(model, "pytorch_model")
+        return model, "DL Training Complete"
 
     def get_system_status(self):
         """Retorna o status das conexões e hardware."""
