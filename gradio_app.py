@@ -27,17 +27,27 @@ def get_sys_info():
         info += f"- {eng}: {'✅' if available else '❌'}\n"
     return info
 
-def run_standalone_validation(file):
+# --- HELPERS PARA INTERFACE DINÂMICA ---
+def update_columns(file):
+    if file is None:
+        return gr.Dropdown(choices=[]), gr.Dropdown(choices=[])
+    try:
+        df = pd.read_csv(file.name)
+        cols = df.columns.tolist()
+        return gr.Dropdown(choices=cols, value=cols[-1]), gr.Dropdown(choices=cols, value=cols[0])
+    except:
+        return gr.Dropdown(choices=[]), gr.Dropdown(choices=[])
+
+def run_standalone_validation(file, target):
     if file is None: return "❌ Envie um CSV."
     try:
         df = pd.read_csv(file.name)
-        target = df.columns[-1]
-        valid = mlops.validate_data(df, target)
-        return f"✅ Dados Válidos!\nLinhas: {len(df)}\nColunas: {len(df.columns)}\nTarget: {target}"
+        df_clean = mlops.validate_data(df, target)
+        return f"✅ Dados Válidos!\nLinhas originais: {len(df)}\nLinhas após limpeza: {len(df_clean)}\nColunas: {len(df.columns)}\nTarget: {target}"
     except Exception as e:
         return f"❌ Erro na validação: {str(e)}"
 
-def run_training(file_obj, task, engine, timeout, explain_method):
+def run_training(file_obj, target, task, engine, timeout, explain_method):
     if file_obj is None:
         return "❌ Por favor, faça o upload de um arquivo CSV.", None, None, None
     
@@ -45,13 +55,13 @@ def run_training(file_obj, task, engine, timeout, explain_method):
         file_path = file_obj.name
         df = pd.read_csv(file_path)
         
-        logger.info(f"Iniciando treino via Interface: {engine} ({task})")
-        model, score = mlops.train_automl(file_path, task=task, engine=engine, timeout=int(timeout))
+        logger.info(f"Iniciando treino via Interface: {engine} ({task}) | Target: {target}")
+        model, score = mlops.train_automl(file_path, target=target, task=task, engine=engine, timeout=int(timeout))
         
         if model is None:
             return f"❌ Erro: Engine {engine} não disponível.", None, None, None
             
-        X_train = df.drop(columns=[df.columns[-1]])
+        X_train = df.drop(columns=[target])
         exp_path = mlops.explain_model(model, X_train, method=explain_method.lower())
         
         status_msg = f"✅ Treino Concluído!\nEngine: {engine.upper()}\nScore: {score:.4f}"
@@ -67,6 +77,19 @@ def run_training(file_obj, task, engine, timeout, explain_method):
     except Exception as e:
         logger.error(f"Erro na interface: {e}")
         return f"💥 Erro fatal: {str(e)}", None, None, None
+
+def run_advanced_training(file, target, mode, model_type, use_optuna, task, epochs):
+    if file is None: return "❌ Envie um CSV.", None
+    try:
+        if mode == "Manual (Sklearn/XGB)":
+            model, score = mlops.train_manual(file.name, target, model_type, use_optuna, task)
+            msg = f"✅ Treino Manual Concluído!\nModelo: {model_type}\nScore: {score:.4f}"
+        else:
+            model, msg = mlops.train_pytorch_tabular(file.name, target, epochs=int(epochs), task=task)
+        
+        return msg, "model.onnx" if os.path.exists("model.onnx") else None
+    except Exception as e:
+        return f"💥 Erro: {str(e)}", None
 
 def run_drift_analysis(ref_file, cur_file):
     if ref_file is None or cur_file is None:
@@ -166,7 +189,7 @@ def run_finetuning(file, model_name, text_col, label_col):
 # Interface Gradio
 with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as demo:
     gr.Markdown("""
-    # 🎯 MLOps Enterprise Dashboard (V6.0)
+    # 🎯 MLOps Enterprise Dashboard (V7.0)
     ### O Framework Universal de IA e MLOps
     """)
     
@@ -187,9 +210,10 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
             with gr.Column():
                 gr.Markdown("### 🔍 Validação de Dados")
                 val_input = gr.File(label="Dataset (CSV)")
+                val_target = gr.Dropdown(label="Target Column", choices=[])
                 val_btn = gr.Button("Validar Integridade")
                 val_output = gr.Textbox(label="Resultado da Validação")
-                val_btn.click(run_standalone_validation, inputs=[val_input], outputs=[val_output])
+                val_btn.click(run_standalone_validation, inputs=[val_input, val_target], outputs=[val_output])
             
             with gr.Column():
                 gr.Markdown("### 📉 Data Drift Analysis")
@@ -203,8 +227,9 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
         with gr.Row():
             with gr.Column():
                 file_input = gr.File(label="Upload Dataset (CSV)", file_types=[".csv"])
+                target_dropdown = gr.Dropdown(label="Target Column", choices=[])
                 task_radio = gr.Radio(["classification", "regression"], label="Tipo de Tarefa", value="classification")
-                engine_dropdown = gr.Dropdown(["flaml", "autogluon", "tpot", "autosklearn", "h2o"], label="Engine de AutoML", value="flaml")
+                engine_dropdown = gr.Dropdown(["flaml", "autogluon", "tpot", "autosklearn", "h2o", "unified"], label="Engine de AutoML", value="flaml")
                 timeout_slider = gr.Slider(minimum=30, maximum=3600, value=60, step=30, label="Timeout (segundos)")
                 explain_radio = gr.Radio(["SHAP", "LIME"], label="Método de Explicabilidade", value="SHAP")
                 train_btn = gr.Button("🔥 Iniciar Treinamento", variant="primary")
@@ -215,23 +240,50 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
                 lime_output = gr.File(label="LIME Explanation (HTML)")
                 api_output = gr.File(label="Serving API Script (Download)")
         
+        # Atualizar colunas ao carregar arquivo
+        file_input.change(update_columns, inputs=[file_input], outputs=[target_dropdown, val_target])
+
         train_btn.click(
             run_training, 
-            inputs=[file_input, task_radio, engine_dropdown, timeout_slider, explain_radio], 
+            inputs=[file_input, target_dropdown, task_radio, engine_dropdown, timeout_slider, explain_radio], 
             outputs=[status_output, shap_output, lime_output, api_output]
         )
+
+    with gr.Tab("�️ Advanced Training"):
+        with gr.Row():
+            with gr.Column():
+                adv_file = gr.File(label="Dataset (CSV)")
+                adv_target = gr.Dropdown(label="Target Column", choices=[])
+                adv_mode = gr.Radio(["Manual (Sklearn/XGB)", "Deep Learning (PyTorch)"], label="Modo", value="Manual (Sklearn/XGB)")
+                adv_model = gr.Dropdown(["rf", "xgb"], label="Modelo (se Manual)", value="rf")
+                adv_optuna = gr.Checkbox(label="Otimizar com Optuna", value=False)
+                adv_task = gr.Radio(["classification", "regression"], label="Tarefa", value="classification")
+                adv_epochs = gr.Slider(5, 100, 10, step=5, label="Epochs (se DL)")
+                adv_btn = gr.Button("🚀 Treinar", variant="primary")
+            
+            with gr.Column():
+                adv_status = gr.Textbox(label="Status")
+                adv_onnx = gr.File(label="Modelo Exportado (ONNX)")
+
+        adv_file.change(update_columns, inputs=[adv_file], outputs=[adv_target, val_target])
+        adv_btn.click(run_advanced_training, 
+                     inputs=[adv_file, adv_target, adv_mode, adv_model, adv_optuna, adv_task, adv_epochs], 
+                     outputs=[adv_status, adv_onnx])
 
     with gr.Tab("📈 Time Series"):
         with gr.Row():
             ts_input = gr.File(label="Dataset Temporal (CSV)")
+            ts_date_col = gr.Dropdown(label="Coluna de Data (ds)", choices=[])
+            ts_target_col = gr.Dropdown(label="Coluna Target (y)", choices=[])
             with gr.Column():
-                date_col = gr.Textbox(label="Coluna de Data (ex: ds)", value="ds")
-                target_col = gr.Textbox(label="Coluna Target (ex: y)", value="y")
                 periods = gr.Number(label="Períodos de Previsão", value=30)
                 ts_btn = gr.Button("🔮 Prever Futuro")
+        
+        ts_input.change(update_columns, inputs=[ts_input], outputs=[ts_target_col, ts_date_col])
+        
         ts_plot = gr.Image(label="Gráfico de Previsão")
         ts_status = gr.Textbox(label="Status")
-        ts_btn.click(run_timeseries, inputs=[ts_input, date_col, target_col, periods], outputs=[ts_plot, ts_status])
+        ts_btn.click(run_timeseries, inputs=[ts_input, ts_date_col, ts_target_col, periods], outputs=[ts_plot, ts_status])
 
     with gr.Tab("💎 Unsupervised"):
         with gr.Row():
