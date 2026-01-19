@@ -145,17 +145,22 @@ class MLOpsEnterprise:
 
     def _setup_integrations(self):
         try:
+            # 1. DagsHub & MLflow Setup
             dagshub.init(repo_owner=self.repo_owner, repo_name=self.repo_name, mlflow=True)
             logger.info("✅ Conectado ao DagsHub/MLflow")
             
-            # Gerar conda.yaml básico se não existir
+            # 2. Gerar conda.yaml e requirements.txt se não existirem (para o MLflow loggar o ambiente)
+            if not os.path.exists("requirements.txt"):
+                with open("requirements.txt", "w") as f:
+                    f.write("numpy\npandas\nscikit-learn\nmlflow\ndagshub\n")
+
             if not os.path.exists("conda.yaml"):
                 with open("conda.yaml", "w") as f:
                     f.write("name: mlops_env\nchannels:\n  - defaults\ndependencies:\n  - python=3.10\n  - pip:\n    - -r requirements.txt\n")
 
-            # Garantir que o MLflow registre requisitos e ambiente
-            mlflow.log_artifact("requirements.txt")
-            mlflow.log_artifact("conda.yaml")
+            # 3. Configurar logging automático de ambiente (será loggado em cada run)
+            # mlflow.log_artifact("requirements.txt")  # Movido para dentro do context manager de run
+            # mlflow.log_artifact("conda.yaml")
             
             if os.getenv("WANDB_API_KEY"):
                 wandb.login(key=os.getenv("WANDB_API_KEY"))
@@ -171,6 +176,17 @@ class MLOpsEnterprise:
                     pass
         except Exception as e:
             logger.warning(f"⚠️ Erro nas integrações: {e}")
+
+    def _log_env_artifacts(self):
+        """Registra arquivos de ambiente no run atual do MLflow."""
+        if mlflow.active_run():
+            if os.path.exists("requirements.txt"):
+                mlflow.log_artifact("requirements.txt")
+            if os.path.exists("conda.yaml"):
+                mlflow.log_artifact("conda.yaml")
+            if os.path.exists(".env.example"):
+                mlflow.log_artifact(".env.example")
+            logger.info("📦 Artefatos de ambiente (requirements, conda, env) registrados.")
 
     def _log_metrics_and_plots(self, metrics, artifacts=None):
         for name, value in metrics.items():
@@ -239,6 +255,7 @@ class MLOpsEnterprise:
             mlflow.log_param("engine", engine)
             mlflow.log_param("timeout", timeout)
             mlflow.log_param("task", task)
+            self._log_env_artifacts()
 
             X = df.drop(columns=[target])
             y = df[target]
@@ -377,7 +394,14 @@ class MLOpsEnterprise:
             
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        def objective(trial):
+        mlflow.set_experiment(f"/manual_training")
+        with mlflow.start_run(run_name=f"{model_type}_manual_{datetime.now().strftime('%H%M%S')}"):
+            mlflow.log_param("model_type", model_type)
+            mlflow.log_param("use_optuna", use_optuna)
+            mlflow.log_param("task", task)
+            self._log_env_artifacts()
+
+            def objective(trial):
             if model_type == 'rf':
                 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
                 n_estimators = trial.suggest_int('n_estimators', 10, 200)
@@ -427,8 +451,8 @@ class MLOpsEnterprise:
         preds = best_model.predict(X_test)
         score = accuracy_score(y_test, preds) if task == 'classification' else r2_score(y_test, preds)
         
-        mlflow.sklearn.log_model(best_model, "manual_model")
         mlflow.log_metric("manual_score", score)
+        mlflow.sklearn.log_model(best_model, "manual_model")
         
         return best_model, score
 
@@ -437,8 +461,14 @@ class MLOpsEnterprise:
         logger.info(f"🔥 Iniciando Deep Learning (PyTorch) Tabular...")
         df = pd.read_csv(data_path)
         df = self.validate_data(df, target)
-        
-        X = df.drop(columns=[target]).values.astype(np.float32)
+
+        mlflow.set_experiment("/pytorch_deep_learning")
+        with mlflow.start_run(run_name=f"pytorch_run_{datetime.now().strftime('%H%M%S')}"):
+            mlflow.log_param("epochs", epochs)
+            mlflow.log_param("task", task)
+            self._log_env_artifacts()
+
+            X = df.drop(columns=[target]).values.astype(np.float32)
         y = df[target].values
         
         if task == 'classification':
@@ -662,27 +692,36 @@ if __name__ == '__main__':
 
     # --- MÓDULO UNIVERSAL: TIME SERIES ---
     def train_timeseries(self, data_path: str, date_col: str, target_col: str, periods=30):
-        """Treina modelo de séries temporais com Prophet."""
+        """Treina modelo de Séries Temporais (Prophet) e logga no MLflow."""
         if not HAS_PROPHET:
-            logger.error("❌ Prophet não instalado.")
-            return None, None
+            raise ImportError("Prophet não instalado.")
         
-        logger.info(f"📈 Treinando Time Series para {target_col}")
+        logger.info(f"📈 Treinando Time Series (Prophet) no target: {target_col}")
         df = pd.read_csv(data_path)
-        df_prophet = df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        df = df[[date_col, target_col]].rename(columns={date_col: 'ds', target_col: 'y'})
+        df['ds'] = pd.to_datetime(df['ds'])
         
-        model = Prophet()
-        model.fit(df_prophet)
-        
-        future = model.make_future_dataframe(periods=periods)
-        forecast = model.predict(future)
-        
-        # Plot
-        fig = model.plot(forecast)
-        plt.savefig("forecast_plot.png")
-        mlflow.log_artifact("forecast_plot.png")
-        
-        return forecast, "forecast_plot.png"
+        mlflow.set_experiment("/time_series_prophet")
+        with mlflow.start_run(run_name=f"prophet_run_{datetime.now().strftime('%H%M%S')}"):
+            self._log_env_artifacts()
+            model = Prophet()
+            model.fit(df)
+            
+            future = model.make_future_dataframe(periods=periods)
+            forecast = model.predict(future)
+            
+            fig = model.plot(forecast)
+            plot_path = "forecast_plot.png"
+            fig.savefig(plot_path)
+            mlflow.log_artifact(plot_path)
+            
+            # Prophet não tem log_model nativo no mlflow padrão, loggamos como artifact ou pickle
+            import pickle
+            with open("prophet_model.pkl", "wb") as f:
+                pickle.dump(model, f)
+            mlflow.log_artifact("prophet_model.pkl")
+            
+            return forecast, plot_path
 
     # --- MÓDULO UNIVERSAL: CLUSTERING & ANOMALY ---
     def train_clustering(self, data_path: str, n_clusters=3, method='kmeans'):
