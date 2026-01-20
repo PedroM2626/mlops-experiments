@@ -29,7 +29,8 @@ evidently
 scipy
 
 # Export & Serving
-onnx
+onnx>=1.16.0
+ml_dtypes>=0.4.0
 onnxruntime
 skl2onnx
 flask

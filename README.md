@@ -1,12 +1,12 @@
 ---
-title: MLOps Enterprise Dashboard
+title: Free Mlops
 emoji: 🎯
 colorFrom: blue
 colorTo: indigo
-sdk: gradio
-sdk_version: 4.12.0
+sdk: docker
 app_file: app.py
 pinned: false
+license: mit
 ---
 
 # Repositório de Experimentos de Machine Learning & MLOps
