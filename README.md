@@ -1,16 +1,29 @@
+---
+title: MLOps Enterprise Dashboard
+emoji: 🎯
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+sdk_version: 4.12.0
+app_file: app.py
+pinned: false
+---
+
 # Repositório de Experimentos de Machine Learning & MLOps
 
 Este repositório é dedicado a experimentos de Machine Learning e mlops. já possui uma estrutura de MLOps completa e pronta para uso. Basta configurar suas credenciais e começar a rodar.
 
 O projeto integra ferramentas de ponta como **FLAML**, **AutoGluon**, **Auto-sklearn**, **H2O AutoML**, **TPOT** e **ZenML** com rastreamento automático via **MLflow**, **DagsHub** e **Weights & Biases**.
 
-## 🎯 MLOps Enterprise Framework (V6.0)
+## 🎯 MLOps Enterprise Framework (V7.0)
 
 Este projeto fornece uma integração completa de pipeline de treinamento com as seguintes capacidades:
 
 - **End-to-end training pipeline**: Do carregamento de dados ao registro do modelo, agora com orquestração **ZenML**.
-- **Unified AutoML Engine**: Suporte nativo para **AutoGluon**, **FLAML**, **TPOT**, **Auto-sklearn** e **H2O AutoML**.
-- **Data Validation & Integrity**: Verificação de tipos, nulos e integridade antes do treinamento.
+- **Unified AutoML Engine**: Suporte nativo para **AutoGluon**, **FLAML**, **TPOT**, **Auto-sklearn**, **H2O AutoML** e modo **Unified**.
+- **Manual Training & Optuna**: Treinamento manual com escolha de modelos (RF, XGBoost) e otimização de hiperparâmetros.
+- **Deep Learning Tabular**: Redes neurais em PyTorch para dados tabulares.
+- **Data Validation & Integrity**: Verificação de tipos, nulos e integridade (NaN/Inf) antes do treinamento.
 - **Data Drift Detection**: Monitoramento contínuo de drift de dados usando **Evidently AI**.
 - **Experiment Tracking**: Rastreamento detalhado de métricas, parâmetros e artefatos no **MLflow**, **DagsHub** e **W&B**.
 - **Explainability (XAI)**: Transparência total com **SHAP** e **LIME**.
@@ -35,19 +48,19 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 
 ## 📂 Estrutura do Projeto
 
-- `train_and_save_professional.py`: Framework universal (Core V6.0).
-- `experiments/senti-pred/senti_comparison.py`: Benchmark de AutoML para análise de sentimento.
-- `tests/`: Suíte de testes automatizados (`pytest`).
-- `.env.example`: Modelo para configuração de variáveis de ambiente.
+- `train_and_save_professional.py`: Framework universal (Core V7.0).
+- `app.py`: Ponto de entrada para o Hugging Face Spaces (Gradio).
+- `gradio_app.py`: Interface principal do Dashboard.
 - `requirements.txt`: Dependências completas e atualizadas.
 
 ### ⚠️ Notas de Compatibilidade
-- **NumPy 2.x**: O framework foi otimizado para **NumPy < 2.0.0** devido a incompatibilidades atuais com bibliotecas como AutoGluon, Ultralytics e Numba. Se encontrar erros de `multiarray`, faça o downgrade: `pip install "numpy<2"`.
+- **NumPy 2.x**: O framework foi otimizado para **NumPy < 2.0.0**.
+- **auto-sklearn**: Esta biblioteca foi removida do `requirements.txt` padrão pois não é compatível com **Windows** e causa erros de build no **Hugging Face Spaces**. Se você estiver no **Linux** e desejar usá-la, instale manualmente: `pip install auto-sklearn`.
 
-🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V6.0)
+🎯 MLOPS ENTERPRISE - UNIVERSAL FRAMEWORK (V7.0)
 ==============================================
 
-## 🚀 Recursos do Framework Universal (V6.0)
+## 🚀 Recursos do Framework Universal (V7.0)
 
 ### 🤖 AutoML Unificado
 - **Engines Suportadas**: FLAML, AutoGluon, TPOT, Auto-sklearn e H2O AutoML.
@@ -55,30 +68,26 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 
 ### 🛤️ Orquestração com ZenML
 - **Pipelines**: Criação de fluxos de trabalho de ML reprodutíveis e modulares.
-- **Orquestração**: Integração com stacks de MLOps modernas.
 
 ### 📈 Séries Temporais (Time Series)
 - **Engine**: Integração com **Prophet** para previsões de demanda e tendências.
-- **Visualização**: Geração automática de gráficos de forecast.
 
 ### 💎 Aprendizado Não Supervisionado
 - **Clustering**: Agrupamento inteligente com **K-Means** e **DBSCAN**.
 - **Detecção de Anomalias**: Identificação de outliers com **Isolation Forest**.
 
 ### 🧠 Fine-Tuning Avançado
-- **NLP**: Ajuste fino (fine-tuning) de modelos **Transformers** (BERT, DistilBERT, etc.) para tarefas específicas usando a biblioteca `transformers` e `datasets`.
-- **Transfer Learning**: Capacidade de adaptar modelos pré-treinados para novos domínios.
+- **NLP**: Ajuste fino (fine-tuning) de modelos **Transformers**.
 
 ### 📸 Visão Computacional (CV)
 - **Detecção Facial**: YOLOv8 para identificação em tempo real.
-- **Similaridade**: Busca de imagens semelhantes usando embeddings de ResNet50.
 
 ### 📝 Processamento de Linguagem Natural (NLP)
 - Pipelines prontos para Sentimento, Sumarização e NER.
 
 ### 📈 MLOps & Dashboard
 - **Integrações**: MLflow, DagsHub, W&B.
-- **Dashboard**: Interface Gradio completa com abas dedicadas para cada módulo.
+- **Dashboard**: Interface Gradio completa (V7.0).
 
 ## 🛠️ Instalação e Uso
 
@@ -92,21 +101,10 @@ Este projeto fornece uma integração completa de pipeline de treinamento com as
 2. **Configure suas credenciais**:
    Copie o arquivo `.env.example` para `.env` e preencha suas chaves (DagsHub, MLflow, W&B).
 
-3. **Execute um treinamento**:
-   ```python
-   from train_and_save_professional import MLOpsEnterprise
-   import pandas as pd
-
-   mlops = MLOpsEnterprise()
-   # Treinar usando H2O AutoML
-   model, score = mlops.train_automl("seu_dataset.csv", engine="h2o", timeout=300)
-   ```
-
-4. **Interface Visual (Dashboard)**:
+3. **Execute o Dashboard**:
    ```bash
-   python gradio_app.py
+   python app.py
    ```
-   Acesse em seu navegador: `http://localhost:7860`
 
 5. **Rodar o Benchmark de Sentimento**:
    ```bash

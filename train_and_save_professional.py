@@ -240,6 +240,10 @@ class MLOpsEnterprise:
         if engine == 'unified':
             return self._train_unified_automl(data_path, target, task, timeout)
 
+        if engine == 'autosklearn' and not HAS_AUTOSKLEARN:
+            logger.error("❌ auto-sklearn não está instalado ou não é compatível com este Sistema Operacional (Requer Linux).")
+            return None, None
+
         logger.info(f"\n🤖 Iniciando AutoML ({task}) com engine: {engine.upper()}...")
         df = pd.read_csv(data_path)
         
@@ -402,28 +406,28 @@ class MLOpsEnterprise:
             self._log_env_artifacts()
 
             def objective(trial):
-            if model_type == 'rf':
-                from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-                n_estimators = trial.suggest_int('n_estimators', 10, 200)
-                max_depth = trial.suggest_int('max_depth', 2, 32)
-                if task == 'classification':
-                    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth)
-                else:
-                    clf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
-            elif model_type == 'xgb':
-                from xgboost import XGBClassifier, XGBRegressor
-                param = {
-                    'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-                    'max_depth': trial.suggest_int('max_depth', 3, 10),
-                    'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3)
-                }
-                clf = XGBClassifier(**param) if task == 'classification' else XGBRegressor(**param)
-            
-            clf.fit(X_train, y_train)
-            preds = clf.predict(X_test)
-            return accuracy_score(y_test, preds) if task == 'classification' else r2_score(y_test, preds)
+                if model_type == 'rf':
+                    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+                    n_estimators = trial.suggest_int('n_estimators', 10, 200)
+                    max_depth = trial.suggest_int('max_depth', 2, 32)
+                    if task == 'classification':
+                        clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth)
+                    else:
+                        clf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
+                elif model_type == 'xgb':
+                    from xgboost import XGBClassifier, XGBRegressor
+                    param = {
+                        'n_estimators': trial.suggest_int('n_estimators', 50, 300),
+                        'max_depth': trial.suggest_int('max_depth', 3, 10),
+                        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3)
+                    }
+                    clf = XGBClassifier(**param) if task == 'classification' else XGBRegressor(**param)
+                
+                clf.fit(X_train, y_train)
+                preds = clf.predict(X_test)
+                return accuracy_score(y_test, preds) if task == 'classification' else r2_score(y_test, preds)
 
-        best_model = None
+            best_model = None
         if use_optuna:
             study = optuna.create_study(direction='maximize')
             study.optimize(objective, n_trials=10)
@@ -469,46 +473,46 @@ class MLOpsEnterprise:
             self._log_env_artifacts()
 
             X = df.drop(columns=[target]).values.astype(np.float32)
-        y = df[target].values
-        
-        if task == 'classification':
-            from sklearn.preprocessing import LabelEncoder
-            le = LabelEncoder()
-            y = le.fit_transform(y)
-            output_dim = len(np.unique(y))
-            y = y.astype(np.int64)
-        else:
-            output_dim = 1
-            y = y.astype(np.float32).reshape(-1, 1)
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-        
-        X_train_t = torch.FloatTensor(X_train)
-        y_train_t = torch.LongTensor(y_train) if task == 'classification' else torch.FloatTensor(y_train)
-        
-        input_dim = X.shape[1]
-        model = nn.Sequential(
-            nn.Linear(input_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, output_dim)
-        ).to(self.device)
-        
-        criterion = nn.CrossEntropyLoss() if task == 'classification' else nn.MSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-        
-        for epoch in range(epochs):
-            model.train()
-            optimizer.zero_grad()
-            outputs = model(X_train_t.to(self.device))
-            loss = criterion(outputs, y_train_t.to(self.device))
-            loss.backward()
-            optimizer.step()
-            if epoch % 5 == 0: logger.info(f"Epoch {epoch}/{epochs} | Loss: {loss.item():.4f}")
+            y = df[target].values
             
-        mlflow.pytorch.log_model(model, "pytorch_model")
-        return model, "DL Training Complete"
+            if task == 'classification':
+                from sklearn.preprocessing import LabelEncoder
+                le = LabelEncoder()
+                y = le.fit_transform(y)
+                output_dim = len(np.unique(y))
+                y = y.astype(np.int64)
+            else:
+                output_dim = 1
+                y = y.astype(np.float32).reshape(-1, 1)
+
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+            
+            X_train_t = torch.FloatTensor(X_train)
+            y_train_t = torch.LongTensor(y_train) if task == 'classification' else torch.FloatTensor(y_train)
+            
+            input_dim = X.shape[1]
+            model = nn.Sequential(
+                nn.Linear(input_dim, 64),
+                nn.ReLU(),
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, output_dim)
+            ).to(self.device)
+            
+            criterion = nn.CrossEntropyLoss() if task == 'classification' else nn.MSELoss()
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+            
+            for epoch in range(epochs):
+                model.train()
+                optimizer.zero_grad()
+                outputs = model(X_train_t.to(self.device))
+                loss = criterion(outputs, y_train_t.to(self.device))
+                loss.backward()
+                optimizer.step()
+                if epoch % 5 == 0: logger.info(f"Epoch {epoch}/{epochs} | Loss: {loss.item():.4f}")
+                
+            mlflow.pytorch.log_model(model, "pytorch_model")
+            return model, "DL Training Complete"
 
     def get_system_status(self):
         """Retorna o status das conexões e hardware."""

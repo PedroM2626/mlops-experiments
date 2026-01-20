@@ -21,7 +21,6 @@ xgboost
 tpot
 autogluon
 flaml
-auto-sklearn
 h2o
 optuna
 shap
