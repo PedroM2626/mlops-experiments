@@ -138,16 +138,39 @@ def run_zenml_pipeline_ui(file):
     except Exception as e:
         return f"💥 Erro no ZenML: {str(e)}"
 
-def run_image_recommendation(query_img, gallery_folder):
-    if query_img is None or not gallery_folder:
-        return None, "❌ Forneça uma imagem e o caminho do diretório da galeria."
+def run_image_recommendation(query_img, gallery_images):
+    if query_img is None or not gallery_images:
+        return None, "❌ Forneça uma imagem de busca e anexe as imagens da galeria."
     try:
+        # Salvar imagem de busca temporária
         temp_query = "temp_query.jpg"
         query_img.save(temp_query)
+        
+        # Criar pasta temporária para a galeria
+        gallery_folder = "temp_gallery"
+        os.makedirs(gallery_folder, exist_ok=True)
+        
+        # Limpar galeria anterior
+        for f in os.listdir(gallery_folder):
+            os.remove(os.path.join(gallery_folder, f))
+            
+        # Salvar imagens anexadas na pasta temporária
+        for i, img_obj in enumerate(gallery_images):
+            # No Gradio 4+, gallery_images é uma lista de objetos com .name (path)
+            img_path = img_obj.name
+            img_name = os.path.basename(img_path)
+            # Copiar ou abrir e salvar
+            from PIL import Image
+            with Image.open(img_path) as im:
+                im.save(os.path.join(gallery_folder, f"gal_{i}_{img_name}"))
+        
         results = mlops.recommend_similar(temp_query, gallery_folder)
-        # Retornar apenas os caminhos das imagens
-        return [r[0] for r in results], "✅ Recomendações geradas!"
+        
+        # Retornar apenas os caminhos das imagens recomendadas
+        recommended_paths = [r[0] for r in results]
+        return recommended_paths, "✅ Recomendações geradas com base nos arquivos anexados!"
     except Exception as e:
+        logger.error(f"Erro na recomendação: {e}")
         return None, f"💥 Erro na recomendação: {str(e)}"
 
 def run_nlp_analysis(text, task):
@@ -321,11 +344,11 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
             with gr.Column():
                 gr.Markdown("### 🖼️ Recomendação de Imagens")
                 query_input = gr.Image(type="pil", label="Imagem de Busca")
-                gallery_path = gr.Textbox(label="Caminho da Galeria (Diretório)", placeholder="C:/fotos/galeria")
+                gallery_files = gr.File(label="Anexar Imagens da Galeria", file_count="multiple", file_types=["image"])
                 rec_btn = gr.Button("🔎 Buscar Semelhantes")
                 rec_status = gr.Textbox(label="Status")
                 rec_gallery = gr.Gallery(label="Imagens Recomendadas")
-                rec_btn.click(run_image_recommendation, inputs=[query_input, gallery_path], outputs=[rec_gallery, rec_status])
+                rec_btn.click(run_image_recommendation, inputs=[query_input, gallery_files], outputs=[rec_gallery, rec_status])
 
         with gr.Row():
             gr.Markdown("### 🎥 Detecção em Tempo Real (Webcam)")
