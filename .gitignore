@@ -160,6 +160,15 @@ cython_debug/
 .idea/
 
 
+# Experimentos locais e modelos temporários
+experiments/senti-pred/AutogluonModels/
+AutogluonModels/
+ag-*/
+
+# Dados processados (bloqueio de arquivos específicos se necessário)
+processed_train.csv
+clustering_results.csv
+
 # Modelos e Pesos (Bloqueio total de arquivos grandes)
 *.pkl
 *.joblib
@@ -168,11 +177,7 @@ cython_debug/
 *.onnx
 *.pt
 *.pth
-models/backup/
-models/registry/
-models/active/
-models/professional/
-!models/.gitkeep
+*.ubj
 
 # MLflow
 mlruns/
