@@ -204,12 +204,16 @@ class MLOpsEnterprise:
         if target not in df.columns:
             raise ValueError(f"Target '{target}' não encontrado no DataFrame.")
         
-        # Remover NaNs e Infs da coluna target
+        # Remover NaNs e Infs da coluna target apenas se for numérica
         initial_len = len(df)
-        df = df[np.isfinite(df[target])]
+        if pd.api.types.is_numeric_dtype(df[target]):
+            df = df[np.isfinite(df[target])]
+        else:
+            # Para colunas não numéricas (classificação de texto, etc), removemos apenas NaNs
+            df = df[df[target].notnull()]
         
         if len(df) < initial_len:
-            logger.warning(f"⚠️ Removidos {initial_len - len(df)} registros com valores não finitos (NaN/Inf) no target.")
+            logger.warning(f"⚠️ Removidos {initial_len - len(df)} registros com valores inválidos (NaN/Inf) no target.")
 
         null_counts = df.isnull().sum().sum()
         if null_counts > (len(df) * len(df.columns) * 0.5):
@@ -274,7 +278,39 @@ class MLOpsEnterprise:
             best_model = None
             score = 0
 
-            if engine == 'tpot' and HAS_TPOT:
+            if engine == 'unified':
+                logger.info("🚀 Iniciando Modo UNIFIED (Treinando múltiplos motores e selecionando o melhor)...")
+                results = {}
+                
+                # Lista de motores disponíveis para o modo unificado
+                engines_to_try = []
+                if HAS_AUTOGLUON: engines_to_try.append('autogluon')
+                if HAS_FLAML: engines_to_try.append('flaml')
+                if HAS_TPOT: engines_to_try.append('tpot')
+                if HAS_H2O: engines_to_try.append('h2o')
+                
+                for eng in engines_to_try:
+                    try:
+                        logger.info(f"🧬 Treinando motor: {eng}...")
+                        # Timeout reduzido para cada motor no modo unificado para não exceder o total
+                        eng_timeout = timeout // len(engines_to_try)
+                        m, s = self.train_automl(df, target, eng, eng_timeout, task)
+                        if m:
+                            results[eng] = (m, s)
+                    except Exception as e:
+                        logger.error(f"❌ Erro no motor {eng} durante o Unified: {e}")
+                
+                if not results:
+                    logger.error("❌ Nenhum motor conseguiu completar o treino no modo Unified.")
+                    return None, None
+                
+                # Selecionar o melhor motor baseado no score
+                best_eng = max(results, key=lambda k: results[k][1])
+                best_model, score = results[best_eng]
+                logger.info(f"🏆 Vencedor do Unified: {best_eng} com score {score:.4f}")
+                mlflow.log_param("unified_winner", best_eng)
+
+            elif engine == 'tpot' and HAS_TPOT:
                 model = TPOTClassifier(max_time_mins=timeout//60, verbosity=2) if task == 'classification' \
                         else TPOTRegressor(max_time_mins=timeout//60, verbosity=2)
                 model.fit(X_train, y_train)
