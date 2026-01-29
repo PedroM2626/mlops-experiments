@@ -209,6 +209,24 @@ def run_finetuning(file, model_name, text_col, label_col):
     except Exception as e:
         return f"💥 Erro: {str(e)}"
 
+def run_model_inspection(model_file):
+    if model_file is None: return "❌ Envie um arquivo de modelo (.pkl, .joblib, .onnx)"
+    try:
+        info = mlops.inspect_model(model_file.name)
+        return json.dumps(info, indent=4)
+    except Exception as e:
+        return f"💥 Erro: {str(e)}"
+
+def run_model_test(model_file, test_csv):
+    if model_file is None or test_csv is None:
+        return "❌ Envie o modelo e o CSV de teste."
+    try:
+        df_test = pd.read_csv(test_csv.name)
+        preds = mlops.test_model_prediction(model_file.name, df_test)
+        return str(preds)
+    except Exception as e:
+        return f"💥 Erro no teste: {str(e)}"
+
 # Interface Gradio
 with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as demo:
     gr.Markdown("""
@@ -364,6 +382,22 @@ with gr.Blocks(theme=gr.themes.Soft(), title="MLOps Enterprise Dashboard") as de
                 return res_path
 
             rt_input.stream(stream_yolo, inputs=[rt_input], outputs=[rt_output])
+
+    with gr.Tab("🧪 Model Tester"):
+        gr.Markdown("### 🔍 Inspetor e Testador de Modelos")
+        with gr.Row():
+            with gr.Column():
+                mt_model = gr.File(label="Upload do Modelo (.pkl, .joblib, .onnx)")
+                mt_inspect_btn = gr.Button("🧐 Inspecionar Modelo", variant="secondary")
+                mt_test_csv = gr.File(label="Upload de Dados de Teste (CSV)")
+                mt_test_btn = gr.Button("🚀 Executar Teste de Predição", variant="primary")
+            
+            with gr.Column():
+                mt_info = gr.Code(label="Metadados & Parâmetros", language="json")
+                mt_results = gr.Textbox(label="Resultados da Predição", lines=10)
+        
+        mt_inspect_btn.click(run_model_inspection, inputs=[mt_model], outputs=[mt_info])
+        mt_test_btn.click(run_model_test, inputs=[mt_model, mt_test_csv], outputs=[mt_results])
 
     with gr.Tab("📝 NLP & Sentiment"):
         with gr.Row():

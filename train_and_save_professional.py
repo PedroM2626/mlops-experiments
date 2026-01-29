@@ -693,6 +693,68 @@ if __name__ == '__main__':
         """Atalho para detecção facial."""
         return self.detect_objects(image_path, task="faces")
 
+    def inspect_model(self, model_path: str):
+        """Inspeciona um arquivo de modelo e extrai metadados, versão e parâmetros."""
+        logger.info(f"🧐 Inspecionando modelo: {model_path}")
+        info = {
+            "tipo": "Desconhecido",
+            "parametros": {},
+            "requisitos": "Não detectado",
+            "python_version": sys.version,
+            "can_predict": False
+        }
+        
+        try:
+            # Tentar identificar por extensão
+            if model_path.endswith('.onnx'):
+                import onnxruntime as ort
+                sess = ort.InferenceSession(model_path)
+                info["tipo"] = "ONNX Runtime"
+                info["inputs"] = [i.name for i in sess.get_inputs()]
+                info["outputs"] = [o.name for o in sess.get_outputs()]
+                info["can_predict"] = True
+            
+            elif model_path.endswith(('.pkl', '.joblib')):
+                import joblib
+                model = joblib.load(model_path)
+                info["tipo"] = str(type(model))
+                if hasattr(model, 'get_params'):
+                    info["parametros"] = model.get_params()
+                info["can_predict"] = hasattr(model, 'predict')
+            
+            # Procurar por arquivos de requisitos no mesmo diretório
+            model_dir = os.path.dirname(model_path)
+            req_path = os.path.join(model_dir, "requirements.txt")
+            if os.path.exists(req_path):
+                with open(req_path, 'r') as f:
+                    info["requisitos"] = f.read()
+            
+            return info
+        except Exception as e:
+            logger.error(f"Erro ao inspecionar modelo: {e}")
+            return {"error": str(e)}
+
+    def test_model_prediction(self, model_path: str, input_data: pd.DataFrame):
+        """Realiza uma predição de teste usando o modelo carregado."""
+        try:
+            if model_path.endswith('.onnx'):
+                import onnxruntime as ort
+                sess = ort.InferenceSession(model_path)
+                input_name = sess.get_inputs()[0].name
+                # Converter DataFrame para float32 para ONNX
+                data_dict = {input_name: input_data.values.astype(np.float32)}
+                preds = sess.run(None, data_dict)[0]
+                return preds
+            
+            elif model_path.endswith(('.pkl', '.joblib')):
+                import joblib
+                model = joblib.load(model_path)
+                return model.predict(input_data)
+            
+            return "Formato de modelo não suportado para predição direta."
+        except Exception as e:
+            return f"Erro no teste de predição: {str(e)}"
+
     def run_zenml_pipeline(self, data_path: str):
         """Executa um pipeline ZenML simplificado."""
         if not HAS_ZENML:
