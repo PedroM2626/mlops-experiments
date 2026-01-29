@@ -1,0 +1,2 @@
+Este é o caminho para os dados "raw" (puros) para o treinamento do modelo, os arquivos estão normalizados entre uma tabela fato e duas dimensões.
+https://drive.google.com/drive/folders/1ZINwxK2Il7Y234NdKSyihOj5pp90d4ZU?usp=sharing
