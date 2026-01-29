@@ -1,0 +1,122 @@
+# Big Data Hackathon Forecast 2025 - GitIgnore
+
+# ============================================
+# DADOS ORIGINAIS (MUITO GRANDES PARA GIT)
+# ============================================
+data/raw/*.parquet
+
+# ============================================
+# ARQUIVOS ESPECÍFICOS DO PROJETO
+# ============================================
+WARP.md
+
+# ============================================
+# PYTHON
+# ============================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================
+# JUPYTER NOTEBOOK
+# ============================================
+.ipynb_checkpoints
+
+# ============================================
+# IDE
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# OS
+# ============================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ============================================
+# LOGS E TEMPORÁRIOS
+# ============================================
+*.log
+*.tmp
+*.temp
+
+# ============================================
+# DADOS PROCESSADOS OPCIONAIS
+# ============================================
+# Manter alguns CSVs de exemplo mas não todos
+data/processed/backup_*
+data/processed/temp_*
+
+# ============================================
+# DOCUMENTAÇÃO TEMPORÁRIA
+# ============================================
+REORGANIZACAO_COMPLETA.md
+ALTERACOES_FINAIS.md
