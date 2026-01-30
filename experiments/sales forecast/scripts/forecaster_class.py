@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import shutil
 from typing import Dict, List, Tuple
 import joblib
 import lightgbm as lgb
@@ -9,6 +10,8 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error
 import optuna
 import mlflow
+import mlflow.lightgbm
+from mlflow.models.signature import infer_signature
 import dagshub
 from dotenv import load_dotenv
 
@@ -34,11 +37,16 @@ class SalesForecasterV2:
 
     def load_data(self, file_paths: Dict[str, str]) -> pd.DataFrame:
         logging.info("Iniciando o carregamento dos dados.")
-        # Simulação de dados se os arquivos não existirem para permitir o teste da lógica
+        # Verifica se todos os arquivos existem
+        all_exists = True
         for key, path in file_paths.items():
             if not os.path.exists(path):
-                logging.warning(f"Arquivo {path} não encontrado. Gerando dados sintéticos para teste.")
-                return self._generate_synthetic_data()
+                logging.warning(f"Arquivo {path} não encontrado.")
+                all_exists = False
+        
+        if not all_exists:
+            logging.warning("Alguns arquivos não foram encontrados. Gerando dados sintéticos para teste.")
+            return self._generate_synthetic_data()
 
         try:
             df_vendas = pd.read_parquet(file_paths['vendas'])
@@ -126,7 +134,7 @@ class SalesForecasterV2:
                     'boosting_type': 'gbdt',
                     'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2),
                     'num_leaves': trial.suggest_int('num_leaves', 31, 128),
-                    'n_estimators': 200, # Reduzido para velocidade
+                    'n_estimators': 200, 
                     'random_state': 42,
                     'n_jobs': -1
                 }
@@ -143,19 +151,46 @@ class SalesForecasterV2:
             self.model.fit(X_train, y_train, eval_set=[(X_val, y_val)], 
                           callbacks=[lgb.early_stopping(10)])
             
-            mae = mean_absolute_error(y_val, self.model.predict(X_val))
+            predictions = self.model.predict(X_val)
+            mae = mean_absolute_error(y_val, predictions)
             self.performance_metrics['validation_mae'] = mae
             
             # LOGGING MLFLOW
             mlflow.log_params(study.best_params)
             mlflow.log_metric("val_mae", mae)
             
-            # Salvar e Logar Modelo (ARTEFATO)
-            model_path = "artifacts/optimized_model.joblib"
-            self.save_model(model_path)
-            mlflow.log_artifact(model_path, artifact_path="models")
+            # Signature e Input Example
+            signature = infer_signature(X_val, predictions)
+            input_example = X_val.iloc[:5]
+            
+            # Salvar e Logar Modelo Completo (MLflow Format)
+            # Salvando temporariamente para logar como artefato completo
+            temp_model_dir = f"artifacts/run_{run.info.run_id}"
+            os.makedirs(temp_model_dir, exist_ok=True)
+            
+            mlflow.lightgbm.log_model(
+                lgb_model=self.model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+                registered_model_name="SalesForecaster_LGBM"
+            )
+            
+            # Salva também o joblib para compatibilidade legado, mas dentro da pasta da run
+            legacy_path = os.path.join(temp_model_dir, "model.joblib")
+            self.save_model(legacy_path)
+            mlflow.log_artifact(legacy_path, artifact_path="legacy_model")
             
             logging.info(f"✅ Treinamento finalizado. MAE: {mae:.4f}")
+            logging.info(f"📦 Modelo e metadados salvos na Run ID: {run.info.run_id}")
+            
+            # Cleanup local artifacts after successful logging
+            try:
+                if os.path.exists("artifacts"):
+                    shutil.rmtree("artifacts")
+                    logging.info("🧹 Artefatos locais limpos com sucesso (armazenados no DagsHub).")
+            except Exception as e:
+                logging.warning(f"⚠️ Erro ao limpar artefatos locais: {e}")
 
     def generate_forecasts(self, df_historical: pd.DataFrame, weeks_to_forecast: int) -> pd.DataFrame:
         if not self.model: raise RuntimeError("O modelo não foi treinado.")

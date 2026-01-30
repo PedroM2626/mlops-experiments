@@ -32,8 +32,6 @@ def main(data_path: str, artifacts_path: str, n_trials: int):
             n_trials=n_trials
         )
         
-        forecaster.save_model(path=model_output_path)
-        
     except Exception as e:
         logging.error(f"O pipeline de treinamento falhou com o erro: {e}")
         raise e
