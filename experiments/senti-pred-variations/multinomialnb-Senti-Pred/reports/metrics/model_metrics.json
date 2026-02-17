@@ -1,0 +1,80 @@
+{
+  "best_model": "MultinomialNB",
+  "results": {
+    "MultinomialNB": {
+      "accuracy": 0.9209209209209209,
+      "f1_macro": 0.9206467389068443,
+      "classification_report": {
+        "Irrelevant": {
+          "precision": 0.9503105590062112,
+          "recall": 0.8895348837209303,
+          "f1-score": 0.918918918918919,
+          "support": 172.0
+        },
+        "Negative": {
+          "precision": 0.8861209964412812,
+          "recall": 0.939622641509434,
+          "f1-score": 0.9120879120879121,
+          "support": 265.0
+        },
+        "Neutral": {
+          "precision": 0.9584905660377359,
+          "recall": 0.8912280701754386,
+          "f1-score": 0.9236363636363636,
+          "support": 285.0
+        },
+        "Positive": {
+          "precision": 0.9041095890410958,
+          "recall": 0.9530685920577617,
+          "f1-score": 0.9279437609841827,
+          "support": 277.0
+        },
+        "accuracy": 0.9209209209209209,
+        "macro avg": {
+          "precision": 0.924757927631581,
+          "recall": 0.9183635468658911,
+          "f1-score": 0.9206467389068443,
+          "support": 999.0
+        },
+        "weighted avg": {
+          "precision": 0.9228064541452914,
+          "recall": 0.9209209209209209,
+          "f1-score": 0.9209550912776107,
+          "support": 999.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          153,
+          8,
+          2,
+          9
+        ],
+        [
+          0,
+          249,
+          6,
+          10
+        ],
+        [
+          6,
+          16,
+          254,
+          9
+        ],
+        [
+          2,
+          8,
+          3,
+          264
+        ]
+      ]
+    }
+  },
+  "model_classes": [
+    "Irrelevant",
+    "Negative",
+    "Neutral",
+    "Positive"
+  ]
+}

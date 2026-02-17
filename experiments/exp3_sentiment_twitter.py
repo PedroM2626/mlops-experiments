@@ -20,10 +20,10 @@ def run_experiment():
     mlflow.set_experiment("Twitter_Sentiment_Analysis")
     
     with mlflow.start_run():
-        print("🚀 Iniciando Experimento 3: Twitter Sentiment Analysis")
+        print("--- Iniciando Experimento 3: Twitter Sentiment Analysis ---")
         
         # Carregar dados (sem header originalmente)
-        data_path = r"c:\Users\pedro\Downloads\experiments\experiments\senti-pred\dataset\twitter_validation.csv"
+        data_path = r"c:\Users\pedro\Downloads\experiments\experiments\senti-pred\data\raw\twitter_validation.csv"
         df = pd.read_csv(data_path, header=None, names=['id', 'entity', 'sentiment', 'text'])
         
         # Amostra para teste rápido
@@ -64,7 +64,7 @@ def run_experiment():
         plt.savefig("sentiment_dist.png")
         mlflow.log_artifact("sentiment_dist.png")
         
-        print("✅ Experimento 3 concluído e logado no DagsHub!")
+        print("Experimento 3 concluido e logado no DagsHub!")
 
 if __name__ == "__main__":
     run_experiment()
