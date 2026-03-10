@@ -23,7 +23,7 @@ CV_FOLDS = 3
 np.random.seed(SEED)
 
 print("=" * 65)
-print("🏗️  ENSEMBLE PYRAMID — 4 Camadas de Ensembles sobre Ensembles")
+print("🏗️  ENSEMBLE PYRAMID — 6 Camadas de Ensembles sobre Ensembles")
 print("=" * 65)
 
 # ─── Funções de Limpeza ────────────────────────────────────────────────────────
