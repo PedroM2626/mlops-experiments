@@ -170,6 +170,7 @@ processed_train.csv
 clustering_results.csv
 
 # Modelos e Pesos (Bloqueio total de arquivos grandes)
+# EXCEPT for ibm-experiments folder (tracked with Git LFS)
 *.pkl
 *.joblib
 *.h5
@@ -178,6 +179,7 @@ clustering_results.csv
 *.pt
 *.pth
 *.ubj
+!experiments/ibm-experiments/**
 
 # MLflow
 mlruns/
