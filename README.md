@@ -6,12 +6,36 @@ Este repositório é dedicado a registrar a jornada de aprendizado, experimentos
 
 Realizei uma série de experimentos comparando modelos manuais e frameworks de AutoML em dois cenários distintos de pré-processamento para classificação de sentimentos em reviews de redes sociais.
 
+### 🏗️ Ensemble Pyramid — 6 Camadas de Ensembles sobre Ensembles
+
+O experimento mais recente implementa uma arquitetura piramidal com 6 camadas de ensembles, combinando técnicas de Bagging, Voting e Stacking de forma hierárquica:
+
+**Arquitetura:**
+- **Camada 1**: Base Learners (LR, LinearSVC, NB, CNB, Ridge, RF, ET)
+- **Camada 2**: Ensembles dos Base Learners (Bagging + Voting + Stacking)
+- **Camada 3**: Ensembles de Ensembles (Stacking + Bagging sobre Stacking + Voting)
+- **Camada 4**: Meta-Ensemble Final (Meta Voting Soft + Meta Stacking + Meta Voting Hard)
+- **Camada 5**: Meta-Ensemble Intermediário (Meta2 Voting Soft + Meta2 Stacking + Meta2 Voting Hard)
+- **Camada 6**: Meta-Ensemble Final Aprimorado (Final Stacking + Final Voting Soft + Final Voting Hard)
+
+**Principais Características:**
+- Mantém tudo em formato esparso para otimização de memória (TF-IDF 70k features ocupa ~15MB)
+- Classes leves (PreFittedSoftVoting, PreFittedHardVoting, MetaStackingLR) evitam re-treino desnecessário
+- Combina predições probabilísticas de múltiplos níveis hierárquicos
+- Atinge F1-score de ~0.98+ na validação com ganhos progressivos por camada
+
+**Tecnologias Utilizadas:**
+- Scikit-learn para todos os ensembles e modelos base
+- Otimização de hiperparâmetros para velocidade e performance
+- Processamento de texto com limpeza customizada (URLs, menções, hashtags, caracteres especiais)
+
 ### 🧠 Principais Aprendizados e Descobertas (NLP)
 
 #### 1. A "Relatividade" dos Modelos (No Free Lunch)
 A maior lição destes experimentos foi que **não existe um "modelo perfeito" universal**. A performance de um algoritmo é totalmente dependente do contexto dos dados e das decisões de pré-processamento.
 - O **LinearSVC** variou de **0.74** (F1-Macro) em um cenário para **0.94** em outro, simplesmente por ajustes no vocabulário e n-grams (mesmo com o mesmo dataset e pré-processamento).
 - Modelos simples como **KNN** superaram frameworks complexos de AutoML em casos específicos, provando que a complexidade nem sempre é sinônimo de superioridade.
+- O **Ensemble Pyramid** demonstrou que combinações hierárquicas inteligentes podem superar modelos individuais, atingindo F1-scores de **0.98+** através de meta-ensembles progressivos.
 
 #### 2. O Poder da Engenharia de Features (TF-IDF + N-grams)
 A diferença entre um modelo medíocre e um estado-da-arte muitas vezes reside na forma como o texto é transformado em números:
@@ -51,9 +75,10 @@ A "inteligência" do modelo de vendas veio da criação de features que capturam
 ### Projetos Analisados:
 1. **[senti-pred](experiments/senti-pred)**: Foco em AutoML e exploração de múltiplos frameworks.
 2. **[old_senti-pred_upgrade](experiments/old_senti-pred_upgrade)**: Foco em modelos manuais clássicos (LinearSVC, KNN, RF, MLP) e otimização de pipeline TF-IDF.
-3. **[sales forecast](experiments/sales%20forecast)**: Foco em Séries Temporais, LightGBM e Otimização Bayesiana.
-4. **[ibm-experiments](experiments/ibm-experiments)**: Notebooks exploratórios de Boston Housing e produções elétricas usando Snap ML da IBM.
-5. **[databricks forecast](experiments/databricks%20forecast)**: Script de download de artefatos para integração com Databricks.
+3. **[senti-pred-variations](experiments/senti-pred-variations)**: Variações do projeto Senti-Pred incluindo Logistic Regression, MultinomialNB, Random Forest, FLAML AutoML, e o Ensemble Pyramid de 6 camadas.
+4. **[sales forecast](experiments/sales%20forecast)**: Foco em Séries Temporais, LightGBM e Otimização Bayesiana.
+5. **[ibm-experiments](experiments/ibm-experiments)**: Notebooks exploratórios de Boston Housing e produções elétricas usando Snap ML da IBM.
+6. **[databricks forecast](experiments/databricks%20forecast)**: Script de download de artefatos para integração com Databricks.
 
 ### Experimentos Rápidos:
 - **[exp1_ag_news.py](experiments/exp1_ag_news.py)**: Classificação de notícias com DistilBERT.

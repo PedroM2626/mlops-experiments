@@ -1,37 +1,3 @@
-"""
-🏗️ Ensemble Pyramid — 4 Camadas de Ensembles sobre Ensembles
-Dataset: Twitter Entity Sentiment Analysis (processed_train / processed_validation)
-
-Arquitetura:
-┌──────────────────────────────────────────────────────────────────┐
-│  CAMADA 4 — META-ENSEMBLE FINAL                                  │
-│      C4A: Voting Soft  (C3A + C3B + C3C)                         │
-│      C4B: Stacking     (C3A + C3B + C3C → LR)                    │
-│      C4C: Voting Hard  (C3A + C3B + C3C + C2C)                   │
-├────────────────────┬────────────────────┬────────────────────────┤
-│  C3A               │  C3B               │  C3C                   │
-│  Stacking          │  Bagging           │  Voting Hard           │
-│  (C2A+C2B → LR)    │  (Stacking clone)  │  (C2D + C2E)           │
-├──────────┬─────────┼──────────┬─────────┼──────────┬─────────────┤
-│ C2A      │ C2B     │ C2C      │ C2D     │ C2E      │             │
-│ Bagging  │ Voting  │ Stacking │ Voting  │ Bagging  │             │
-│ (LR,SVC) │(NB,CNB) │ (RF,ET)  │(SVC,LR) │ (NB,CNB) │             │
-├──────────┴─────────┴──────────┴─────────┴──────────┴─────────────┤
-│  CAMADA 1 — BASE LEARNERS (todos sparse-compatíveis)             │
-│  LR | LinearSVC | MultinomialNB | ComplementNB | RF | ET | Ridge │
-└──────────────────────────────────────────────────────────────────┘
-
-⚠️  MEMÓRIA:
-    TF-IDF 70k features em SPARSE ocupa ~50MB.
-    .toarray() ocuparia ~39GB — inviável! Tudo mantido sparse.
-    LDA e KNN foram removidos: não aceitam matrizes esparsas.
-
-⚙️  LinearSVC — duas variantes:
-    make_svc_hard() → LinearSVC puro, idêntico ao notebook (para voting="hard")
-    make_svc_soft() → CalibratedClassifierCV (para voting="soft" e Stacking,
-                       pois precisam de predict_proba)
-"""
-
 import re
 import pandas as pd
 import numpy as np
@@ -154,6 +120,15 @@ class PreFittedHardVoting:
         self.estimators = estimators
     def fit(self, X, y):
         return self
+    def predict_proba(self, X):
+        P = np.column_stack([est.predict(X) for est in self.estimators])
+        n_classes = len(CLASSES)
+        n_estimators = P.shape[1]
+        out = np.zeros((P.shape[0], n_classes), dtype=float)
+        for i, row in enumerate(P):
+            vals, cnts = np.unique(row, return_counts=True)
+            out[i, vals] = cnts
+        return out / n_estimators
     def predict(self, X):
         P = np.column_stack([est.predict(X) for est in self.estimators])
         out = []
@@ -391,7 +366,39 @@ print("\n⏱️  Camada 4 concluída.")
 # RESULTADOS FINAIS
 # ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "═" * 65)
-print("📊 COMPARAÇÃO COMPLETA — Todas as Camadas")
+print("� CAMADA 5 — Meta-Ensemble Intermediário")
+print("═" * 65)
+
+print("\n  [C5A] Meta2 Voting Soft (C4A + C4B + C4C)")
+c5a = PreFittedSoftVoting([c4a, c4b, c4c]).fit(X_train, y_train)
+evaluate("C5A: Meta2 Voting Soft(C4A+C4B+C4C)", c5a, X_val, y_val, layer=5)
+
+print("\n  [C5B] Meta2 Stacking (C4A + C4B + C4C → LR)")
+c5b = MetaStackingLR([c4a, c4b, c4c], C=0.4).fit(X_train, y_train)
+evaluate("C5B: Meta2 Stacking(->LR)", c5b, X_val, y_val, layer=5)
+
+print("\n  [C5C] Meta2 Voting Hard (C4A + C4B + C4C)")
+c5c = PreFittedHardVoting([c4a, c4b, c4c]).fit(X_train, y_train)
+evaluate("C5C: Meta2 Voting Hard(C4s)", c5c, X_val, y_val, layer=5)
+
+print("\n" + "═" * 65)
+print("💎 CAMADA 6 — Meta-Ensemble Final Aprimorado")
+print("═" * 65)
+
+print("\n  [C6A] Final Stacking (C5A + C5B + C5C → LR)")
+c6a = MetaStackingLR([c5a, c5b, c5c], C=0.3).fit(X_train, y_train)
+evaluate("C6A: Final Stacking(->LR)", c6a, X_val, y_val, layer=6)
+
+print("\n  [C6B] Final Voting Soft (C5A + C5B + C5C)")
+c6b = PreFittedSoftVoting([c5a, c5b, c5c]).fit(X_train, y_train)
+evaluate("C6B: Final Voting Soft(C5s)", c6b, X_val, y_val, layer=6)
+
+print("\n  [C6C] Final Voting Hard (C5A + C5B + C5C + C4B)")
+c6c = PreFittedHardVoting([c5a, c5b, c5c, c4b]).fit(X_train, y_train)
+evaluate("C6C: Final Voting Hard(C5s+C4B)", c6c, X_val, y_val, layer=6)
+
+print("\n" + "═" * 65)
+print("�📊 COMPARAÇÃO COMPLETA — Todas as Camadas")
 print("═" * 65)
 
 df_results = pd.DataFrame(results).sort_values(["layer", "f1"], ascending=[True, False])
@@ -399,10 +406,12 @@ layer_names = {
     1: "Base Learners",
     2: "Ensembles L1",
     3: "Ensembles de Ensembles",
-    4: "Meta-Ensemble Final"
+    4: "Meta-Ensemble Final",
+    5: "Meta-Ensemble Intermediário",
+    6: "Meta-Ensemble Final Aprimorado",
 }
 
-for layer in [1, 2, 3, 4]:
+for layer in [1, 2, 3, 4, 5, 6]:
     print(f"\n── Camada {layer}: {layer_names[layer]} ──")
     subset = df_results[df_results["layer"] == layer]
     for _, row in subset.iterrows():
@@ -418,6 +427,12 @@ model_map = {
     "C4A: Meta Voting Soft(C3A+C3B+C3C)"     : c4a,
     "C4B: Meta Stacking(->LR)"               : c4b,
     "C4C: Meta Voting Hard(C3s+C2C)"         : c4c,
+    "C5A: Meta2 Voting Soft(C4A+C4B+C4C)"    : c5a,
+    "C5B: Meta2 Stacking(->LR)"              : c5b,
+    "C5C: Meta2 Voting Hard(C4s)"            : c5c,
+    "C6A: Final Stacking(->LR)"              : c6a,
+    "C6B: Final Voting Soft(C5s)"            : c6b,
+    "C6C: Final Voting Hard(C5s+C4B)"        : c6c,
     "C3A: Stacking(C2A+C2B->LR)"         : c3a,
     "C3B: Bagging(Stacking)"              : c3b,
     "C3C: Voting Soft(C2B+C2E)"           : c3c,
@@ -439,8 +454,8 @@ print("═" * 65)
 print("🔬 ANÁLISE DA PIRÂMIDE — Ganho por Camada")
 print("═" * 65)
 
-layer_bests = [df_results[df_results["layer"] == l]["f1"].max() for l in [1, 2, 3, 4]]
-layer_means = [df_results[df_results["layer"] == l]["f1"].mean() for l in [1, 2, 3, 4]]
+layer_bests = [df_results[df_results["layer"] == l]["f1"].max() for l in [1, 2, 3, 4, 5, 6]]
+layer_means = [df_results[df_results["layer"] == l]["f1"].mean() for l in [1, 2, 3, 4, 5, 6]]
 
 for i, (lb, lm) in enumerate(zip(layer_bests, layer_means), start=1):
     print(f"  Camada {i} → Melhor F1: {lb:.4f} | Média F1: {lm:.4f}")
@@ -448,7 +463,9 @@ for i, (lb, lm) in enumerate(zip(layer_bests, layer_means), start=1):
 print(f"\n  Ganho C1→C2 : {(layer_bests[1]-layer_bests[0])*100:+.2f}pp")
 print(f"  Ganho C2→C3 : {(layer_bests[2]-layer_bests[1])*100:+.2f}pp")
 print(f"  Ganho C3→C4 : {(layer_bests[3]-layer_bests[2])*100:+.2f}pp")
-print(f"  Ganho Total : {(layer_bests[3]-layer_bests[0])*100:+.2f}pp")
+print(f"  Ganho C4→C5 : {(layer_bests[4]-layer_bests[3])*100:+.2f}pp")
+print(f"  Ganho C5→C6 : {(layer_bests[5]-layer_bests[4])*100:+.2f}pp")
+print(f"  Ganho Total : {(layer_bests[5]-layer_bests[0])*100:+.2f}pp")
 
 # ─── Salvar ───────────────────────────────────────────────────────────────────
 df_results.to_csv("ensemble_pyramid_results.csv", index=False)
