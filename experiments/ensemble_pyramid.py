@@ -32,6 +32,7 @@ Arquitetura:
                        pois precisam de predict_proba)
 """
 
+import re
 import pandas as pd
 import numpy as np
 import time
@@ -51,7 +52,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 import joblib
 
-SEED     = 42
+SEED     = 2007
 CV_FOLDS = 3
 np.random.seed(SEED)
 
@@ -59,12 +60,42 @@ print("=" * 65)
 print("🏗️  ENSEMBLE PYRAMID — 4 Camadas de Ensembles sobre Ensembles")
 print("=" * 65)
 
+# ─── Funções de Limpeza ────────────────────────────────────────────────────────
+def clean_tweet(text: str) -> str:
+    """Limpeza básica de tweet para análise de sentimento."""
+    if not isinstance(text, str):
+        return ''
+    text = text.lower()
+    text = re.sub(r'http\S+|www\S+', '', text)          # URLs
+    text = re.sub(r'@\w+', '', text)                     # Menções
+    text = re.sub(r'#(\w+)', r'\1', text)               # Hashtags → palavra
+    text = re.sub(r'[^a-z0-9\s!?.,\'\-]', '', text)    # Caracteres especiais
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
 # ─── 1. Dados ──────────────────────────────────────────────────────────────────
 print("\n📂 Carregando dados...")
-train_df = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/processed/processed_train.csv")
-val_df   = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/processed/processed_validation.csv")
+cols = ['tweet_id', 'entity', 'sentiment', 'text']
+train_df = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/raw/twitter_training.csv", names=cols, header=None)
+val_df   = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/raw/twitter_validation.csv", names=cols, header=None)
 
-TEXT_COL   = "text_clean"
+# Aplica limpeza
+for df in (train_df, val_df):
+    df['clean_text'] = df['text'].apply(clean_tweet)
+
+# Remove registros sem texto e sem sentimento válido
+valid_sentiments = ['Positive', 'Negative', 'Neutral', 'Irrelevant']
+train_df = train_df[
+    (train_df['clean_text'].str.len() > 0) &
+    (train_df['sentiment'].isin(valid_sentiments))
+].copy()
+
+val_df = val_df[
+    (val_df['clean_text'].str.len() > 0) &
+    (val_df['sentiment'].isin(valid_sentiments))
+].copy()
+
+TEXT_COL   = "clean_text"
 TARGET_COL = "sentiment"
 
 le = LabelEncoder()
@@ -76,6 +107,9 @@ CLASSES = list(le.classes_)
 print(f"Treino    : {train_df.shape[0]:,} amostras")
 print(f"Validação : {val_df.shape[0]:,} amostras")
 print(f"Classes   : {CLASSES}")
+print(f"Treino após limpeza : {train_df.shape}")
+print(f"Validação após limpeza: {val_df.shape}")
+print(train_df[['text', 'clean_text', 'sentiment']].head(3))
 
 # ─── 2. TF-IDF — mantém SPARSE ────────────────────────────────────────────────
 print("\n🔤 Gerando features TF-IDF (sparse)...")
@@ -104,6 +138,47 @@ def evaluate(name, model, X, y, layer):
     print(f"    ✔ F1={f1:.4f}  Acc={acc:.4f}  {bar}")
     results.append({"layer": layer, "name": name, "acc": acc, "f1": f1})
 
+class PreFittedSoftVoting:
+    def __init__(self, estimators):
+        self.estimators = estimators
+    def fit(self, X, y):
+        return self
+    def predict_proba(self, X):
+        probs = [est.predict_proba(X) for est in self.estimators]
+        return np.mean(probs, axis=0)
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+class PreFittedHardVoting:
+    def __init__(self, estimators):
+        self.estimators = estimators
+    def fit(self, X, y):
+        return self
+    def predict(self, X):
+        P = np.column_stack([est.predict(X) for est in self.estimators])
+        out = []
+        for row in P:
+            vals, cnts = np.unique(row, return_counts=True)
+            out.append(vals[np.argmax(cnts)])
+        return np.array(out)
+
+class MetaStackingLR:
+    def __init__(self, estimators, C=0.5):
+        self.estimators = estimators
+        self.model = LogisticRegression(C=C, max_iter=1000, random_state=SEED, solver="lbfgs", n_jobs=-1)
+    def _Z(self, X):
+        return np.hstack([est.predict_proba(X) for est in self.estimators])
+    def fit(self, X, y):
+        Z = self._Z(X)
+        self.model.fit(Z, y)
+        return self
+    def predict_proba(self, X):
+        Z = self._Z(X)
+        return self.model.predict_proba(Z)
+    def predict(self, X):
+        Z = self._Z(X)
+        return self.model.predict(Z)
+
 # ─── Fábricas ─────────────────────────────────────────────────────────────────
 def make_lr(C=11.0):
     return LogisticRegression(C=C, max_iter=1000, solver="lbfgs",
@@ -119,14 +194,14 @@ def make_svc_hard():
 def make_svc_soft():
     return CalibratedClassifierCV(
         LinearSVC(C=19.0, max_iter=1000, random_state=SEED),
-        cv=3, method="sigmoid"
+        cv=2, method="sigmoid"
     )
 
 def make_ridge_hard():
     return RidgeClassifier()
 
 def make_ridge_soft():
-    return CalibratedClassifierCV(RidgeClassifier(alpha=1.0), cv=3, method="sigmoid")
+    return CalibratedClassifierCV(RidgeClassifier(alpha=1.0), cv=2, method="sigmoid")
 
 def make_nb():
     return MultinomialNB(alpha=0.1)
@@ -179,10 +254,11 @@ print("═" * 65)
 
 # C2A — Bagging(LR) + Bagging(SVC_soft) → Voting Soft
 # Bagging precisa de predict_proba para voting soft → make_svc_soft()
+# Reduzido para 5 estimators para acelerar
 print("\n  [C2A] Bagging(LR) + Bagging(SVC) → Voting Soft")
-c2a_bag_lr  = BaggingClassifier(estimator=make_lr(),       n_estimators=10,
+c2a_bag_lr  = BaggingClassifier(estimator=make_lr(),       n_estimators=5,
                                   max_samples=0.8, random_state=SEED,   n_jobs=-1)
-c2a_bag_svc = BaggingClassifier(estimator=make_svc_soft(), n_estimators=10,
+c2a_bag_svc = BaggingClassifier(estimator=make_svc_soft(), n_estimators=5,
                                   max_samples=0.8, random_state=SEED+1, n_jobs=-1)
 c2a_bag_lr.fit(X_train, y_train)
 c2a_bag_svc.fit(X_train, y_train)
@@ -205,9 +281,10 @@ evaluate("C2B: Voting Soft(NB+CNB+Ridge)", c2b, X_val, y_val, layer=2)
 
 # C2C — Stacking (RF + ET → LR meta)
 # Stacking usa predict_proba internamente → RF e ET já têm nativamente
+# Reduzido para 50 estimators para acelerar
 print("\n  [C2C] Stacking (RF + ET → LR meta)")
 c2c = StackingClassifier(
-    estimators=[("rf", make_rf(80)), ("et", make_et(80))],
+    estimators=[("rf", make_rf(30)), ("et", make_et(30))],
     final_estimator=make_lr(),
     cv=CV_FOLDS, passthrough=False, n_jobs=-1
 )
@@ -226,10 +303,11 @@ evaluate("C2D: Voting Hard(SVC+LR+Ridge)", c2d, X_val, y_val, layer=2)
 
 # C2E — Bagging(NB) + Bagging(CNB) → Voting Soft
 # NB e CNB já têm predict_proba nativamente
+# Reduzido para 8 estimators para acelerar
 print("\n  [C2E] Bagging(NB) + Bagging(CNB) → Voting Soft")
-c2e_bag_nb  = BaggingClassifier(estimator=make_nb(),  n_estimators=15,
+c2e_bag_nb  = BaggingClassifier(estimator=make_nb(),  n_estimators=6,
                                   max_samples=0.8, random_state=SEED,   n_jobs=-1)
-c2e_bag_cnb = BaggingClassifier(estimator=make_cnb(), n_estimators=15,
+c2e_bag_cnb = BaggingClassifier(estimator=make_cnb(), n_estimators=6,
                                   max_samples=0.8, random_state=SEED+2, n_jobs=-1)
 c2e_bag_nb.fit(X_train, y_train)
 c2e_bag_cnb.fit(X_train, y_train)
@@ -262,14 +340,15 @@ evaluate("C3A: Stacking(C2A+C2B->LR)", c3a, X_val, y_val, layer=3)
 
 # C3B — Bagging sobre Stacking clonável (RF+ET→LR)
 # RF e ET têm predict_proba → ok para Stacking interno
+# Reduzido para 30 estimators e 3 bags para acelerar
 print("\n  [C3B] Bagging sobre Stacking (RF+ET→LR)")
 c3b = BaggingClassifier(
     estimator=StackingClassifier(
-        estimators=[("rf", make_rf(60)), ("et", make_et(60))],
+        estimators=[("rf", make_rf(20)), ("et", make_et(20))],
         final_estimator=make_lr(),
         cv=CV_FOLDS, n_jobs=-1
     ),
-    n_estimators=4,
+    n_estimators=2,
     max_samples=0.8,
     random_state=SEED,
     n_jobs=-1,
@@ -277,15 +356,13 @@ c3b = BaggingClassifier(
 c3b.fit(X_train, y_train)
 evaluate("C3B: Bagging(Stacking)", c3b, X_val, y_val, layer=3)
 
-# C3C — Voting Hard (C2D + C2E)
-# C2D é hard, C2E é soft — ambos têm predict() → voting hard funciona
-print("\n  [C3C] Voting Hard (C2D + C2E)")
+print("\n  [C3C] Voting Soft (C2B + C2E)")
 c3c = VotingClassifier(
-    estimators=[("c2d", c2d), ("c2e", c2e)],
-    voting="hard", n_jobs=-1
+    estimators=[("c2b", c2b), ("c2e", c2e)],
+    voting="soft", n_jobs=-1
 )
 c3c.fit(X_train, y_train)
-evaluate("C3C: Voting Hard(C2D+C2E)", c3c, X_val, y_val, layer=3)
+evaluate("C3C: Voting Soft(C2B+C2E)", c3c, X_val, y_val, layer=3)
 
 print("\n⏱️  Camada 3 concluída.")
 
@@ -296,34 +373,17 @@ print("\n" + "═" * 65)
 print("🏆 CAMADA 4 — Meta-Ensemble Final")
 print("═" * 65)
 
-# C4A — Voting Soft (C3A + C3B + C3C)
-# C3A=Stacking(predict_proba✔), C3B=Bagging(predict_proba✔), C3C=VotingHard(predict_proba✔)
-print("\n  [C4A] Voting Soft (C3A + C3B + C3C)")
-c4a = VotingClassifier(
-    estimators=[("c3a", c3a), ("c3b", c3b), ("c3c", c3c)],
-    voting="soft", n_jobs=-1
-)
-c4a.fit(X_train, y_train)
-evaluate("C4A: Voting Soft(C3A+C3B+C3C)", c4a, X_val, y_val, layer=4)
+print("\n  [C4A] Meta Voting Soft (C3A + C3B + C3C)")
+c4a = PreFittedSoftVoting([c3a, c3b, c3c]).fit(X_train, y_train)
+evaluate("C4A: Meta Voting Soft(C3A+C3B+C3C)", c4a, X_val, y_val, layer=4)
 
-# C4B — Stacking Final (C3A + C3B + C3C → LR)
-print("\n  [C4B] Stacking Final (C3A + C3B + C3C → LR)")
-c4b = StackingClassifier(
-    estimators=[("c3a", c3a), ("c3b", c3b), ("c3c", c3c)],
-    final_estimator=LogisticRegression(C=0.5, max_iter=1000, random_state=SEED),
-    cv=CV_FOLDS, passthrough=False, n_jobs=-1
-)
-c4b.fit(X_train, y_train)
-evaluate("C4B: Stacking Final(->LR)", c4b, X_val, y_val, layer=4)
+print("\n  [C4B] Meta Stacking (C3A + C3B + C3C → LR)")
+c4b = MetaStackingLR([c3a, c3b, c3c], C=0.5).fit(X_train, y_train)
+evaluate("C4B: Meta Stacking(->LR)", c4b, X_val, y_val, layer=4)
 
-# C4C — Voting Hard (C3A + C3B + C3C + C2C)
-print("\n  [C4C] Voting Hard (C3A + C3B + C3C + C2C)")
-c4c = VotingClassifier(
-    estimators=[("c3a", c3a), ("c3b", c3b), ("c3c", c3c), ("c2c", c2c)],
-    voting="hard", n_jobs=-1
-)
-c4c.fit(X_train, y_train)
-evaluate("C4C: Voting Hard(C3s+C2C)", c4c, X_val, y_val, layer=4)
+print("\n  [C4C] Meta Voting Hard (C3A + C3B + C3C + C2C)")
+c4c = PreFittedHardVoting([c3a, c3b, c3c, c2c]).fit(X_train, y_train)
+evaluate("C4C: Meta Voting Hard(C3s+C2C)", c4c, X_val, y_val, layer=4)
 
 print("\n⏱️  Camada 4 concluída.")
 
@@ -355,12 +415,12 @@ print(f"   Camada {int(best['layer'])} | Acc={best['acc']:.4f} | F1={best['f1']:
 
 # ─── Classification report do melhor ──────────────────────────────────────────
 model_map = {
-    "C4A: Voting Soft(C3A+C3B+C3C)"     : c4a,
-    "C4B: Stacking Final(->LR)"          : c4b,
-    "C4C: Voting Hard(C3s+C2C)"          : c4c,
+    "C4A: Meta Voting Soft(C3A+C3B+C3C)"     : c4a,
+    "C4B: Meta Stacking(->LR)"               : c4b,
+    "C4C: Meta Voting Hard(C3s+C2C)"         : c4c,
     "C3A: Stacking(C2A+C2B->LR)"         : c3a,
     "C3B: Bagging(Stacking)"              : c3b,
-    "C3C: Voting Hard(C2D+C2E)"           : c3c,
+    "C3C: Voting Soft(C2B+C2E)"           : c3c,
     "C2A: Bagging(LR+SVC)->Voting Soft"   : c2a,
     "C2B: Voting Soft(NB+CNB+Ridge)"      : c2b,
     "C2C: Stacking(RF+ET->LR)"            : c2c,
