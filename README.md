@@ -24,6 +24,24 @@ O experimento mais recente implementa uma arquitetura piramidal com 6 camadas de
 - Combina predições probabilísticas de múltiplos níveis hierárquicos
 - Atinge F1-score de ~0.98+ na validação com ganhos progressivos por camada
 
+### 🚀 Flexible Ensemble Pyramid (Novo)
+
+Implementação dinâmica e parametrizada da arquitetura de ensemble stacking, com foco em MLOps e reprodutibilidade:
+
+**Características Principais:**
+- **Parametrização**: Controle total sobre o número de camadas (`num_layers`), seed e folds de CV.
+- **Arquitetura Dinâmica**: Gera camadas de stacking e voting recursivamente.
+- **Integração MLOps**: Registro automático de experimentos no **MLflow** e **Dagshub** (parâmetros, métricas, artefatos, gráficos).
+- **Reprodutibilidade**: Inclui `Dockerfile` e `requirements.txt` específicos.
+- **Persistência**: Salva automaticamente o melhor modelo, vetorizador e label encoder.
+
+**Como rodar:**
+```bash
+python experiments/flexible_ensemble_pyramid.py
+```
+*(Certifique-se de configurar as variáveis de ambiente no `.env` para o Dagshub/MLflow).*
+
+
 **Tecnologias Utilizadas:**
 - Scikit-learn para todos os ensembles e modelos base
 - Otimização de hiperparâmetros para velocidade e performance
