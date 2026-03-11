@@ -32,10 +32,17 @@ warnings.filterwarnings("ignore")
 # ─── Configuration ─────────────────────────────────────────────────────────────
 load_dotenv()
 
+# Parameters (Default values, can be overridden)
 SEED = 2007
-NUM_LAYERS = 12
+NUM_LAYERS = 12  
 CV_FOLDS = 3
 EXP_NAME = "Ensemble_Pyramid_Flexible"
+
+# Dynamic Variation Parameters
+MIN_MODELS_PER_LAYER = 2
+MAX_MODELS_PER_LAYER = 6 # Max models to pick per layer
+EPSILON_RL = 0.2         # RL exploration rate
+
 
 # ─── Setup Setup Tracking ─────────────────────────────────────────────────────
 def setup_tracking():
@@ -132,23 +139,37 @@ class RLMetaLearner:
         with open(self.path, 'w') as f:
             json.dump(self.knowledge, f, indent=4)
 
-    def suggest_models(self, layer_idx, available_models):
+    def suggest_models(self, layer_idx, available_models, min_p=MIN_MODELS_PER_LAYER, max_p=MAX_MODELS_PER_LAYER):
+        """Suggests a variable number of models using an epsilon-greedy strategy."""
         l_str = str(layer_idx)
+        
+        # Determine how many models to pick (this can vary run by run)
+        n_to_pick = np.random.randint(min_p, min(max_p, len(available_models)) + 1)
+        
         # Explore: Epsilon-greedy random selection
         if np.random.random() < self.epsilon or l_str not in self.knowledge["layer_stats"]:
-            n_to_pick = np.random.randint(min(2, len(available_models)), len(available_models) + 1)
             choices = np.random.choice(available_models, n_to_pick, replace=False)
-            return [str(m) for m in choices] # Cast to python string
+            return [str(m) for m in choices] 
         
         stats = self.knowledge["layer_stats"][l_str]
-        # Avoid picking the same models every single time if scores are identical
+        # Exploit: Pick top-N performers with a bit of noise (Thompson Sampling-lite)
         sorted_models = sorted(
             [m for m in available_models if m in stats],
-            key=lambda x: (stats[x]["avg_f1"], np.random.random()), 
+            key=lambda x: (stats[x]["avg_f1"] + np.random.normal(0, 0.01)), 
             reverse=True
         )
-        final_list = [str(m) for m in sorted_models[:max(2, len(sorted_models)//2 + 1)]]
-        return final_list if len(final_list) >= 2 else [str(m) for m in available_models[:2]]
+        
+        # Take the top N, but ensure we return exactly n_to_pick if possible
+        final_list = [str(m) for m in sorted_models[:n_to_pick]]
+        
+        # Fallback if too few models were known
+        if len(final_list) < n_to_pick:
+            remaining = [m for m in available_models if m not in final_list]
+            extra = np.random.choice(remaining, n_to_pick - len(final_list), replace=False)
+            final_list.extend([str(m) for m in extra])
+            
+        return final_list
+
 
 
     def update_knowledge(self, results):
@@ -210,8 +231,15 @@ class PyramidEnsemble:
             
             avail_b = ["lr", "svc", "nb", "ridge", "rf", "et"]
             avail_m = ["lr", "ridge", "rf"]
-            models_to_run = self.meta_learner.suggest_models(l, avail_b if l==1 else avail_m) if self.meta_learner else (avail_b if l==1 else avail_m)
-            print(f"  [RL] Models: {models_to_run}", flush=True)
+            
+            # The heart of variability: RL Meta-Learner decides WHAT and HOW MANY
+            models_to_run = self.meta_learner.suggest_models(
+                l, 
+                avail_b if l==1 else avail_m
+            ) if self.meta_learner else (avail_b if l==1 else avail_m)
+            
+            print(f"  [RL] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
+
 
             layer_models, layer_oof, layer_val = [], [], []
             for m_type in models_to_run:
@@ -285,9 +313,32 @@ class PyramidEnsemble:
 
 # ─── Execution ───────────────────────────────────────────────────────────────
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Highly Customizable Flexible Ensemble Pyramid with RL")
+    parser.add_argument("--layers", type=int, default=NUM_LAYERS)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--min_models", type=int, default=MIN_MODELS_PER_LAYER)
+    parser.add_argument("--max_models", type=int, default=MAX_MODELS_PER_LAYER)
+    parser.add_argument("--epsilon", type=float, default=EPSILON_RL)
+    args = parser.parse_args()
+
     setup_tracking()
-    with mlflow.start_run(run_name=f"Pyramid_RL_L{NUM_LAYERS}"):
-        mlflow.log_params({"num_layers": NUM_LAYERS, "seed": SEED})
+    
+    current_layers = args.layers
+    current_seed = args.seed
+
+    print(f"\n[CONFIG] Layers: {current_layers} | Seed: {current_seed} | RL Epsilon: {args.epsilon}", flush=True)
+    print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer\n", flush=True)
+
+    with mlflow.start_run(run_name=f"Pyramid_RL_L{current_layers}_Var"):
+        mlflow.log_params({
+            "num_layers": current_layers, 
+            "seed": current_seed,
+            "epsilon": args.epsilon,
+            "min_models": args.min_models,
+            "max_models": args.max_models
+        })
+
         
         train_df, val_df = load_data()
         le = LabelEncoder()
@@ -298,9 +349,10 @@ def main():
         X_train = tfidf.fit_transform(train_df['clean_text'].fillna(""))
         X_val = tfidf.transform(val_df['clean_text'].fillna(""))
         
-        rl_learner = RLMetaLearner()
-        pyramid = PyramidEnsemble(num_layers=NUM_LAYERS, seed=SEED, meta_learner=rl_learner)
+        rl_learner = RLMetaLearner(epsilon=args.epsilon)
+        pyramid = PyramidEnsemble(num_layers=current_layers, seed=current_seed, meta_learner=rl_learner)
         pyramid.train(X_train, y_train, X_val, y_val)
+
         
         # Artifacts
         pd.DataFrame(pyramid.results).to_csv("pyramid_results.csv", index=False)
