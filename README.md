@@ -24,22 +24,31 @@ O experimento mais recente implementa uma arquitetura piramidal com 6 camadas de
 - Combina predições probabilísticas de múltiplos níveis hierárquicos
 - Atinge F1-score de ~0.98+ na validação com ganhos progressivos por camada
 
-### 🚀 Flexible Ensemble Pyramid (Novo)
+### 🚀 Versatile Ensemble Pyramid (Script AutoML Altamente Personalizável)
 
-Implementação dinâmica e parametrizada da arquitetura de ensemble stacking, com foco em MLOps e reprodutibilidade:
+Este não é um script estático, mas um motor de AutoML flexível que utiliza Reinforcement Learning para otimizar sua própria arquitetura a cada execução.
 
-**Características Principais:**
-- **Parametrização**: Controle total sobre o número de camadas (`num_layers`), seed e folds de CV.
-- **Arquitetura Dinâmica**: Gera camadas de stacking e voting recursivamente.
-- **Integração MLOps**: Registro automático de experimentos no **MLflow** e **Dagshub** (parâmetros, métricas, artefatos, gráficos).
-- **Reprodutibilidade**: Inclui `Dockerfile` e `requirements.txt` específicos.
-- **Persistência**: Salva automaticamente o melhor modelo, vetorizador e label encoder.
+**Variabilidade Dinâmica:**
+- **Quantidade de Modelos Variável**: O número de modelos por camada não é fixo. O RL Meta-Learner decide quantos e quais modelos usar (ex: Camada 1 pode ter 3 modelos, Camada 2 apenas 2), maximizando a diversidade e eficiência.
+- **Estratégia de Seleção Estocástica**: Utiliza uma variação de *Thompson Sampling* para escolher modelos. O agente mantém um ranking de performance mas introduz ruído planejado para testar potencias sinergias novas entre as meta-features.
 
-**Como rodar:**
+**Parâmetros de Customização (CLI):**
+Você pode ajustar o comportamento do script diretamente via linha de comando sem alterar o código:
+- `--layers`: Define a profundidade total da pirâmide (ex: `--layers 15`).
+- `--min_models` & `--max_models`: Controla a largura e diversidade de cada camada (ex: `--min_models 3 --max_models 6`).
+- `--epsilon`: Controla o nível de exploração do RL (0.1 = focado, 0.5 = muito explorador).
+- `--seed`: Garante reprodutibilidade mesmo com variabilidade dinâmica.
+
+**Como rodar com customização:**
 ```bash
-python experiments/flexible_ensemble_pyramid.py
+python experiments/flexible_ensemble_pyramid.py --layers 12 --min_models 2 --max_models 5 --epsilon 0.2
 ```
-*(Certifique-se de configurar as variáveis de ambiente no `.env` para o Dagshub/MLflow).*
+*(As configurações são automaticamente registradas no MLflow para comparação entre diferentes estratégias de evolução).*
+
+**Características de Engenharia:**
+- **Skip Connections (Conexões de Salto)**: Implementação de concatenação global de predições. Cada camada recebe o input original + as predições de **todas** as camadas anteriores.
+- **Integração com RL**: Analisa o sucesso de cada conjunto de modelos após o treino e persiste o aprendizado em `pyramid_rl_knowledge.json`.
+- **Registro MLOps**: Tudo (parâmetros da CLI, métricas, modelos e base de conhecimento RL) vai direto para o **MLflow/Dagshub**.
 
 
 **Tecnologias Utilizadas:**
