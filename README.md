@@ -36,19 +36,32 @@ Este não é um script estático, mas um motor de AutoML flexível que utiliza R
 Você pode ajustar o comportamento do script diretamente via linha de comando sem alterar o código:
 - `--layers`: Define a profundidade total da pirâmide (ex: `--layers 15`).
 - `--min_models` & `--max_models`: Controla a largura e diversidade de cada camada (ex: `--min_models 3 --max_models 6`).
-- `--epsilon`: Controla o nível de exploração do RL (0.1 = focado, 0.5 = muito explorador).
-- `--seed`: Garante reprodutibilidade mesmo com variabilidade dinâmica.
+- `--epsilon`: Controle de exploração do RL (0.1 = focado, 0.5 = muito explorador).
+- `--metric`: Métrica de otimização para o agente de RL (`f1` ou `accuracy`).
+- `--strategy`: Estratégia de conexão entre camadas (`dense`, `residual`, `simple`).
+- `--jitter`: Ativa a variação aleatória de hiperparâmetros (True/False).
+- `--patience`: Camadas sem melhora antes do **Early Stopping**.
+- `--seed`: Garante **reprodutibilidade 100%** através de seeding global.
+- `--tfidf_max` & `--tfidf_ngrams`: Customização da extração de features inicial.
 
-**Como rodar com customização:**
+
+
+**Como rodar com customização extrema:**
 ```bash
-python experiments/flexible_ensemble_pyramid.py --layers 12 --min_models 2 --max_models 5 --epsilon 0.2
+python experiments/flexible_ensemble_pyramid.py --layers 15 --min_models 3 --max_models 6 --strategy dense --jitter True --metric f1 --tfidf_max 75000
 ```
+
 *(As configurações são automaticamente registradas no MLflow para comparação entre diferentes estratégias de evolução).*
 
 **Características de Engenharia:**
-- **Skip Connections (Conexões de Salto)**: Implementação de concatenação global de predições. Cada camada recebe o input original + as predições de **todas** as camadas anteriores.
-- **Integração com RL**: Analisa o sucesso de cada conjunto de modelos após o treino e persiste o aprendizado em `pyramid_rl_knowledge.json`.
-- **Registro MLOps**: Tudo (parâmetros da CLI, métricas, modelos e base de conhecimento RL) vai direto para o **MLflow/Dagshub**.
+- **Jitter de Hiperparâmetros**: Mutações aleatórias nos parâmetros dos modelos (C, alpha, n_estimators) para descobrir configurações ótimas além do padrão.
+- **Skip Connections Dinâmicas**: Suporte a arquiteturas **Densas** (todas as camadas anteriores), **Residuais** (apenas a anterior + input original) ou **Simples**.
+- **Auto-Voting por Camada**: Cria automaticamente um Voting Ensemble (Soft ou Hard) ao final de cada nível da pirâmide, consolidando o conhecimento local.
+- **Bagging Adaptativo**: Pool de modelos agora inclui variantes de Bagging para aumentar a robustez contra overfitting.
+- **Predição Recursiva (Full Inference)**: Reconstroi automaticamente toda a cadeia de transformações para predição em qualquer profundidade da pirâmide.
+- **Registro MLOps Studio**: Registro completo de parâmetros, métricas, modelos (`.pkl`), matrizes de confusão e base de conhecimento RL no **MLflow/Dagshub**.
+
+
 
 
 **Tecnologias Utilizadas:**

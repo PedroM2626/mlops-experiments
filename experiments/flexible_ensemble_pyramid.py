@@ -22,12 +22,24 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, BaggingClassifier, VotingClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import cross_val_predict
 
 
+
+import random
+
 warnings.filterwarnings("ignore")
+
+def set_seed(seed):
+     """Ensures 100% reproducibility across runs."""
+     random.seed(seed)
+     np.random.seed(seed)
+     os.environ['PYTHONHASHSEED'] = str(seed)
+     # Note: Sklearn models use np.random but some underlying libs might need more
+
+
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
 load_dotenv()
@@ -37,11 +49,19 @@ SEED = 2007
 NUM_LAYERS = 12  
 CV_FOLDS = 3
 EXP_NAME = "Ensemble_Pyramid_Flexible"
+PATIENCE = 3  # Layers without improvement before stopping
+
 
 # Dynamic Variation Parameters
 MIN_MODELS_PER_LAYER = 2
 MAX_MODELS_PER_LAYER = 6 # Max models to pick per layer
 EPSILON_RL = 0.2         # RL exploration rate
+OPTIM_METRIC = "f1"      # Metric to optimize: f1, accuracy
+TFIDF_MAX = 50000
+TFIDF_NGRAMS = (1, 2)
+JITTER = True            # Random hyperparameter variation
+STRATEGY = "dense"       # "dense", "residual", "simple"
+
 
 
 # ─── Setup Setup Tracking ─────────────────────────────────────────────────────
@@ -100,20 +120,36 @@ def load_data():
     return train_df, val_df
 
 # ─── Model Factories ─────────────────────────────────────────────────────────
-def get_model(model_type, seed=SEED):
-    if model_type == "lr":
-        return LogisticRegression(C=11.0, max_iter=1000, random_state=seed, n_jobs=2)
-    elif model_type == "svc":
-        return CalibratedClassifierCV(LinearSVC(C=19.0, random_state=seed), cv=2)
-    elif model_type == "nb":
-        return MultinomialNB(alpha=0.1)
-    elif model_type == "rf":
-        return RandomForestClassifier(n_estimators=100, random_state=seed, n_jobs=2)
-    elif model_type == "et":
-        return ExtraTreesClassifier(n_estimators=100, random_state=seed, n_jobs=2)
-    elif model_type == "ridge":
-        return CalibratedClassifierCV(RidgeClassifier(alpha=1.0), cv=2)
-    return LogisticRegression(random_state=seed)
+def get_model(model_type, seed=SEED, jitter=False):
+    # Bagging Wrapper
+    is_bagging = model_type.startswith("bag_")
+    base_type = model_type.replace("bag_", "") if is_bagging else model_type
+
+    # Hyperparameter Jitter (Variability)
+    j_c = np.random.uniform(0.5, 20.0) if jitter else 1.0
+    j_tree = np.random.randint(50, 200) if jitter else 100
+    j_alpha = np.random.uniform(0.01, 1.0) if jitter else 1.0
+
+    if base_type == "lr":
+        m = LogisticRegression(C=11.0 * j_c if jitter else 11.0, max_iter=1000, random_state=seed, n_jobs=2)
+    elif base_type == "svc":
+        m = CalibratedClassifierCV(LinearSVC(C=19.0 * j_c if jitter else 19.0, random_state=seed), cv=2)
+    elif base_type == "nb":
+        m = MultinomialNB(alpha=0.1 * j_alpha if jitter else 0.1)
+    elif base_type == "rf":
+        m = RandomForestClassifier(n_estimators=j_tree, random_state=seed, n_jobs=2)
+    elif base_type == "et":
+        m = ExtraTreesClassifier(n_estimators=j_tree, random_state=seed, n_jobs=2)
+    elif base_type == "ridge":
+        m = CalibratedClassifierCV(RidgeClassifier(alpha=1.0 * j_alpha if jitter else 1.0), cv=2)
+    else:
+        m = LogisticRegression(random_state=seed)
+    
+    if is_bagging:
+        return BaggingClassifier(m, n_estimators=10, random_state=seed, n_jobs=2)
+    return m
+
+
 
 # ─── RL Meta-Learner ─────────────────────────────────────────────────────────
 class RLMetaLearner:
@@ -121,9 +157,10 @@ class RLMetaLearner:
     Reinforcement Learning agent to optimize model selection across runs.
     Uses an epsilon-greedy approach with persistent memory.
     """
-    def __init__(self, knowledge_path="pyramid_rl_knowledge.json", epsilon=0.2):
+    def __init__(self, knowledge_path="pyramid_rl_knowledge.json", epsilon=0.2, metric="f1"):
         self.path = Path(knowledge_path)
         self.epsilon = epsilon
+        self.metric = metric
         self.knowledge = self._load_knowledge()
 
     def _load_knowledge(self):
@@ -134,6 +171,7 @@ class RLMetaLearner:
             except:
                 pass
         return {"runs": 0, "layer_stats": {}}
+
 
     def _save_knowledge(self):
         with open(self.path, 'w') as f:
@@ -153,11 +191,13 @@ class RLMetaLearner:
         
         stats = self.knowledge["layer_stats"][l_str]
         # Exploit: Pick top-N performers with a bit of noise (Thompson Sampling-lite)
+        m_metric = f"avg_{self.metric}"
         sorted_models = sorted(
             [m for m in available_models if m in stats],
-            key=lambda x: (stats[x]["avg_f1"] + np.random.normal(0, 0.01)), 
+            key=lambda x: (stats[x].get(m_metric, 0) + np.random.normal(0, 0.01)), 
             reverse=True
         )
+
         
         # Take the top N, but ensure we return exactly n_to_pick if possible
         final_list = [str(m) for m in sorted_models[:n_to_pick]]
@@ -177,29 +217,42 @@ class RLMetaLearner:
         for res in results:
             l_str = str(res["layer"])
             m_base = res["model"].split('_')[0]
-            f1 = res["f1"]
+            val_f1 = res["f1"]
+            val_acc = res["accuracy"]
             
             if l_str not in self.knowledge["layer_stats"]:
                 self.knowledge["layer_stats"][l_str] = {}
             if m_base not in self.knowledge["layer_stats"][l_str]:
-                self.knowledge["layer_stats"][l_str][m_base] = {"count": 0, "avg_f1": 0.0}
+                self.knowledge["layer_stats"][l_str][m_base] = {"count": 0, "avg_f1": 0.0, "avg_accuracy": 0.0}
             
             s = self.knowledge["layer_stats"][l_str][m_base]
             s["count"] += 1
-            s["avg_f1"] = s["avg_f1"] + (f1 - s["avg_f1"]) / s["count"]
+            # Update both metrics
+            s["avg_f1"] = s["avg_f1"] + (val_f1 - s["avg_f1"]) / s["count"]
+            s["avg_accuracy"] = s["avg_accuracy"] + (val_acc - s["avg_accuracy"]) / s["count"]
+
         self._save_knowledge()
         print(f"[RL] Meta-Knowledge updated. Total runs: {self.knowledge['runs']}", flush=True)
 
+
 # ─── Pyramid Logic ────────────────────────────────────────────────────────────
 class PyramidEnsemble:
-    def __init__(self, num_layers=3, seed=SEED, meta_learner=None):
+    def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
+                 metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY):
         self.num_layers = num_layers
         self.seed = seed
         self.meta_learner = meta_learner
+        self.patience = patience
+        self.metric = metric
+        self.jitter = jitter
+        self.strategy = strategy
         self.layers = []
         self.results = []
         self.best_model = None
-        self.best_f1 = 0
+        self.best_score = 0
+        self.no_improve_layers = 0 # Early stopping counter
+
+
         
     def _evaluate_and_log(self, model, X, y, layer_idx, name, start_time):
         preds = model.predict(X)
@@ -207,14 +260,16 @@ class PyramidEnsemble:
         f1 = f1_score(y, preds, average="weighted")
         duration = time.time() - start_time
         
+        score = f1 if self.metric == "f1" else acc
         self.results.append({"layer": layer_idx, "model": name, "accuracy": acc, "f1": f1, "duration": duration})
-        status = "NEW BEST!" if f1 > self.best_f1 else "       "
+        status = "NEW BEST!" if score > self.best_score else "       "
         print(f"  [{status}] Layer {layer_idx:02} | {name:<20} | F1: {f1:.4f} | Acc: {acc:.4f} | {duration:>5.1f}s", flush=True)
         
-        if f1 > self.best_f1:
-            self.best_f1 = f1
+        if score > self.best_score:
+            self.best_score = score
             self.best_model = model
-        return f1
+        return score
+
 
     def train(self, X_train, y_train, X_val, y_val):
         current_X_train, current_X_val = X_train, X_val
@@ -229,10 +284,12 @@ class PyramidEnsemble:
             t_layer_start = time.time()
             print(f"\n[LAYER {l:02}] Training...", flush=True)
             
-            avail_b = ["lr", "svc", "nb", "ridge", "rf", "et"]
-            avail_m = ["lr", "ridge", "rf"]
+            # Base pool now includes Bagging variants
+            avail_b = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+            avail_m = ["lr", "ridge", "rf", "bag_lr"]
             
             # The heart of variability: RL Meta-Learner decides WHAT and HOW MANY
+
             models_to_run = self.meta_learner.suggest_models(
                 l, 
                 avail_b if l==1 else avail_m
@@ -245,12 +302,12 @@ class PyramidEnsemble:
             for m_type in models_to_run:
                 t0 = time.time()
                 model_name = f"{m_type}_L{l}"
-                model = get_model(m_type, self.seed + l)
+                model = get_model(m_type, self.seed + l, jitter=self.jitter)
                 model.fit(current_X_train, y_train)
                 self._evaluate_and_log(model, current_X_val, y_val, l, model_name, t0)
+
                 layer_models.append((model_name, model))
 
-                
                 if l < self.num_layers:
                     if hasattr(model, "predict_proba"):
                         oof = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=2)
@@ -264,11 +321,49 @@ class PyramidEnsemble:
                     layer_oof.append(oof)
                     layer_val.append(vp)
 
+            # --- Automatic Layer Voting (Meta-Ensemble of the Layer) ---
+            if len(layer_models) > 1:
+                t0_v = time.time()
+                v_name = f"voting_L{l}"
+                # Soft voting if all models support predict_proba
+                v_type = 'soft' if all(hasattr(m[1], "predict_proba") for m in layer_models) else 'hard'
+                v_model = VotingClassifier(estimators=[(m[0], m[1]) for m in layer_models], voting=v_type)
+                # Note: This is an ensemble of already fitted models? 
+                # Sklearn VotingClassifier needs to be fitted on data.
+                v_model.fit(current_X_train, y_train)
+                self._evaluate_and_log(v_model, current_X_val, y_val, l, v_name, t0_v)
+                layer_models.append((v_name, v_model))
+
+            self.layers.append(layer_models)
+
+            
+            # Early Stopping Check
+            layer_best_score = max([ (res["f1"] if self.metric=="f1" else res["accuracy"]) for res in self.results if res["layer"] == l])
+            if layer_best_score > self.best_score + 1e-5: 
+                # Note: best_score is updated in _evaluate_and_log
+                self.no_improve_layers = 0
+            else:
+                self.no_improve_layers += 1
+                if self.no_improve_layers >= self.patience:
+                    print(f"\n[EARLY STOPPING] No improvement for {self.patience} layers. Stopping at Layer {l}.", flush=True)
+                    mlflow.log_param("early_stop_layer", l)
+                    break
+
             if l < self.num_layers:
                 all_oof_preds.append(np.hstack(layer_oof))
                 all_val_preds.append(np.hstack(layer_val))
-                current_X_train, current_X_val = np.hstack(all_oof_preds), np.hstack(all_val_preds)
-                print(f"  [INFO] Layer {l} Done ({time.time()-t_layer_start:.1f}s). New Feats: {current_X_train.shape[1]}", flush=True)
+                
+                # Dynamic Strategy
+                if self.strategy == "dense":
+                    current_X_train, current_X_val = np.hstack(all_oof_preds), np.hstack(all_val_preds)
+                elif self.strategy == "residual":
+                    # Only last layer + original input (implied by first oof append if we wanted, but here current_X is just meta)
+                    current_X_train, current_X_val = layer_oof, layer_val
+                else: # "simple"
+                    current_X_train, current_X_val = np.hstack(layer_oof), np.hstack(layer_val)
+                    
+                print(f"  [INFO] Layer {l} Done ({time.time()-t_layer_start:.1f}s). New Feats: {current_X_train.shape[1] if hasattr(current_X_train, 'shape') else len(current_X_train)}", flush=True)
+
 
         print(f"\n{'='*85}\nCOMPLETE | Time: {(time.time()-t_global_start)/60:.1f} min\n{'='*85}", flush=True)
         if self.meta_learner: self.meta_learner.update_knowledge(self.results)
@@ -320,9 +415,18 @@ def main():
     parser.add_argument("--min_models", type=int, default=MIN_MODELS_PER_LAYER)
     parser.add_argument("--max_models", type=int, default=MAX_MODELS_PER_LAYER)
     parser.add_argument("--epsilon", type=float, default=EPSILON_RL)
+    parser.add_argument("--patience", type=int, default=PATIENCE)
+    parser.add_argument("--metric", type=str, choices=["f1", "accuracy"], default=OPTIM_METRIC)
+    parser.add_argument("--tfidf_max", type=int, default=TFIDF_MAX)
+    parser.add_argument("--tfidf_ngrams", type=int, default=2, help="Max ngrams (1 or 2)")
+    parser.add_argument("--jitter", type=bool, default=JITTER)
+    parser.add_argument("--strategy", type=str, choices=["dense", "residual", "simple"], default=STRATEGY)
     args = parser.parse_args()
 
+
+    set_seed(args.seed)
     setup_tracking()
+
     
     current_layers = args.layers
     current_seed = args.seed
@@ -336,8 +440,13 @@ def main():
             "seed": current_seed,
             "epsilon": args.epsilon,
             "min_models": args.min_models,
-            "max_models": args.max_models
+            "max_models": args.max_models,
+            "metric": args.metric,
+            "jitter": args.jitter,
+            "strategy": args.strategy,
+            "tfidf_max": args.tfidf_max
         })
+
 
         
         train_df, val_df = load_data()
@@ -345,13 +454,18 @@ def main():
         y_train = le.fit_transform(train_df['sentiment'])
         y_val = le.transform(val_df['sentiment'])
         
-        tfidf = TfidfVectorizer(max_features=50000, ngram_range=(1, 2))
+        tfidf = TfidfVectorizer(max_features=args.tfidf_max, ngram_range=(1, args.tfidf_ngrams))
         X_train = tfidf.fit_transform(train_df['clean_text'].fillna(""))
         X_val = tfidf.transform(val_df['clean_text'].fillna(""))
         
-        rl_learner = RLMetaLearner(epsilon=args.epsilon)
-        pyramid = PyramidEnsemble(num_layers=current_layers, seed=current_seed, meta_learner=rl_learner)
+        rl_learner = RLMetaLearner(epsilon=args.epsilon, metric=args.metric)
+        pyramid = PyramidEnsemble(num_layers=current_layers, seed=current_seed, 
+                                 meta_learner=rl_learner, patience=args.patience,
+                                 metric=args.metric, jitter=args.jitter,
+                                 strategy=args.strategy)
         pyramid.train(X_train, y_train, X_val, y_val)
+
+
 
         
         # Artifacts
