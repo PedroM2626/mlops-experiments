@@ -287,6 +287,7 @@ class PyramidEnsemble:
         self.min_models = min_models
         self.max_models = max_models
         self.layers = []
+        self.layer_meta_models = []
         self.results = []
         self.best_model = None
         self.best_score = 0
@@ -314,6 +315,7 @@ class PyramidEnsemble:
     def train(self, X_train, y_train, X_val, y_val):
         current_X_train, current_X_val = X_train, X_val
         all_oof_preds, all_val_preds = [], []
+        self.layer_meta_models = []
         t_global_start = time.time()
         
         print(f"\n{'='*85}\n{'STARTING ENSEMBLE PYRAMID TRAINING':^85}\n{'='*85}", flush=True)
@@ -341,6 +343,7 @@ class PyramidEnsemble:
 
 
             layer_models, layer_oof, layer_val = [], [], []
+            layer_transformers = []
             score_before_layer = self.best_score  # snapshot before any model in this layer updates it
             for m_type in models_to_run:
                 t0 = time.time()
@@ -352,6 +355,7 @@ class PyramidEnsemble:
                 layer_models.append((model_name, model))
 
                 if l < self.num_layers:
+                    layer_transformers.append(model)
                     if hasattr(model, "predict_proba"):
                         oof = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=2)
                         vp = model.predict_proba(current_X_val)
@@ -420,6 +424,7 @@ class PyramidEnsemble:
                     break
 
             if l < self.num_layers:
+                self.layer_meta_models.append(layer_transformers)
                 all_oof_preds.append(np.hstack(layer_oof))
                 all_val_preds.append(np.hstack(layer_val))
                 
@@ -442,35 +447,47 @@ class PyramidEnsemble:
         """Transform X through the layers to match the best model's required input."""
         if self.best_model is None:
             raise ValueError("Pyramid not trained or no best model found.")
+
+        def _model_output_as_proba(model, features):
+            if hasattr(model, "predict_proba"):
+                return model.predict_proba(features)
+            raw = np.asarray(model.predict(features), dtype=int)
+            n_classes = int(raw.max()) + 1 if raw.size > 0 else 1
+            return np.eye(n_classes)[raw]
         
         # Determine the layer of the best model
         best_layer_idx = 1
+        found = False
         for l_idx, l_models in enumerate(self.layers):
             for m_name, m_obj in l_models:
                 if m_obj == self.best_model:
                     best_layer_idx = l_idx + 1
+                    found = True
                     break
+            if found:
+                break
         
         if best_layer_idx == 1:
             return self.best_model.predict(X)
         
-        # Build meta-features chain
+        # Build meta-features chain using only models that generated next-layer features during training.
         current_X = X
         all_meta_preds = []
         
         for l in range(1, best_layer_idx):
-            layer_meta = []
-            for m_name, m_obj in self.layers[l-1]:
-                if hasattr(m_obj, "predict_proba"):
-                    p = m_obj.predict_proba(current_X)
-                else:
-                    raw = m_obj.predict(current_X)
-                    n_c = len(self.best_model.classes_)
-                    p = np.eye(n_c)[raw]
-                layer_meta.append(p)
-            
-            all_meta_preds.append(np.hstack(layer_meta))
-            current_X = np.hstack(all_meta_preds)
+            if l - 1 >= len(self.layer_meta_models):
+                raise ValueError("Missing layer meta-models for inference. Retrain the pyramid before predicting.")
+
+            layer_meta = [_model_output_as_proba(m_obj, current_X) for m_obj in self.layer_meta_models[l - 1]]
+            layer_stack = np.hstack(layer_meta)
+
+            if self.strategy == "dense":
+                all_meta_preds.append(layer_stack)
+                current_X = np.hstack(all_meta_preds)
+            elif self.strategy == "residual":
+                current_X = layer_stack
+            else:  # "simple"
+                current_X = layer_stack
             
         return self.best_model.predict(current_X)
 
