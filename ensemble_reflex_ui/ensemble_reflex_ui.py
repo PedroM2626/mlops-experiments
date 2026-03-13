@@ -14,7 +14,7 @@ import reflex as rx
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT_DIR / "experiments" / "flexible_ensemble_pyramid.py"
-ASSETS_DIR = ROOT_DIR / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 TOPOLOGY_IMAGE = ASSETS_DIR / "ensemble_topology.png"
 
 
@@ -106,6 +106,16 @@ class TrainingState(rx.State):
         avg_layer_seconds = self.elapsed_seconds / max(1, self.completed_layers)
         remaining_layers = max(0, int(self.layers) - int(self.completed_layers))
         self.eta_seconds = int(avg_layer_seconds * remaining_layers)
+
+    @rx.event(background=True)
+    async def _tick_timer(self):
+        """Background task that updates elapsed/ETA every second while training."""
+        while True:
+            await asyncio.sleep(1)
+            async with self:
+                if not self.is_training:
+                    break
+                self._update_time_estimates()
 
     def update_layers(self, value: str):
         self.layers = max(1, int(value or 1))
@@ -506,6 +516,9 @@ class TrainingState(rx.State):
             self.training_start_ts = time.time()
             self.elapsed_seconds = 0
             self.eta_seconds = 0
+
+        # Dispatch the real-time clock ticker as a concurrent background event
+        yield TrainingState._tick_timer
 
         assert proc.stdout is not None
         while True:

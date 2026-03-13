@@ -272,6 +272,35 @@ class RLMetaLearner:
         print(f"[RL] Meta-Knowledge updated. Total runs: {self.knowledge['runs']}", flush=True)
 
 
+# ─── Pre-fitted Voting Ensembles (module-level for pickle compatibility) ─────
+class _PreFittedSoftVoting:
+    """Soft voting across pre-fitted estimators (averages predict_proba)."""
+    def __init__(self, estimators):
+        self.estimators_ = [m for _, m in estimators]
+    def predict_proba(self, X):
+        return np.mean([m.predict_proba(X) for m in self.estimators_], axis=0)
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
+class _PreFittedHardVoting:
+    """Hard (majority) voting across pre-fitted estimators."""
+    def __init__(self, estimators, n_classes):
+        self.estimators_ = [m for _, m in estimators]
+        self.n_classes_ = n_classes
+    def predict(self, X):
+        preds = np.column_stack([m.predict(X) for m in self.estimators_])
+        return np.apply_along_axis(
+            lambda row: np.bincount(row, minlength=self.n_classes_).argmax(),
+            axis=1, arr=preds
+        )
+    def predict_proba(self, X):
+        preds = self.predict(X)
+        out = np.zeros((len(preds), self.n_classes_))
+        out[np.arange(len(preds)), preds] = 1.0
+        return out
+
+
 # ─── Pyramid Logic ────────────────────────────────────────────────────────────
 class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
@@ -376,34 +405,8 @@ class PyramidEnsemble:
                 all_have_proba = all(hasattr(m[1], "predict_proba") for m in layer_models)
 
                 if all_have_proba:
-                    # Soft voting: average predict_proba across pre-fitted models
-                    class _PreFittedSoftVoting:
-                        def __init__(self, estimators):
-                            self.estimators_ = [m for _, m in estimators]
-                        def predict_proba(self, X):
-                            return np.mean([m.predict_proba(X) for m in self.estimators_], axis=0)
-                        def predict(self, X):
-                            return np.argmax(self.predict_proba(X), axis=1)
-
                     v_model = _PreFittedSoftVoting(layer_models)
                 else:
-                    # Hard voting: majority vote across pre-fitted models
-                    class _PreFittedHardVoting:
-                        def __init__(self, estimators, n_classes):
-                            self.estimators_ = [m for _, m in estimators]
-                            self.n_classes_ = n_classes
-                        def predict(self, X):
-                            preds = np.column_stack([m.predict(X) for m in self.estimators_])
-                            return np.apply_along_axis(
-                                lambda row: np.bincount(row, minlength=self.n_classes_).argmax(),
-                                axis=1, arr=preds
-                            )
-                        def predict_proba(self, X):
-                            preds = self.predict(X)
-                            out = np.zeros((len(preds), self.n_classes_))
-                            out[np.arange(len(preds)), preds] = 1.0
-                            return out
-
                     v_model = _PreFittedHardVoting(layer_models, len(np.unique(y_train)))
 
                 self._evaluate_and_log(v_model, current_X_val, y_val, l, v_name, t0_v)
