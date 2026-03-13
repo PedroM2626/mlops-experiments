@@ -287,7 +287,7 @@ class TrainingState(rx.State):
     def _render_topology(self):
         ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
         fig.patch.set_facecolor("#0b1220")
         ax.set_facecolor("#111827")
 
@@ -383,7 +383,6 @@ class TrainingState(rx.State):
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_frame_on(False)
-        fig.tight_layout()
         fig.savefig(TOPOLOGY_IMAGE, dpi=150)
         plt.close(fig)
 
@@ -481,12 +480,24 @@ class TrainingState(rx.State):
             str(self.sample_val_rows),
         ]
 
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=str(ROOT_DIR),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
+        if os.name == "nt":
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(ROOT_DIR),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(ROOT_DIR),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
 
         async with self:
             self.training_pid = int(proc.pid)
@@ -498,23 +509,33 @@ class TrainingState(rx.State):
 
         assert proc.stdout is not None
         while True:
-            raw = await proc.stdout.readline()
-            if not raw:
-                break
-            line = raw.decode("utf-8", errors="replace").rstrip("\n")
+            if os.name == "nt":
+                raw = await asyncio.to_thread(proc.stdout.readline)
+                if not raw:
+                    break
+                line = str(raw).rstrip("\n")
+            else:
+                raw = await proc.stdout.readline()
+                if not raw:
+                    break
+                line = raw.decode("utf-8", errors="replace").rstrip("\n")
             async with self:
                 if self.stop_requested:
                     self.logs.append("[UI] Solicitacao de parada recebida. Encerrando processo...")
                     break
                 self._handle_line(line)
 
-        if proc.returncode is None and self.stop_requested:
+        proc_running = proc.poll() is None if os.name == "nt" else proc.returncode is None
+        if proc_running and self.stop_requested:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, text=True)
             else:
                 proc.terminate()
 
-        exit_code = await proc.wait()
+        if os.name == "nt":
+            exit_code = await asyncio.to_thread(proc.wait)
+        else:
+            exit_code = await proc.wait()
         async with self:
             self.is_training = False
             self.training_pid = 0
