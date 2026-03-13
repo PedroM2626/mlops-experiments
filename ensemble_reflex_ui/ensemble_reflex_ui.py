@@ -50,6 +50,7 @@ class TrainingState(rx.State):
     training_start_ts: float = 0.0
     elapsed_seconds: int = 0
     eta_seconds: int = 0
+    ensemble_counters: dict[str, int] = {}
 
     last_node_id: str = "input"
 
@@ -152,6 +153,7 @@ class TrainingState(rx.State):
         self.training_start_ts = 0.0
         self.elapsed_seconds = 0
         self.eta_seconds = 0
+        self.ensemble_counters = {}
         self.nodes = [
             {
                 "id": "input",
@@ -164,6 +166,15 @@ class TrainingState(rx.State):
         self.edges = []
         self.last_node_id = "input"
         self._render_topology()
+
+    def _add_edge(self, source: str, target: str, kind: str = "main"):
+        if source == target:
+            return
+        if not any(e.get("source") == source and e.get("target") == target for e in self.edges):
+            self.edges.append({"source": source, "target": target, "kind": kind})
+
+    def _has_node(self, node_id: str) -> bool:
+        return any(str(n.get("id")) == node_id for n in self.nodes)
 
     def _ensure_layer_node(self, layer: int) -> str:
         node_id = f"layer_{layer}"
@@ -179,7 +190,27 @@ class TrainingState(rx.State):
                 "y": 0.0,
             }
         )
-        self.edges.append({"source": self.last_node_id, "target": node_id})
+
+        if layer == 1:
+            self._add_edge("input", node_id, "main")
+        elif self.strategy == "dense":
+            for prev_layer in range(1, layer):
+                prev_merge = f"layer_{prev_layer}_merge"
+                if self._has_node(prev_merge):
+                    self._add_edge(prev_merge, node_id, "dense")
+            prev_direct = f"layer_{layer-1}"
+            if self._has_node(prev_direct):
+                self._add_edge(prev_direct, node_id, "main")
+        elif self.strategy == "residual":
+            prev_merge = f"layer_{layer-1}_merge"
+            if self._has_node(prev_merge):
+                self._add_edge(prev_merge, node_id, "main")
+            else:
+                self._add_edge(self.last_node_id, node_id, "main")
+            self._add_edge("input", node_id, "skip")
+        else:
+            self._add_edge(self.last_node_id, node_id, "main")
+
         self.last_node_id = node_id
         return node_id
 
@@ -190,36 +221,60 @@ class TrainingState(rx.State):
         for idx, model_name in enumerate(models):
             node_id = f"layer_{layer}_model_{idx}"
             y_value = (idx - (spread - 1) / 2.0) * 0.9
-            self.nodes.append(
-                {
-                    "id": node_id,
-                    "label": model_name,
-                    "kind": "model",
-                    "x": float(layer) + 0.55,
-                    "y": y_value,
-                }
-            )
-            self.edges.append({"source": layer_node_id, "target": node_id})
+            if not self._has_node(node_id):
+                self.nodes.append(
+                    {
+                        "id": node_id,
+                        "label": model_name,
+                        "kind": "model",
+                        "x": float(layer) + 0.55,
+                        "y": y_value,
+                    }
+                )
+            self._add_edge(layer_node_id, node_id, "branch")
 
         if models:
             merge_id = f"layer_{layer}_merge"
-            self.nodes.append(
-                {
-                    "id": merge_id,
-                    "label": "Meta-features",
-                    "kind": "merge",
-                    "x": float(layer) + 1.0,
-                    "y": 0.0,
-                }
-            )
-            for idx, _ in enumerate(models):
-                self.edges.append(
+            if not self._has_node(merge_id):
+                self.nodes.append(
                     {
-                        "source": f"layer_{layer}_model_{idx}",
-                        "target": merge_id,
+                        "id": merge_id,
+                        "label": "Meta-features",
+                        "kind": "merge",
+                        "x": float(layer) + 1.0,
+                        "y": 0.0,
                     }
                 )
+            for idx, _ in enumerate(models):
+                self._add_edge(f"layer_{layer}_model_{idx}", merge_id, "merge")
             self.last_node_id = merge_id
+
+    def _add_ensemble_node(self, layer: int, model_name: str):
+        layer_key = str(layer)
+        idx = int(self.ensemble_counters.get(layer_key, 0))
+        node_id = f"layer_{layer}_ens_{idx}"
+        self.ensemble_counters[layer_key] = idx + 1
+
+        kind = "voting" if "voting" in model_name.lower() else "stacking"
+        label = model_name if len(model_name) <= 24 else model_name[:24] + "..."
+        y_pos = -1.2 - (idx * 0.45)
+
+        if not self._has_node(node_id):
+            self.nodes.append(
+                {
+                    "id": node_id,
+                    "label": label,
+                    "kind": kind,
+                    "x": float(layer) + 1.35,
+                    "y": y_pos,
+                }
+            )
+
+        merge_id = f"layer_{layer}_merge"
+        if self._has_node(merge_id):
+            self._add_edge(merge_id, node_id, "ensemble")
+        else:
+            self._add_edge(f"layer_{layer}", node_id, "ensemble")
 
     def _render_topology(self):
         ASSETS_DIR.mkdir(parents=True, exist_ok=True)
@@ -234,11 +289,31 @@ class TrainingState(rx.State):
             target = node_index.get(edge["target"])
             if not source or not target:
                 continue
+
+            edge_kind = str(edge.get("kind", "main"))
+            line_color = "#3b4a63"
+            line_style = "-"
+            line_width = 1.6
+            if edge_kind == "dense":
+                line_color = "#06b6d4"
+                line_style = "--"
+                line_width = 1.2
+            elif edge_kind == "skip":
+                line_color = "#f43f5e"
+                line_style = ":"
+                line_width = 1.5
+            elif edge_kind in ("merge", "branch"):
+                line_color = "#64748b"
+            elif edge_kind == "ensemble":
+                line_color = "#a78bfa"
+                line_style = "--"
+
             ax.plot(
                 [source["x"], target["x"]],
                 [source["y"], target["y"]],
-                color="#3b4a63",
-                linewidth=1.6,
+                color=line_color,
+                linewidth=line_width,
+                linestyle=line_style,
                 alpha=0.9,
                 zorder=1,
             )
@@ -248,6 +323,8 @@ class TrainingState(rx.State):
             "layer": "#22c55e",
             "model": "#fb923c",
             "merge": "#a78bfa",
+            "voting": "#f59e0b",
+            "stacking": "#ec4899",
         }
 
         for node in self.nodes:
@@ -317,15 +394,21 @@ class TrainingState(rx.State):
             line,
         )
         if model_match:
+            layer_num = model_match.group(1)
+            model_name = model_match.group(2).strip()
             self.model_rows.append(
                 {
-                    "layer": model_match.group(1),
-                    "model": model_match.group(2).strip(),
+                    "layer": layer_num,
+                    "model": model_name,
                     "f1": model_match.group(3),
                     "acc": model_match.group(4),
                 }
             )
             self.model_rows = self.model_rows[-30:]
+
+            if "voting" in model_name.lower() or "stack" in model_name.lower():
+                self._add_ensemble_node(int(layer_num), model_name)
+                self._render_topology()
 
     @rx.event(background=True)
     async def run_training(self):
@@ -591,7 +674,8 @@ def topology_panel() -> rx.Component:
             width="100%",
         ),
         rx.image(src=TrainingState.graph_image_url, width="100%", height="420px", object_fit="contain"),
-        rx.text("Azul: entrada TF-IDF | Verde: camada | Laranja: modelos | Roxo: merge/meta-features", size="2", color="#94a3b8"),
+        rx.text("Nos: azul entrada, verde camada, laranja modelos, roxo meta-features, amarelo voting, rosa stacking", size="2", color="#94a3b8"),
+        rx.text("Arestas: ciano tracejado=dense, vermelho pontilhado=residual skip, roxo tracejado=ensemble", size="2", color="#94a3b8"),
         padding="1.2rem",
         border="1px solid #334155",
         border_radius="14px",
