@@ -47,6 +47,9 @@ class TrainingState(rx.State):
     is_smoke_test: bool = False
     sample_train_rows: int = 0
     sample_val_rows: int = 0
+    training_start_ts: float = 0.0
+    elapsed_seconds: int = 0
+    eta_seconds: int = 0
 
     last_node_id: str = "input"
 
@@ -66,6 +69,41 @@ class TrainingState(rx.State):
     @rx.var
     def layer_progress_text(self) -> str:
         return f"{self.completed_layers}/{self.layers} camadas concluidas ({self.layer_progress_percent}%)"
+
+    @rx.var
+    def flow_nodes_text(self) -> str:
+        return f"Nos: {len(self.nodes)}"
+
+    @rx.var
+    def flow_edges_text(self) -> str:
+        return f"Conexoes: {len(self.edges)}"
+
+    @rx.var
+    def elapsed_text(self) -> str:
+        mins = self.elapsed_seconds // 60
+        secs = self.elapsed_seconds % 60
+        return f"Decorrido: {mins:02}:{secs:02}"
+
+    @rx.var
+    def eta_text(self) -> str:
+        if not self.is_training:
+            return "ETA: --:--"
+        mins = self.eta_seconds // 60
+        secs = self.eta_seconds % 60
+        return f"ETA: {mins:02}:{secs:02}"
+
+    def _update_time_estimates(self):
+        if self.training_start_ts <= 0:
+            return
+
+        self.elapsed_seconds = max(0, int(time.time() - self.training_start_ts))
+        if self.completed_layers <= 0:
+            self.eta_seconds = 0
+            return
+
+        avg_layer_seconds = self.elapsed_seconds / max(1, self.completed_layers)
+        remaining_layers = max(0, int(self.layers) - int(self.completed_layers))
+        self.eta_seconds = int(avg_layer_seconds * remaining_layers)
 
     def update_layers(self, value: str):
         self.layers = max(1, int(value or 1))
@@ -111,6 +149,9 @@ class TrainingState(rx.State):
         self.status_text = "Inicializando treino"
         self.training_pid = 0
         self.stop_requested = False
+        self.training_start_ts = 0.0
+        self.elapsed_seconds = 0
+        self.eta_seconds = 0
         self.nodes = [
             {
                 "id": "input",
@@ -184,7 +225,8 @@ class TrainingState(rx.State):
         ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
         fig, ax = plt.subplots(figsize=(12, 6))
-        ax.set_facecolor("#f8fbff")
+        fig.patch.set_facecolor("#0b1220")
+        ax.set_facecolor("#111827")
 
         node_index = {node["id"]: node for node in self.nodes}
         for edge in self.edges:
@@ -195,17 +237,17 @@ class TrainingState(rx.State):
             ax.plot(
                 [source["x"], target["x"]],
                 [source["y"], target["y"]],
-                color="#b1c6db",
+                color="#3b4a63",
                 linewidth=1.6,
                 alpha=0.9,
                 zorder=1,
             )
 
         color_map = {
-            "input": "#1f77b4",
-            "layer": "#0f9d58",
-            "model": "#f2994a",
-            "merge": "#8e44ad",
+            "input": "#38bdf8",
+            "layer": "#22c55e",
+            "model": "#fb923c",
+            "merge": "#a78bfa",
         }
 
         for node in self.nodes:
@@ -215,7 +257,7 @@ class TrainingState(rx.State):
                 float(node["y"]),
                 s=400,
                 color=color,
-                edgecolor="white",
+                edgecolor="#0b1220",
                 linewidth=1.5,
                 zorder=3,
             )
@@ -226,10 +268,10 @@ class TrainingState(rx.State):
                 fontsize=8,
                 ha="center",
                 va="top",
-                color="#1a2a3a",
+                color="#e5e7eb",
             )
 
-        ax.set_title("Fluxo de Treinamento: Entrada, Camadas e Ramificacoes", fontsize=13)
+        ax.set_title("Fluxo de Treinamento: Entrada, Camadas e Ramificacoes", fontsize=13, color="#f8fafc")
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_frame_on(False)
@@ -241,6 +283,7 @@ class TrainingState(rx.State):
 
     def _handle_line(self, line: str):
         self.logs.append(line)
+        self._update_time_estimates()
 
         complete_match = re.search(r"\[INFO\]\s+Layer\s+(\d+)\s+Done", line)
         if complete_match:
@@ -339,6 +382,9 @@ class TrainingState(rx.State):
             self.training_pid = int(proc.pid)
             run_type = "Smoke Test" if self.is_smoke_test else "Treino"
             self.status_text = f"{run_type} em andamento (PID {proc.pid})"
+            self.training_start_ts = time.time()
+            self.elapsed_seconds = 0
+            self.eta_seconds = 0
 
         assert proc.stdout is not None
         for raw_line in proc.stdout:
@@ -359,6 +405,8 @@ class TrainingState(rx.State):
         async with self:
             self.is_training = False
             self.training_pid = 0
+            self._update_time_estimates()
+            self.eta_seconds = 0
             if self.stop_requested:
                 self.status_text = "Treino interrompido pelo usuario"
             else:
@@ -407,22 +455,22 @@ class TrainingState(rx.State):
 
 def control_panel() -> rx.Component:
     return rx.box(
-        rx.heading("Controles do Treino", size="4"),
+        rx.heading("Controles do Treino", size="4", color="#f8fafc"),
         rx.grid(
             rx.vstack(
-                rx.text("Camadas"),
+                rx.text("Camadas", color="#cbd5e1"),
                 rx.input(value=TrainingState.layers, on_change=TrainingState.update_layers, type="number"),
                 align="start",
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Seed"),
+                rx.text("Seed", color="#cbd5e1"),
                 rx.input(value=TrainingState.seed, on_change=TrainingState.update_seed, type="number"),
                 align="start",
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Modelos Min/Max"),
+                rx.text("Modelos Min/Max", color="#cbd5e1"),
                 rx.hstack(
                     rx.input(value=TrainingState.min_models, on_change=TrainingState.update_min_models, type="number"),
                     rx.input(value=TrainingState.max_models, on_change=TrainingState.update_max_models, type="number"),
@@ -431,7 +479,7 @@ def control_panel() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Epsilon RL"),
+                rx.text("Epsilon RL", color="#cbd5e1"),
                 rx.input(value=TrainingState.epsilon, on_change=TrainingState.update_epsilon, type="number", step="0.05"),
                 align="start",
                 spacing="1",
@@ -442,22 +490,22 @@ def control_panel() -> rx.Component:
         ),
         rx.hstack(
             rx.vstack(
-                rx.text("Metric"),
+                rx.text("Metric", color="#cbd5e1"),
                 rx.select(["f1", "accuracy"], value=TrainingState.metric, on_change=TrainingState.update_metric),
                 align="start",
             ),
             rx.vstack(
-                rx.text("Strategy"),
+                rx.text("Strategy", color="#cbd5e1"),
                 rx.select(["dense", "residual", "simple"], value=TrainingState.strategy, on_change=TrainingState.update_strategy),
                 align="start",
             ),
             rx.vstack(
-                rx.text("TF-IDF max"),
+                rx.text("TF-IDF max", color="#cbd5e1"),
                 rx.input(value=TrainingState.tfidf_max, on_change=TrainingState.update_tfidf_max, type="number"),
                 align="start",
             ),
             rx.vstack(
-                rx.text("N-grams (1 ou 2)"),
+                rx.text("N-grams (1 ou 2)", color="#cbd5e1"),
                 rx.input(value=TrainingState.tfidf_ngrams, on_change=TrainingState.update_tfidf_ngrams, type="number"),
                 align="start",
             ),
@@ -465,7 +513,7 @@ def control_panel() -> rx.Component:
             width="100%",
         ),
         rx.hstack(
-            rx.text("Jitter"),
+            rx.text("Jitter", color="#cbd5e1"),
             rx.switch(checked=TrainingState.jitter, on_change=TrainingState.update_jitter),
             rx.spacer(),
             rx.button(
@@ -493,9 +541,9 @@ def control_panel() -> rx.Component:
             width="100%",
         ),
         padding="1.2rem",
-        border="1px solid #d9e6f2",
+        border="1px solid #334155",
         border_radius="14px",
-        background="#ffffff",
+        background="#111827",
         width="100%",
     )
 
@@ -503,18 +551,26 @@ def control_panel() -> rx.Component:
 def topology_panel() -> rx.Component:
     return rx.box(
         rx.hstack(
-            rx.heading("Topologia da Piramide", size="4"),
+            rx.heading("Topologia da Piramide", size="4", color="#f8fafc"),
             rx.badge(TrainingState.status_text, color_scheme="blue"),
             rx.badge(rx.cond(TrainingState.is_training, "Treinando", "Parado"), color_scheme="indigo"),
             justify="between",
             width="100%",
         ),
-        rx.text("Visual em tempo real com fluxo linear por camada e ramificacoes dos modelos escolhidos pelo RL."),
+        rx.text("Fluxo visual em tempo real: conexao linear entre camadas e ramificacoes em arvore para modelos por camada.", color="#cbd5e1"),
+        rx.hstack(
+            rx.badge(TrainingState.elapsed_text, color_scheme="gray"),
+            rx.badge(TrainingState.eta_text, color_scheme="teal"),
+            rx.badge(TrainingState.flow_nodes_text, color_scheme="orange"),
+            rx.badge(TrainingState.flow_edges_text, color_scheme="purple"),
+            width="100%",
+            spacing="2",
+        ),
         rx.vstack(
             rx.hstack(
-                rx.text("Progresso por Camada", weight="medium"),
+                rx.text("Progresso por Camada", weight="medium", color="#e2e8f0"),
                 rx.spacer(),
-                rx.text(TrainingState.layer_progress_text, size="2"),
+                rx.text(TrainingState.layer_progress_text, size="2", color="#cbd5e1"),
                 width="100%",
             ),
             rx.box(
@@ -527,7 +583,7 @@ def topology_panel() -> rx.Component:
                 ),
                 width="100%",
                 height="14px",
-                background="#d8e6f3",
+                background="#243244",
                 border_radius="999px",
                 overflow="hidden",
             ),
@@ -535,18 +591,18 @@ def topology_panel() -> rx.Component:
             width="100%",
         ),
         rx.image(src=TrainingState.graph_image_url, width="100%", height="420px", object_fit="contain"),
-        rx.text("Azul: entrada TF-IDF | Verde: camada | Laranja: modelos | Roxo: merge/meta-features", size="2"),
+        rx.text("Azul: entrada TF-IDF | Verde: camada | Laranja: modelos | Roxo: merge/meta-features", size="2", color="#94a3b8"),
         padding="1.2rem",
-        border="1px solid #d9e6f2",
+        border="1px solid #334155",
         border_radius="14px",
-        background="#ffffff",
+        background="#111827",
         width="100%",
     )
 
 
 def metrics_panel() -> rx.Component:
     return rx.box(
-        rx.heading("Modelos Avaliados", size="4"),
+        rx.heading("Modelos Avaliados", size="4", color="#f8fafc"),
         rx.table.root(
             rx.table.header(
                 rx.table.row(
@@ -572,9 +628,9 @@ def metrics_panel() -> rx.Component:
             width="100%",
         ),
         padding="1.2rem",
-        border="1px solid #d9e6f2",
+        border="1px solid #334155",
         border_radius="14px",
-        background="#ffffff",
+        background="#111827",
         width="100%",
         overflow_x="auto",
     )
@@ -582,7 +638,7 @@ def metrics_panel() -> rx.Component:
 
 def logs_panel() -> rx.Component:
     return rx.box(
-        rx.heading("Log de Treinamento", size="4"),
+        rx.heading("Log de Treinamento", size="4", color="#f8fafc"),
         rx.text_area(
             value=TrainingState.logs_text,
             read_only=True,
@@ -590,9 +646,9 @@ def logs_panel() -> rx.Component:
             width="100%",
         ),
         padding="1.2rem",
-        border="1px solid #d9e6f2",
+        border="1px solid #334155",
         border_radius="14px",
-        background="#ffffff",
+        background="#111827",
         width="100%",
     )
 
@@ -600,8 +656,8 @@ def logs_panel() -> rx.Component:
 def index() -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.heading("Flexible Ensemble Pyramid Studio", size="7"),
-            rx.text("Execute, acompanhe e visualize a arquitetura do treino de forma interativa."),
+            rx.heading("Flexible Ensemble Pyramid Studio", size="7", color="#f8fafc"),
+            rx.text("Execute, acompanhe e visualize a arquitetura do treino de forma interativa.", color="#cbd5e1"),
             spacing="2",
             align="start",
             width="100%",
@@ -619,15 +675,16 @@ def index() -> rx.Component:
         rx.box(height="14px"),
         metrics_panel(),
         padding="2rem",
-        background="linear-gradient(180deg, #ecf5ff 0%, #f7fbff 100%)",
+        background="radial-gradient(circle at 20% 20%, #1f2937 0%, #0f172a 45%, #020617 100%)",
         min_height="100vh",
     )
 
 
 app = rx.App(
     theme=rx.theme(
-        appearance="light",
+        appearance="dark",
         radius="medium",
+        accent_color="cyan",
     )
 )
 app.add_page(index, title="Flexible Ensemble Reflex UI")
