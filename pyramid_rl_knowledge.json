@@ -1,36 +1,36 @@
 {
-    "runs": 1,
+    "runs": 4,
     "layer_stats": {
         "1": {
             "nb": {
-                "count": 1,
-                "avg_f1": 0.9630808615457126,
-                "avg_accuracy": 0.963
+                "count": 3,
+                "avg_f1": 0.6348154462983605,
+                "avg_accuracy": 0.6506666666666667
             },
             "rf": {
-                "count": 1,
-                "avg_f1": 0.9800008068081534,
-                "avg_accuracy": 0.98
+                "count": 3,
+                "avg_f1": 0.5654112786535714,
+                "avg_accuracy": 0.6016666666666667
             },
             "ridge": {
-                "count": 1,
-                "avg_f1": 0.9595027866360587,
-                "avg_accuracy": 0.96
+                "count": 3,
+                "avg_f1": 0.611400543873698,
+                "avg_accuracy": 0.6393333333333333
             },
             "svc": {
-                "count": 1,
-                "avg_f1": 0.8644235494839752,
-                "avg_accuracy": 0.878
+                "count": 2,
+                "avg_f1": 0.5631989542291671,
+                "avg_accuracy": 0.6098333333333333
             },
             "bag": {
-                "count": 1,
-                "avg_f1": 0.9631253913039518,
-                "avg_accuracy": 0.963
+                "count": 2,
+                "avg_f1": 0.6671809691929006,
+                "avg_accuracy": 0.6898333333333333
             },
             "voting": {
-                "count": 1,
-                "avg_f1": 0.9770324885456023,
-                "avg_accuracy": 0.977
+                "count": 3,
+                "avg_f1": 0.6240561102911009,
+                "avg_accuracy": 0.6473333333333333
             }
         },
         "2": {
@@ -40,19 +40,19 @@
                 "avg_accuracy": 0.976
             },
             "rf": {
-                "count": 1,
-                "avg_f1": 0.7866799764700707,
-                "avg_accuracy": 0.791
+                "count": 2,
+                "avg_f1": 0.6391637431188453,
+                "avg_accuracy": 0.6505000000000001
             },
             "lr": {
-                "count": 1,
-                "avg_f1": 0.9760379348124439,
-                "avg_accuracy": 0.976
+                "count": 2,
+                "avg_f1": 0.7527353146058358,
+                "avg_accuracy": 0.761
             },
             "voting": {
-                "count": 1,
-                "avg_f1": 0.9730378096762518,
-                "avg_accuracy": 0.973
+                "count": 2,
+                "avg_f1": 0.7490964142070817,
+                "avg_accuracy": 0.758
             }
         },
         "3": {

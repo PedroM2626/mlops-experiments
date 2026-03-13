@@ -12,8 +12,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # MLOps
-import mlflow
-import dagshub
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
 
 # Models
@@ -22,7 +20,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, BaggingClassifier, VotingClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, BaggingClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import cross_val_predict
 
@@ -31,6 +29,45 @@ from sklearn.model_selection import cross_val_predict
 import random
 
 warnings.filterwarnings("ignore")
+
+try:
+    import mlflow  # type: ignore
+except Exception:
+    class _DummyRun:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    class _DummyMlflow:
+        def set_tracking_uri(self, *_args, **_kwargs):
+            return None
+
+        def set_experiment(self, *_args, **_kwargs):
+            return None
+
+        def start_run(self, *_args, **_kwargs):
+            return _DummyRun()
+
+        def log_params(self, *_args, **_kwargs):
+            return None
+
+        def log_param(self, *_args, **_kwargs):
+            return None
+
+        def log_artifact(self, *_args, **_kwargs):
+            return None
+
+        def log_metric(self, *_args, **_kwargs):
+            return None
+
+    mlflow = _DummyMlflow()
+
+try:
+    import dagshub  # type: ignore
+except Exception:
+    dagshub = None
 
 def set_seed(seed):
      """Ensures 100% reproducibility across runs."""
@@ -66,7 +103,7 @@ STRATEGY = "dense"       # "dense", "residual", "simple"
 
 # ─── Setup Setup Tracking ─────────────────────────────────────────────────────
 def setup_tracking():
-    use_dagshub = os.getenv("DAGSHUB_TOKEN") is not None or os.getenv("USE_DAGSHUB") == "True"
+    use_dagshub = (os.getenv("DAGSHUB_TOKEN") is not None or os.getenv("USE_DAGSHUB") == "True") and dagshub is not None
     
     if use_dagshub:
         try:
@@ -238,7 +275,8 @@ class RLMetaLearner:
 # ─── Pyramid Logic ────────────────────────────────────────────────────────────
 class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
-                 metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY):
+                 metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY,
+                 min_models=MIN_MODELS_PER_LAYER, max_models=MAX_MODELS_PER_LAYER):
         self.num_layers = num_layers
         self.seed = seed
         self.meta_learner = meta_learner
@@ -246,6 +284,8 @@ class PyramidEnsemble:
         self.metric = metric
         self.jitter = jitter
         self.strategy = strategy
+        self.min_models = min_models
+        self.max_models = max_models
         self.layers = []
         self.results = []
         self.best_model = None
@@ -292,13 +332,16 @@ class PyramidEnsemble:
 
             models_to_run = self.meta_learner.suggest_models(
                 l, 
-                avail_b if l==1 else avail_m
+                avail_b if l==1 else avail_m,
+                min_p=self.min_models,
+                max_p=self.max_models,
             ) if self.meta_learner else (avail_b if l==1 else avail_m)
             
             print(f"  [RL] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
 
 
             layer_models, layer_oof, layer_val = [], [], []
+            score_before_layer = self.best_score  # snapshot before any model in this layer updates it
             for m_type in models_to_run:
                 t0 = time.time()
                 model_name = f"{m_type}_L{l}"
@@ -322,25 +365,52 @@ class PyramidEnsemble:
                     layer_val.append(vp)
 
             # --- Automatic Layer Voting (Meta-Ensemble of the Layer) ---
+            # Uses pre-fitted models directly to avoid retraining them inside VotingClassifier
             if len(layer_models) > 1:
                 t0_v = time.time()
                 v_name = f"voting_L{l}"
-                # Soft voting if all models support predict_proba
-                v_type = 'soft' if all(hasattr(m[1], "predict_proba") for m in layer_models) else 'hard'
-                v_model = VotingClassifier(estimators=[(m[0], m[1]) for m in layer_models], voting=v_type)
-                # Note: This is an ensemble of already fitted models? 
-                # Sklearn VotingClassifier needs to be fitted on data.
-                v_model.fit(current_X_train, y_train)
+                all_have_proba = all(hasattr(m[1], "predict_proba") for m in layer_models)
+
+                if all_have_proba:
+                    # Soft voting: average predict_proba across pre-fitted models
+                    class _PreFittedSoftVoting:
+                        def __init__(self, estimators):
+                            self.estimators_ = [m for _, m in estimators]
+                        def predict_proba(self, X):
+                            return np.mean([m.predict_proba(X) for m in self.estimators_], axis=0)
+                        def predict(self, X):
+                            return np.argmax(self.predict_proba(X), axis=1)
+
+                    v_model = _PreFittedSoftVoting(layer_models)
+                else:
+                    # Hard voting: majority vote across pre-fitted models
+                    class _PreFittedHardVoting:
+                        def __init__(self, estimators, n_classes):
+                            self.estimators_ = [m for _, m in estimators]
+                            self.n_classes_ = n_classes
+                        def predict(self, X):
+                            preds = np.column_stack([m.predict(X) for m in self.estimators_])
+                            return np.apply_along_axis(
+                                lambda row: np.bincount(row, minlength=self.n_classes_).argmax(),
+                                axis=1, arr=preds
+                            )
+                        def predict_proba(self, X):
+                            preds = self.predict(X)
+                            out = np.zeros((len(preds), self.n_classes_))
+                            out[np.arange(len(preds)), preds] = 1.0
+                            return out
+
+                    v_model = _PreFittedHardVoting(layer_models, len(np.unique(y_train)))
+
                 self._evaluate_and_log(v_model, current_X_val, y_val, l, v_name, t0_v)
                 layer_models.append((v_name, v_model))
 
             self.layers.append(layer_models)
 
             
-            # Early Stopping Check
-            layer_best_score = max([ (res["f1"] if self.metric=="f1" else res["accuracy"]) for res in self.results if res["layer"] == l])
-            if layer_best_score > self.best_score + 1e-5: 
-                # Note: best_score is updated in _evaluate_and_log
+            # Early Stopping Check — compare against score snapshot taken before this layer
+            layer_best_score = max([(res["f1"] if self.metric == "f1" else res["accuracy"]) for res in self.results if res["layer"] == l])
+            if layer_best_score > score_before_layer + 1e-5:
                 self.no_improve_layers = 0
             else:
                 self.no_improve_layers += 1
@@ -357,8 +427,8 @@ class PyramidEnsemble:
                 if self.strategy == "dense":
                     current_X_train, current_X_val = np.hstack(all_oof_preds), np.hstack(all_val_preds)
                 elif self.strategy == "residual":
-                    # Only last layer + original input (implied by first oof append if we wanted, but here current_X is just meta)
-                    current_X_train, current_X_val = layer_oof, layer_val
+                    # Only last layer's OOF (no accumulation)
+                    current_X_train, current_X_val = np.hstack(layer_oof), np.hstack(layer_val)
                 else: # "simple"
                     current_X_train, current_X_val = np.hstack(layer_oof), np.hstack(layer_val)
                     
@@ -421,6 +491,8 @@ def main():
     parser.add_argument("--tfidf_ngrams", type=int, default=2, help="Max ngrams (1 or 2)")
     parser.add_argument("--jitter", type=bool, default=JITTER)
     parser.add_argument("--strategy", type=str, choices=["dense", "residual", "simple"], default=STRATEGY)
+    parser.add_argument("--max_train_rows", type=int, default=0, help="0 keeps full dataset; >0 samples train rows")
+    parser.add_argument("--max_val_rows", type=int, default=0, help="0 keeps full dataset; >0 samples validation rows")
     args = parser.parse_args()
 
 
@@ -450,6 +522,13 @@ def main():
 
         
         train_df, val_df = load_data()
+        if args.max_train_rows > 0 and len(train_df) > args.max_train_rows:
+            train_df = train_df.sample(n=args.max_train_rows, random_state=current_seed).reset_index(drop=True)
+            print(f"[SMOKE] Train sample enabled: {len(train_df)} rows", flush=True)
+        if args.max_val_rows > 0 and len(val_df) > args.max_val_rows:
+            val_df = val_df.sample(n=args.max_val_rows, random_state=current_seed).reset_index(drop=True)
+            print(f"[SMOKE] Validation sample enabled: {len(val_df)} rows", flush=True)
+
         le = LabelEncoder()
         y_train = le.fit_transform(train_df['sentiment'])
         y_val = le.transform(val_df['sentiment'])
@@ -462,7 +541,8 @@ def main():
         pyramid = PyramidEnsemble(num_layers=current_layers, seed=current_seed, 
                                  meta_learner=rl_learner, patience=args.patience,
                                  metric=args.metric, jitter=args.jitter,
-                                 strategy=args.strategy)
+                                 strategy=args.strategy,
+                                 min_models=args.min_models, max_models=args.max_models)
         pyramid.train(X_train, y_train, X_val, y_val)
 
 
@@ -476,7 +556,16 @@ def main():
         if pyramid.best_model:
             joblib.dump(pyramid.best_model, "best_pyramid_model.pkl")
             mlflow.log_artifact("best_pyramid_model.pkl")
-            
+
+            # Log best model metrics so runs are comparable in MLflow UI
+            best_res = max(pyramid.results, key=lambda r: r["f1"] if pyramid.metric == "f1" else r["accuracy"])
+            mlflow.log_params({"best_model": best_res["model"], "best_layer": best_res["layer"]})
+            try:
+                mlflow.log_metric("best_f1", best_res["f1"])
+                mlflow.log_metric("best_accuracy", best_res["accuracy"])
+            except Exception:
+                pass  # Dummy mlflow silently ignores metrics
+
             # Use the pyramid's predict method which handles feature transformation
             y_pred = pyramid.predict(X_val)
             cm = confusion_matrix(y_val, y_pred)

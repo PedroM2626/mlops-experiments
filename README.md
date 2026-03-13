@@ -53,6 +53,33 @@ python experiments/flexible_ensemble_pyramid.py --layers 15 --min_models 3 --max
 
 *(As configurações são automaticamente registradas no MLflow para comparação entre diferentes estratégias de evolução).*
 
+### Interface Visual com Reflex
+
+Tambem e possivel executar o Flexible Ensemble Pyramid por uma interface web com monitoramento visual em tempo real:
+
+1. Instale as dependencias (incluindo `reflex`).
+	- Para Python 3.13, prefira as dependencias leves da interface:
+
+```bash
+pip install -r requirements_reflex_ui.txt
+```
+
+2. Execute:
+
+```bash
+reflex run
+```
+
+3. Abra a URL exibida no terminal (normalmente `http://localhost:3000`).
+
+Recursos da interface:
+- Painel de parametros (camadas, epsilon RL, estrategia, TF-IDF, jitter)
+- Barra visual de progresso por camada (percentual em tempo real)
+- Log de treinamento em tempo real
+- Tabela das metricas por modelo/camada
+- Mapa visual da topologia do treino, mostrando fluxo linear entre camadas e ramificacoes (estilo arvore) dos modelos selecionados em cada camada
+- Botao "Teste Rapido" (smoke test): executa com poucas features/modelos e amostragem reduzida para validar start/stop em segundos
+
 **Características de Engenharia:**
 - **Jitter de Hiperparâmetros**: Mutações aleatórias nos parâmetros dos modelos (C, alpha, n_estimators) para descobrir configurações ótimas além do padrão.
 - **Skip Connections Dinâmicas**: Suporte a arquiteturas **Densas** (todas as camadas anteriores), **Residuais** (apenas a anterior + input original) ou **Simples**.
