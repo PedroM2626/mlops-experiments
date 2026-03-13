@@ -181,11 +181,18 @@ class TrainingState(rx.State):
         if any(n["id"] == node_id for n in self.nodes):
             return node_id
 
+        strategy_badge = ""
+        if self.strategy == "dense":
+            strategy_badge = "[dense]"
+        elif self.strategy == "residual":
+            strategy_badge = "[residual]"
+
         self.nodes.append(
             {
                 "id": node_id,
                 "label": f"Camada {layer}",
                 "kind": "layer",
+                "badge": strategy_badge,
                 "x": float(layer),
                 "y": 0.0,
             }
@@ -347,6 +354,29 @@ class TrainingState(rx.State):
                 va="top",
                 color="#e5e7eb",
             )
+
+            badge = str(node.get("badge", ""))
+            if badge:
+                _badge_colors = {"[dense]": "#06b6d4", "[residual]": "#f43f5e"}
+                badge_color = _badge_colors.get(badge, "#94a3b8")
+                ax.text(
+                    float(node["x"]),
+                    float(node["y"]) + 0.28,
+                    badge,
+                    fontsize=7.5,
+                    ha="center",
+                    va="bottom",
+                    color=badge_color,
+                    fontweight="bold",
+                    zorder=4,
+                    bbox=dict(
+                        boxstyle="round,pad=0.25",
+                        facecolor=badge_color,
+                        alpha=0.18,
+                        edgecolor=badge_color,
+                        linewidth=0.9,
+                    ),
+                )
 
         ax.set_title("Fluxo de Treinamento: Entrada, Camadas e Ramificacoes", fontsize=13, color="#f8fafc")
         ax.set_xticks([])
