@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import subprocess
 import sys
@@ -480,15 +481,11 @@ class TrainingState(rx.State):
             str(self.sample_val_rows),
         ]
 
-        proc = subprocess.Popen(
-            cmd,
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
             cwd=str(ROOT_DIR),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
 
         async with self:
@@ -500,21 +497,24 @@ class TrainingState(rx.State):
             self.eta_seconds = 0
 
         assert proc.stdout is not None
-        for raw_line in proc.stdout:
-            line = raw_line.rstrip("\n")
+        while True:
+            raw = await proc.stdout.readline()
+            if not raw:
+                break
+            line = raw.decode("utf-8", errors="replace").rstrip("\n")
             async with self:
                 if self.stop_requested:
                     self.logs.append("[UI] Solicitacao de parada recebida. Encerrando processo...")
                     break
                 self._handle_line(line)
 
-        if proc.poll() is None and self.stop_requested:
+        if proc.returncode is None and self.stop_requested:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, text=True)
             else:
                 proc.terminate()
 
-        exit_code = proc.wait()
+        exit_code = await proc.wait()
         async with self:
             self.is_training = False
             self.training_pid = 0
