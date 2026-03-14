@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from typing import Any
 
 from fastapi import HTTPException
@@ -19,7 +19,10 @@ from fasthtml.common import *
 
 APP_DIR = Path(__file__).resolve().parent
 BASE_DIR = APP_DIR.parent
+REPO_ROOT = BASE_DIR.parents[1]
 PYTHON_EXE = os.environ.get("PYTHON_EXE") or sys.executable
+PY311_FALLBACK_EXE = REPO_ROOT / ".venv311" / "Scripts" / "python.exe"
+AUTOG_PYTHON_EXE = os.environ.get("AUTOG_PYTHON_EXE") or (str(PY311_FALLBACK_EXE) if PY311_FALLBACK_EXE.exists() else PYTHON_EXE)
 
 
 EXPERIMENTS: dict[str, dict[str, Any]] = {
@@ -87,8 +90,8 @@ EXPERIMENTS: dict[str, dict[str, Any]] = {
         "name": "AutoGluon Senti Pred",
         "path": BASE_DIR,
         "description": "AutoGluon script focused on best-quality text classification.",
-        "commands_full": [[PYTHON_EXE, "autogluon_senti_pred.py"]],
-        "commands_smoke": [[PYTHON_EXE, "autogluon_senti_pred.py"]],
+        "commands_full": [[AUTOG_PYTHON_EXE, "autogluon_senti_pred.py"]],
+        "commands_smoke": [[AUTOG_PYTHON_EXE, "-c", "from autogluon.tabular import TabularPredictor; print('AutoGluon import OK')"]],
         "metrics_candidates": ["ag_leaderboard_optimized.csv"],
     },
 }
@@ -96,6 +99,7 @@ EXPERIMENTS: dict[str, dict[str, Any]] = {
 
 RUNS: dict[str, dict[str, Any]] = {}
 LOCK = threading.Lock()
+RUN_TERMINATION_TIMEOUT = 5
 
 
 def now_iso() -> str:
@@ -112,6 +116,10 @@ def fmt_seconds(seconds: float | None) -> str:
     if seconds < 60:
         return f"{seconds:.1f}s"
     return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+
+
+def status_options() -> list[str]:
+    return ["all", "running", "canceling", "success", "failed", "canceled"]
 
 
 def list_visualizations(exp_path: Path) -> list[Path]:
@@ -171,6 +179,42 @@ def _append_log(run_id: str, line: str) -> None:
             run["logs"] = run["logs"][-2500:]
 
 
+def _get_run_copy(run_id: str) -> dict[str, Any] | None:
+    with LOCK:
+        run = RUNS.get(run_id)
+        if run is None:
+            return None
+        return dict(run)
+
+
+def _is_cancel_requested(run_id: str) -> bool:
+    with LOCK:
+        run = RUNS.get(run_id)
+        return bool(run and run.get("cancel_requested"))
+
+
+def _set_process(run_id: str, process: subprocess.Popen[str] | None) -> None:
+    with LOCK:
+        run = RUNS.get(run_id)
+        if run is not None:
+            run["process"] = process
+
+
+def _stream_process_output(run_id: str, process: subprocess.Popen[str]) -> None:
+    if process.stdout is None:
+        return
+    try:
+        for line in iter(process.stdout.readline, ""):
+            if not line:
+                break
+            _append_log(run_id, line.rstrip())
+    finally:
+        try:
+            process.stdout.close()
+        except Exception:
+            pass
+
+
 def _mark_status(run_id: str, status: str, error: str | None = None) -> None:
     with LOCK:
         run = RUNS.get(run_id)
@@ -181,6 +225,54 @@ def _mark_status(run_id: str, status: str, error: str | None = None) -> None:
         run["finished_at_iso"] = now_iso()
         if error:
             run["error"] = error
+
+
+def request_cancel(run_id: str) -> bool:
+    process: subprocess.Popen[str] | None = None
+    with LOCK:
+        run = RUNS.get(run_id)
+        if run is None or run.get("status") not in {"running", "canceling"}:
+            return False
+        run["cancel_requested"] = True
+        if run["status"] == "running":
+            run["status"] = "canceling"
+        process = run.get("process")
+
+    _append_log(run_id, f"[{now_iso()}] Cancellation requested by user.")
+
+    if process is not None and process.poll() is None:
+        try:
+            process.terminate()
+            process.wait(timeout=RUN_TERMINATION_TIMEOUT)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+    return True
+
+
+def filtered_runs(experiment: str, status: str) -> list[dict[str, Any]]:
+    with LOCK:
+        ordered = sorted(RUNS.values(), key=lambda r: r["created_at"], reverse=True)
+    rows = []
+    for run in ordered:
+        if experiment and experiment != "all" and run.get("experiment_key") != experiment:
+            continue
+        if status and status != "all" and run.get("status") != status:
+            continue
+        rows.append(run)
+    return rows
+
+
+def runs_query(experiment: str, status: str) -> str:
+    params = {}
+    if experiment and experiment != "all":
+        params["experiment"] = experiment
+    if status and status != "all":
+        params["status"] = status
+    query = urlencode(params)
+    return f"?{query}" if query else ""
 
 
 def select_commands(config: dict[str, Any], mode: str) -> list[list[str]]:
@@ -197,6 +289,10 @@ def execute_run(run_id: str, exp_key: str, mode: str) -> None:
 
     try:
         for idx, command in enumerate(commands, start=1):
+            if _is_cancel_requested(run_id):
+                _mark_status(run_id, "canceled")
+                _append_log(run_id, f"[{now_iso()}] Run canceled before next command.")
+                return
             if not exp_path.exists():
                 raise FileNotFoundError(f"Experiment path not found: {exp_path}")
 
@@ -211,20 +307,78 @@ def execute_run(run_id: str, exp_key: str, mode: str) -> None:
                 text=True,
                 bufsize=1,
             )
+            _set_process(run_id, process)
 
-            assert process.stdout is not None
-            for line in process.stdout:
-                _append_log(run_id, line.rstrip())
+            reader = threading.Thread(target=_stream_process_output, args=(run_id, process), daemon=True)
+            reader.start()
 
             return_code = process.wait()
+            reader.join(timeout=3)
+            _set_process(run_id, None)
+
+            if _is_cancel_requested(run_id):
+                _mark_status(run_id, "canceled")
+                _append_log(run_id, f"[{now_iso()}] Run canceled during command execution.")
+                return
             if return_code != 0:
                 raise RuntimeError(f"Command failed with exit code {return_code}: {cmd_str}")
 
         _mark_status(run_id, "success")
         _append_log(run_id, f"[{now_iso()}] Run completed successfully.")
     except Exception as exc:
+        if _is_cancel_requested(run_id):
+            _mark_status(run_id, "canceled")
+            _append_log(run_id, f"[{now_iso()}] Run canceled.")
+            return
         _mark_status(run_id, "failed", str(exc))
         _append_log(run_id, f"[{now_iso()}] ERROR: {exc}")
+    finally:
+        _set_process(run_id, None)
+
+
+def button_class(kind: str = "primary") -> str:
+    return f"btn btn-{kind}"
+
+
+def filter_controls(experiment: str, status: str):
+    return Div(
+        Form(
+            Div(
+                Label("Experiment", fr="experiment", cls="label"),
+                Select(
+                    Option("All", value="all", selected=(experiment in {"", "all"})),
+                    *[
+                        Option(cfg["name"], value=key, selected=(experiment == key))
+                        for key, cfg in EXPERIMENTS.items()
+                    ],
+                    name="experiment",
+                    id="experiment",
+                ),
+                cls="field",
+            ),
+            Div(
+                Label("Status", fr="status", cls="label"),
+                Select(
+                    *[
+                        Option(opt.title(), value=opt, selected=(status == opt or (opt == "all" and status == "")))
+                        for opt in status_options()
+                    ],
+                    name="status",
+                    id="status",
+                ),
+                cls="field",
+            ),
+            Div(
+                Button("Apply filters", cls=button_class("primary")),
+                A("Clear", href="/runs", cls="btn btn-ghost"),
+                cls="actions",
+            ),
+            method="get",
+            action="/runs",
+            cls="filters",
+        ),
+        cls="card filter-card",
+    )
 
 
 def build_layout(*content: Any):
@@ -239,84 +393,135 @@ def build_layout(*content: Any):
         Style(
             """
             :root {
-                --bg: #f6f4ef;
-                --panel: #ffffff;
-                --ink: #1f2a37;
-                --muted: #5a6573;
-                --primary: #0f766e;
-                --primary-2: #115e59;
-                --line: #d7dce2;
+                --bg: #0a0f1a;
+                --bg-soft: #121a2a;
+                --panel: rgba(17, 24, 39, 0.84);
+                --panel-strong: rgba(15, 23, 42, 0.96);
+                --ink: #ecf3ff;
+                --muted: #9fb0cb;
+                --primary: #5eead4;
+                --primary-2: #2dd4bf;
+                --accent: #7c3aed;
+                --danger: #fb7185;
+                --warning: #fbbf24;
+                --success: #34d399;
+                --line: rgba(148, 163, 184, 0.22);
+                --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
             }
             * { box-sizing: border-box; }
             body {
                 margin: 0;
                 font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-                background: radial-gradient(circle at top right, #dce7e5 0%, var(--bg) 52%);
+                background:
+                    radial-gradient(circle at top left, rgba(94, 234, 212, 0.16), transparent 24%),
+                    radial-gradient(circle at top right, rgba(124, 58, 237, 0.18), transparent 28%),
+                    linear-gradient(180deg, #060913 0%, var(--bg) 100%);
                 color: var(--ink);
+                min-height: 100vh;
             }
             .container {
-                max-width: 1200px;
+                max-width: 1280px;
                 margin: 0 auto;
                 padding: 24px;
             }
             .hero {
-                background: linear-gradient(120deg, #0f766e 0%, #134e4a 80%);
-                color: #f2fffd;
-                padding: 24px;
-                border-radius: 16px;
-                box-shadow: 0 10px 30px rgba(15, 118, 110, 0.22);
+                background:
+                    linear-gradient(135deg, rgba(45, 212, 191, 0.15) 0%, rgba(124, 58, 237, 0.28) 100%),
+                    var(--panel-strong);
+                color: #f7fbff;
+                padding: 28px;
+                border: 1px solid rgba(94, 234, 212, 0.16);
+                border-radius: 24px;
+                box-shadow: var(--shadow);
+                position: relative;
+                overflow: hidden;
+            }
+            .hero:before {
+                content: "";
+                position: absolute;
+                inset: -20% auto auto -10%;
+                width: 240px;
+                height: 240px;
+                background: radial-gradient(circle, rgba(94, 234, 212, 0.25), transparent 70%);
+                pointer-events: none;
             }
             .grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                gap: 16px;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 18px;
                 margin-top: 20px;
             }
             .card {
                 background: var(--panel);
                 border: 1px solid var(--line);
-                border-radius: 12px;
-                padding: 16px;
-                box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+                border-radius: 18px;
+                padding: 18px;
+                box-shadow: var(--shadow);
+                backdrop-filter: blur(10px);
             }
             .muted { color: var(--muted); }
             .btn {
-                border: 0;
-                background: var(--primary);
-                color: #fff;
+                border: 1px solid transparent;
+                color: #061018;
                 padding: 10px 14px;
-                border-radius: 10px;
+                border-radius: 12px;
                 cursor: pointer;
                 font-weight: 600;
-            }
-            .btn:hover { background: var(--primary-2); }
-            .btn.link {
                 text-decoration: none;
-                display: inline-block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: 160ms ease;
+                min-height: 42px;
+            }
+            .btn:hover { transform: translateY(-1px); }
+            .btn-primary {
+                background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+                box-shadow: 0 10px 24px rgba(45, 212, 191, 0.24);
+            }
+            .btn-secondary {
+                background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+                box-shadow: 0 10px 24px rgba(96, 165, 250, 0.2);
+            }
+            .btn-danger {
+                background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+                color: #fff;
+                box-shadow: 0 10px 24px rgba(225, 29, 72, 0.22);
+            }
+            .btn-ghost {
+                background: rgba(148, 163, 184, 0.08);
+                color: var(--ink);
+                border-color: rgba(148, 163, 184, 0.18);
             }
             .nav {
-                margin: 16px 0 8px;
+                margin: 18px 0 10px;
                 display: flex;
                 gap: 10px;
                 flex-wrap: wrap;
             }
             .nav-link {
                 text-decoration: none;
-                color: var(--primary-2);
-                background: #e8f2f1;
-                border: 1px solid #c7dcda;
-                border-radius: 8px;
-                padding: 8px 10px;
+                color: var(--ink);
+                background: rgba(148, 163, 184, 0.08);
+                border: 1px solid rgba(148, 163, 184, 0.18);
+                border-radius: 999px;
+                padding: 10px 14px;
                 font-weight: 600;
             }
-            .status-running { color: #9a6700; font-weight: 700; }
-            .status-success { color: #137333; font-weight: 700; }
-            .status-failed { color: #b42318; font-weight: 700; }
+            .nav-link:hover {
+                border-color: rgba(94, 234, 212, 0.4);
+                color: var(--primary);
+            }
+            .status-running { color: var(--warning); font-weight: 700; }
+            .status-canceling { color: #fda4af; font-weight: 700; }
+            .status-canceled { color: #cbd5e1; font-weight: 700; }
+            .status-success { color: var(--success); font-weight: 700; }
+            .status-failed { color: var(--danger); font-weight: 700; }
             .table-wrap {
                 overflow: auto;
                 border: 1px solid var(--line);
-                border-radius: 10px;
-                background: #fff;
+                border-radius: 16px;
+                background: rgba(8, 13, 24, 0.75);
             }
             table { width: 100%; border-collapse: collapse; }
             th, td {
@@ -325,14 +530,19 @@ def build_layout(*content: Any):
                 border-bottom: 1px solid var(--line);
                 vertical-align: top;
             }
+            th {
+                color: #dce7fb;
+                background: rgba(148, 163, 184, 0.06);
+            }
             pre {
-                background: #0b1f1d;
-                color: #d5f6f2;
+                background: #040814;
+                color: #d7fff7;
                 padding: 14px;
-                border-radius: 10px;
+                border-radius: 14px;
                 overflow: auto;
                 max-height: 420px;
                 font-size: 12px;
+                border: 1px solid rgba(94, 234, 212, 0.12);
             }
             .vis-grid {
                 display: grid;
@@ -344,8 +554,64 @@ def build_layout(*content: Any):
                 height: 200px;
                 object-fit: contain;
                 border: 1px solid var(--line);
-                border-radius: 8px;
-                background: #fafafa;
+                border-radius: 12px;
+                background: rgba(255,255,255,0.03);
+            }
+            .actions {
+                display: flex;
+                gap: 8px;
+                align-items: end;
+                flex-wrap: wrap;
+            }
+            .filters {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 14px;
+                align-items: end;
+            }
+            .filter-card {
+                margin: 14px 0 8px;
+            }
+            .field {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .label {
+                color: #dbeafe;
+                font-size: 13px;
+                letter-spacing: 0.02em;
+            }
+            input, select {
+                width: 100%;
+                background: rgba(15, 23, 42, 0.92);
+                color: var(--ink);
+                border: 1px solid rgba(148, 163, 184, 0.2);
+                border-radius: 12px;
+                padding: 11px 12px;
+            }
+            .split {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .kpis {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin: 10px 0 0;
+            }
+            .pill {
+                display: inline-flex;
+                gap: 6px;
+                align-items: center;
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.08);
+                border: 1px solid rgba(148, 163, 184, 0.16);
+                color: #dce7fb;
             }
             @media (max-width: 720px) {
                 .container { padding: 16px; }
@@ -384,21 +650,25 @@ def homepage():
 
         cards.append(
             Div(
-                H3(config["name"]),
+                Div(
+                    H3(config["name"]),
+                    Span("ready", cls="pill"),
+                    cls="split",
+                ),
                 P(config["description"], cls="muted"),
                 metrics_block,
                 Div(
                     Form(
-                        Button("Run full", cls="btn"),
+                        Button("Run full", cls=button_class("primary")),
                         action=f"/runs/start/{exp_key}/full",
                         method="post",
                     ),
                     Form(
-                        Button("Smoke test", cls="btn"),
+                        Button("Smoke test", cls=button_class("secondary")),
                         action=f"/runs/start/{exp_key}/smoke",
                         method="post",
                     ),
-                    style="display:flex;gap:8px;flex-wrap:wrap;",
+                    cls="actions",
                 ),
                 cls="card",
             )
@@ -433,6 +703,8 @@ def start_run(exp_key: str, mode: str):
             "finished_at_iso": None,
             "logs": [],
             "error": None,
+            "cancel_requested": False,
+            "process": None,
         }
 
     t = threading.Thread(target=execute_run, args=(run_id, exp_key, mode), daemon=True)
@@ -443,18 +715,31 @@ def start_run(exp_key: str, mode: str):
 def run_status_class(status: str) -> str:
     return {
         "running": "status-running",
+        "canceling": "status-canceling",
+        "canceled": "status-canceled",
         "success": "status-success",
         "failed": "status-failed",
     }.get(status, "")
 
 
-def render_runs_table() -> Any:
-    with LOCK:
-        ordered = sorted(RUNS.values(), key=lambda r: r["created_at"], reverse=True)
-
+def render_runs_table(experiment: str, status: str) -> Any:
+    ordered = filtered_runs(experiment, status)
     rows = []
     for run in ordered:
         elapsed = (run["ended_at"] or time.time()) - run["created_at"]
+        redirect_to = f"/runs{runs_query(experiment, status)}"
+        action_cell: Any = A("Open", href=f"/runs/{run['id']}")
+        if run["status"] in {"running", "canceling"}:
+            action_cell = Div(
+                A("Open", href=f"/runs/{run['id']}"),
+                Form(
+                    Input(type="hidden", name="redirect_to", value=redirect_to),
+                    Button("Cancel", cls=button_class("danger")),
+                    action=f"/runs/cancel/{run['id']}",
+                    method="post",
+                ),
+                cls="actions",
+            )
         rows.append(
             Tr(
                 Td(run["id"]),
@@ -463,7 +748,7 @@ def render_runs_table() -> Any:
                 Td(run["created_at_iso"]),
                 Td(fmt_seconds(elapsed)),
                 Td(Span(run["status"], cls=run_status_class(run["status"]))),
-                Td(A("Open", href=f"/runs/{run['id']}")),
+                Td(action_cell),
             )
         )
 
@@ -478,20 +763,41 @@ def render_runs_table() -> Any:
             ),
             cls="table-wrap",
         ),
-        hx_get="/runs/table",
+        hx_get=f"/runs/table{runs_query(experiment, status)}",
         hx_trigger="load, every 3s",
         hx_swap="outerHTML",
     )
 
 
 @rt("/runs")
-def runs_page():
-    return build_layout(H2("Runs"), P("Live status refreshes every 3 seconds."), render_runs_table())
+def runs_page(experiment: str = "all", status: str = "all"):
+    active_runs = len(filtered_runs(experiment, "running"))
+    visible_runs = len(filtered_runs(experiment, status))
+    return build_layout(
+        H2("Runs"),
+        P("Filterable live view with auto-refresh every 3 seconds."),
+        filter_controls(experiment, status),
+        Div(
+            Span(f"Visible runs: {visible_runs}", cls="pill"),
+            Span(f"Running now: {active_runs}", cls="pill"),
+            cls="kpis",
+        ),
+        render_runs_table(experiment, status),
+    )
 
 
 @rt("/runs/table")
-def runs_table_partial():
-    return render_runs_table()
+def runs_table_partial(experiment: str = "all", status: str = "all"):
+    return render_runs_table(experiment, status)
+
+
+@rt("/runs/cancel/{run_id}", methods=["POST"])
+def cancel_run(run_id: str, redirect_to: str = "/runs"):
+    run = _get_run_copy(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    request_cancel(run_id)
+    return RedirectResponse(url=redirect_to, status_code=303)
 
 
 @rt("/runs/{run_id}")
@@ -502,15 +808,29 @@ def run_detail(run_id: str):
         raise HTTPException(status_code=404, detail="Run not found")
 
     err = Div(P(f"Error: {run['error']}", cls="status-failed"), cls="card") if run.get("error") else ""
+    cancel_button = ""
+    if run["status"] in {"running", "canceling"}:
+        cancel_button = Form(
+            Input(type="hidden", name="redirect_to", value=f"/runs/{run_id}"),
+            Button("Cancel run", cls=button_class("danger")),
+            action=f"/runs/cancel/{run_id}",
+            method="post",
+        )
 
     return build_layout(
         H2(f"Run {run_id}"),
         Div(
-            P(f"Experiment: {run['experiment_name']}"),
-            P(f"Mode: {run.get('mode', 'full')}"),
-            P(f"Status: {run['status']}", cls=run_status_class(run["status"])),
-            P(f"Started: {run['created_at_iso']}"),
-            P(f"Finished: {run.get('finished_at_iso') or '-'}"),
+            Div(
+                Div(
+                    P(f"Experiment: {run['experiment_name']}"),
+                    P(f"Mode: {run.get('mode', 'full')}"),
+                    P(f"Status: {run['status']}", cls=run_status_class(run["status"])),
+                    P(f"Started: {run['created_at_iso']}"),
+                    P(f"Finished: {run.get('finished_at_iso') or '-'}"),
+                ),
+                cancel_button,
+                cls="split",
+            ),
             cls="card",
         ),
         err,

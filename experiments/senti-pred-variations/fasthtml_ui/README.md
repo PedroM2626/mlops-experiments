@@ -10,9 +10,12 @@ Interface web para:
 
 - Home com cartoes de cada experimento e botao de execucao
 - Dois modos de execucao: `full` (pipeline completo) e `smoke` (validacao rapida)
+- Botao de cancelamento para runs em execucao
+- Filtros por experimento e status na tela `Runs`
 - Pagina Runs com status em tempo real (polling)
 - Pagina de detalhes por run com logs em streaming
 - Pagina Analysis com metricas encontradas e galeria de artefatos
+- Tema escuro com foco em leitura de logs e artefatos
 
 ## Como executar
 
@@ -32,4 +35,8 @@ Abra:
 - A interface executa scripts em suas pastas originais, sem copiar arquivos.
 - Os logs de execucao ficam em memoria durante a sessao da aplicacao.
 - As metricas sao carregadas de JSON/CSV existentes nas pastas de `reports`.
-- A rota `/artifact/...` serve imagens e arquivos para visualizacao no browser.
+- Os artefatos sao servidos pela rota `/artifact?path=...`.
+- Para validar `full` do FLAML no ambiente do workspace, foram instalados: `flaml`, `pandas`, `numpy`, `scipy`, `scikit-learn`, `matplotlib`, `seaborn`, `nltk`, `joblib`, `lightgbm` e `python-dotenv`.
+- O AutoGluon nao possui wheel para Python 3.14 neste ambiente; use um Python 3.11 dedicado em `.venv311`.
+- A UI tenta usar automaticamente `.venv311/Scripts/python.exe` para o experimento `autogluon`.
+- Opcional: sobrescreva com `AUTOG_PYTHON_EXE` para apontar outro interpretador compativel.

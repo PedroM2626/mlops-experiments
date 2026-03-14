@@ -211,3 +211,4 @@ logs/
 # Arquivos de ambiente
 .env.local
 .env.production
+*venv*
