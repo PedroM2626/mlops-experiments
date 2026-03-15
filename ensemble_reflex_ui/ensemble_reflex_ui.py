@@ -33,6 +33,13 @@ class TrainingState(rx.State):
     tfidf_max: int = 50000
     tfidf_ngrams: int = 2
 
+    # NAS Parameters
+    use_nas: bool = False
+    nas_population: int = 10
+    nas_generations: int = 5
+    nas_mutation: float = 0.1
+    nas_crossover: float = 0.7
+
     is_training: bool = False
     status_text: str = "Aguardando execucao"
     current_layer: int = 0
@@ -108,7 +115,7 @@ class TrainingState(rx.State):
         self.eta_seconds = int(avg_layer_seconds * remaining_layers)
 
     @rx.event(background=True)
-    async def _tick_timer(self):
+    async def tick_timer(self):
         """Background task that updates elapsed/ETA every second while training."""
         while True:
             await asyncio.sleep(1)
@@ -152,6 +159,22 @@ class TrainingState(rx.State):
     def update_tfidf_ngrams(self, value: str):
         parsed = int(value or 2)
         self.tfidf_ngrams = 1 if parsed <= 1 else 2
+
+    # NAS Parameter update methods
+    def update_use_nas(self, value: bool):
+        self.use_nas = bool(value)
+
+    def update_nas_population(self, value: str):
+        self.nas_population = max(3, int(value or 10))
+
+    def update_nas_generations(self, value: str):
+        self.nas_generations = max(1, int(value or 5))
+
+    def update_nas_mutation(self, value: str):
+        self.nas_mutation = min(1.0, max(0.0, float(value or 0.1)))
+
+    def update_nas_crossover(self, value: str):
+        self.nas_crossover = min(1.0, max(0.0, float(value or 0.7)))
 
     def _reset_session(self):
         self.logs = []
@@ -488,6 +511,17 @@ class TrainingState(rx.State):
             str(self.sample_train_rows),
             "--max_val_rows",
             str(self.sample_val_rows),
+            # NAS Parameters
+            "--use_nas",
+            str(self.use_nas),
+            "--nas_population",
+            str(self.nas_population),
+            "--nas_generations",
+            str(self.nas_generations),
+            "--nas_mutation",
+            str(self.nas_mutation),
+            "--nas_crossover",
+            str(self.nas_crossover),
         ]
 
         if os.name == "nt":
@@ -575,6 +609,9 @@ class TrainingState(rx.State):
         self.tfidf_ngrams = 1
         self.sample_train_rows = 2500
         self.sample_val_rows = 1200
+        self.use_nas = True  # Enable NAS for smoke test
+        self.nas_population = 3
+        self.nas_generations = 1
         self.is_smoke_test = True
         return TrainingState.run_training
 
@@ -659,6 +696,51 @@ def control_panel() -> rx.Component:
             spacing="4",
             width="100%",
         ),
+        
+        # NAS Controls Section
+        rx.box(
+            rx.heading("Neural Architecture Search (NAS)", size="3", color="#f8fafc"),
+            rx.hstack(
+                rx.vstack(
+                    rx.text("Usar NAS", color="#cbd5e1"),
+                    rx.switch(checked=TrainingState.use_nas, on_change=TrainingState.update_use_nas),
+                    align="start",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text("População", color="#cbd5e1"),
+                    rx.input(value=TrainingState.nas_population, on_change=TrainingState.update_nas_population, type="number"),
+                    align="start",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text("Gerações", color="#cbd5e1"),
+                    rx.input(value=TrainingState.nas_generations, on_change=TrainingState.update_nas_generations, type="number"),
+                    align="start",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text("Mutação", color="#cbd5e1"),
+                    rx.input(value=TrainingState.nas_mutation, on_change=TrainingState.update_nas_mutation, type="number", step="0.01"),
+                    align="start",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text("Crossover", color="#cbd5e1"),
+                    rx.input(value=TrainingState.nas_crossover, on_change=TrainingState.update_nas_crossover, type="number", step="0.01"),
+                    align="start",
+                    spacing="1",
+                ),
+                spacing="4",
+                width="100%",
+            ),
+            padding="1rem",
+            border="1px solid #334155",
+            border_radius="14px",
+            background="#0f172a",
+            width="100%",
+        ),
+        
         rx.hstack(
             rx.text("Jitter", color="#cbd5e1"),
             rx.switch(checked=TrainingState.jitter, on_change=TrainingState.update_jitter),

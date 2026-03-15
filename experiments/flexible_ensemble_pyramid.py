@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Dict, List, Tuple, Optional, Any
 
 # MLOps
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
@@ -193,12 +194,14 @@ class RLMetaLearner:
     """
     Reinforcement Learning agent to optimize model selection across runs.
     Uses an epsilon-greedy approach with persistent memory.
+    Enhanced with NAS integration for architecture optimization.
     """
-    def __init__(self, knowledge_path="pyramid_rl_knowledge.json", epsilon=0.2, metric="f1"):
+    def __init__(self, knowledge_path="pyramid_rl_knowledge.json", epsilon=0.2, metric="f1", nas_controller=None):
         self.path = Path(knowledge_path)
         self.epsilon = epsilon
         self.metric = metric
         self.knowledge = self._load_knowledge()
+        self.nas_controller = nas_controller
 
     def _load_knowledge(self):
         if self.path.exists():
@@ -215,10 +218,17 @@ class RLMetaLearner:
             json.dump(self.knowledge, f, indent=4)
 
     def suggest_models(self, layer_idx, available_models, min_p=MIN_MODELS_PER_LAYER, max_p=MAX_MODELS_PER_LAYER):
-        """Suggests a variable number of models using an epsilon-greedy strategy."""
+        """Suggests models using RL + NAS hybrid approach."""
         l_str = str(layer_idx)
         
-        # Determine how many models to pick (this can vary run by run)
+        # Try NAS first if available
+        if self.nas_controller and np.random.random() < 0.7:  # 70% NAS preference
+            nas_models = self.nas_controller.suggest_models_for_layer(layer_idx, available_models)
+            if nas_models and min_p <= len(nas_models) <= max_p:
+                print(f"  [NAS] Selected set ({len(nas_models)} models): {nas_models}", flush=True)
+                return nas_models
+        
+        # Fallback to RL epsilon-greedy
         n_to_pick = np.random.randint(min_p, min(max_p, len(available_models)) + 1)
         
         # Explore: Epsilon-greedy random selection
@@ -248,7 +258,6 @@ class RLMetaLearner:
         return final_list
 
 
-
     def update_knowledge(self, results):
         self.knowledge["runs"] += 1
         for res in results:
@@ -270,6 +279,258 @@ class RLMetaLearner:
 
         self._save_knowledge()
         print(f"[RL] Meta-Knowledge updated. Total runs: {self.knowledge['runs']}", flush=True)
+
+
+# ─── Neural Architecture Search (NAS) Controller ────────────────────────────────
+class NASController:
+    """
+    Neural Architecture Search controller for optimizing ensemble architectures.
+    Uses evolutionary strategies and Bayesian optimization principles.
+    """
+    def __init__(self, population_size=10, generations=5, mutation_rate=0.1, 
+                 crossover_rate=0.7, knowledge_path="nas_knowledge.json", metric="f1"):
+        self.population_size = population_size
+        self.generations = generations
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.metric = metric
+        self.path = Path(knowledge_path)
+        self.knowledge = self._load_knowledge()
+        self.current_generation = 0
+        self.population = []
+        
+    def _load_knowledge(self):
+        if self.path.exists():
+            try:
+                with open(self.path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"generations": 0, "architectures": [], "best_architecture": None}
+    
+    def _save_knowledge(self):
+        with open(self.path, 'w') as f:
+            json.dump(self.knowledge, f, indent=4)
+    
+    def _generate_random_architecture(self, max_layers=8, max_models_per_layer=6):
+        """Generate a random ensemble architecture."""
+        num_layers = np.random.randint(2, max_layers + 1)
+        architecture = {
+            "layers": num_layers,
+            "models_per_layer": [],
+            "strategies": [],
+            "model_types": []
+        }
+        
+        available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+        strategies = ["dense", "residual", "simple"]
+        
+        for layer in range(num_layers):
+            n_models = np.random.randint(2, min(max_models_per_layer, len(available_models)) + 1)
+            layer_models = np.random.choice(available_models, n_models, replace=False).tolist()
+            strategy = np.random.choice(strategies)
+            
+            architecture["models_per_layer"].append(n_models)
+            architecture["model_types"].append(layer_models)
+            architecture["strategies"].append(strategy)
+        
+        return architecture
+    
+    def _evaluate_architecture_fitness(self, architecture, performance_metrics):
+        """Evaluate fitness of an architecture based on performance metrics."""
+        base_fitness = performance_metrics.get(self.metric, 0.0)
+        
+        # Complexity penalty - favor simpler architectures
+        complexity_penalty = 0.01 * sum(architecture["models_per_layer"])
+        
+        # Diversity bonus - reward different strategies
+        strategy_diversity = len(set(architecture["strategies"])) / len(architecture["strategies"])
+        diversity_bonus = 0.05 * strategy_diversity
+        
+        fitness = base_fitness - complexity_penalty + diversity_bonus
+        return max(0.0, fitness)
+    
+    def _mutate_architecture(self, architecture):
+        """Apply mutation to an architecture."""
+        mutated = architecture.copy()
+        mutated["models_per_layer"] = mutated["models_per_layer"].copy()
+        mutated["model_types"] = [layer.copy() for layer in mutated["model_types"]]
+        mutated["strategies"] = mutated["strategies"].copy()
+        
+        if np.random.random() < self.mutation_rate:
+            # Mutate number of layers
+            if np.random.random() < 0.3 and len(mutated["models_per_layer"]) > 2:
+                # Remove layer
+                idx = np.random.randint(len(mutated["models_per_layer"]))
+                mutated["models_per_layer"].pop(idx)
+                mutated["model_types"].pop(idx)
+                mutated["strategies"].pop(idx)
+                mutated["layers"] -= 1
+            elif len(mutated["models_per_layer"]) < 8:
+                # Add layer
+                available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+                strategies = ["dense", "residual", "simple"]
+                n_models = np.random.randint(2, 5)
+                layer_models = np.random.choice(available_models, n_models, replace=False).tolist()
+                strategy = np.random.choice(strategies)
+                
+                mutated["models_per_layer"].append(n_models)
+                mutated["model_types"].append(layer_models)
+                mutated["strategies"].append(strategy)
+                mutated["layers"] += 1
+        
+        if np.random.random() < self.mutation_rate:
+            # Mutate models in a random layer
+            if mutated["models_per_layer"]:
+                layer_idx = np.random.randint(len(mutated["models_per_layer"]))
+                available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+                n_models = np.random.randint(2, 5)
+                mutated["model_types"][layer_idx] = np.random.choice(available_models, n_models, replace=False).tolist()
+                mutated["models_per_layer"][layer_idx] = n_models
+        
+        if np.random.random() < self.mutation_rate:
+            # Mutate strategy of a random layer
+            if mutated["strategies"]:
+                layer_idx = np.random.randint(len(mutated["strategies"]))
+                strategies = ["dense", "residual", "simple"]
+                mutated["strategies"][layer_idx] = np.random.choice(strategies)
+        
+        return mutated
+    
+    def _crossover_architectures(self, parent1, parent2):
+        """Perform crossover between two parent architectures."""
+        if np.random.random() > self.crossover_rate:
+            return parent1.copy()
+        
+        child = {
+            "layers": 0,
+            "models_per_layer": [],
+            "strategies": [],
+            "model_types": []
+        }
+        
+        # Take layers from parents with some crossover logic
+        max_layers = min(parent1["layers"], parent2["layers"])
+        for i in range(max_layers):
+            if np.random.random() < 0.5:
+                child["models_per_layer"].append(parent1["models_per_layer"][i])
+                child["model_types"].append(parent1["model_types"][i].copy())
+                child["strategies"].append(parent1["strategies"][i])
+            else:
+                child["models_per_layer"].append(parent2["models_per_layer"][i])
+                child["model_types"].append(parent2["model_types"][i].copy())
+                child["strategies"].append(parent2["strategies"][i])
+            child["layers"] += 1
+        
+        # Ensure at least 2 layers
+        if child["layers"] < 2:
+            return parent1.copy()
+        
+        return child
+    
+    def initialize_population(self):
+        """Initialize the NAS population with random architectures."""
+        self.population = []
+        for _ in range(self.population_size):
+            arch = self._generate_random_architecture()
+            self.population.append({
+                "architecture": arch,
+                "fitness": 0.0,
+                "performance": {}
+            })
+    
+    def evolve_population(self, performance_data):
+        """Evolve the population based on performance feedback."""
+        if not self.population:
+            self.initialize_population()
+        
+        # Update fitness based on performance data
+        for i, individual in enumerate(self.population):
+            if i < len(performance_data):
+                individual["performance"] = performance_data[i]
+                individual["fitness"] = self._evaluate_architecture_fitness(
+                    individual["architecture"], performance_data[i]
+                )
+        
+        # Sort by fitness
+        self.population.sort(key=lambda x: x["fitness"], reverse=True)
+        
+        # Selection - keep top performers
+        elite_size = max(2, self.population_size // 3)
+        new_population = self.population[:elite_size].copy()
+        
+        # Generate offspring through crossover and mutation
+        while len(new_population) < self.population_size:
+            if len(self.population) >= 2:
+                parent1, parent2 = np.random.choice(self.population[:elite_size*2], 2, replace=False)
+                child_arch = self._crossover_architectures(parent1["architecture"], parent2["architecture"])
+                child_arch = self._mutate_architecture(child_arch)
+                
+                new_population.append({
+                    "architecture": child_arch,
+                    "fitness": 0.0,
+                    "performance": {}
+                })
+            else:
+                # Fallback to random generation
+                arch = self._generate_random_architecture()
+                new_population.append({
+                    "architecture": arch,
+                    "fitness": 0.0,
+                    "performance": {}
+                })
+        
+        self.population = new_population
+        self.current_generation += 1
+        
+        # Update knowledge base
+        self.knowledge["generations"] = self.current_generation
+        if self.population:
+            best = self.population[0]
+            self.knowledge["best_architecture"] = {
+                "architecture": best["architecture"],
+                "fitness": best["fitness"],
+                "performance": best["performance"],
+                "generation": self.current_generation
+            }
+        self._save_knowledge()
+        
+        print(f"[NAS] Generation {self.current_generation} completed. Best fitness: {self.population[0]['fitness']:.4f}", flush=True)
+    
+    def get_best_architecture(self):
+        """Get the best architecture found so far."""
+        if not self.population:
+            return None
+        return self.population[0]["architecture"]
+    
+    def suggest_models_for_layer(self, layer_idx, available_models, architecture=None):
+        """Suggest models for a specific layer based on NAS optimization."""
+        if architecture is None:
+            architecture = self.get_best_architecture()
+        
+        if architecture is None or layer_idx >= len(architecture["model_types"]):
+            # Fallback to random selection
+            n_to_pick = np.random.randint(MIN_MODELS_PER_LAYER, 
+                                        min(MAX_MODELS_PER_LAYER, len(available_models)) + 1)
+            return np.random.choice(available_models, n_to_pick, replace=False).tolist()
+        
+        # Use NAS-optimized architecture
+        layer_models = architecture["model_types"][layer_idx]
+        valid_models = [m for m in layer_models if m in available_models]
+        
+        if not valid_models:
+            # Fallback
+            n_to_pick = architecture["models_per_layer"][layer_idx]
+            return np.random.choice(available_models, min(n_to_pick, len(available_models)), replace=False).tolist()
+        
+        return valid_models
+    
+    def get_strategy_for_layer(self, layer_idx, default_strategy="dense"):
+        """Get the connection strategy for a specific layer."""
+        architecture = self.get_best_architecture()
+        if architecture is None or layer_idx >= len(architecture["strategies"]):
+            return default_strategy
+        return architecture["strategies"][layer_idx]
 
 
 # ─── Pre-fitted Voting Ensembles (module-level for pickle compatibility) ─────
@@ -305,7 +566,8 @@ class _PreFittedHardVoting:
 class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
                  metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY,
-                 min_models=MIN_MODELS_PER_LAYER, max_models=MAX_MODELS_PER_LAYER):
+                 min_models=MIN_MODELS_PER_LAYER, max_models=MAX_MODELS_PER_LAYER, 
+                 nas_controller=None):
         self.num_layers = num_layers
         self.seed = seed
         self.meta_learner = meta_learner
@@ -315,6 +577,7 @@ class PyramidEnsemble:
         self.strategy = strategy
         self.min_models = min_models
         self.max_models = max_models
+        self.nas_controller = nas_controller
         self.layers = []
         self.layer_meta_models = []
         self.results = []
@@ -359,8 +622,7 @@ class PyramidEnsemble:
             avail_b = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
             avail_m = ["lr", "ridge", "rf", "bag_lr"]
             
-            # The heart of variability: RL Meta-Learner decides WHAT and HOW MANY
-
+            # The heart of variability: RL Meta-Learner + NAS decides WHAT and HOW MANY
             models_to_run = self.meta_learner.suggest_models(
                 l, 
                 avail_b if l==1 else avail_m,
@@ -368,7 +630,15 @@ class PyramidEnsemble:
                 max_p=self.max_models,
             ) if self.meta_learner else (avail_b if l==1 else avail_m)
             
-            print(f"  [RL] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
+            # NAS-optimized strategy selection
+            current_strategy = self.strategy
+            if self.nas_controller:
+                nas_strategy = self.nas_controller.get_strategy_for_layer(l, self.strategy)
+                current_strategy = nas_strategy
+                if nas_strategy != self.strategy:
+                    print(f"  [NAS] Strategy override: {self.strategy} -> {nas_strategy}", flush=True)
+            
+            print(f"  [HYBRID] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
 
 
             layer_models, layer_oof, layer_val = [], [], []
@@ -431,10 +701,10 @@ class PyramidEnsemble:
                 all_oof_preds.append(np.hstack(layer_oof))
                 all_val_preds.append(np.hstack(layer_val))
                 
-                # Dynamic Strategy
-                if self.strategy == "dense":
+                # Dynamic Strategy (use NAS-optimized strategy for this layer)
+                if current_strategy == "dense":
                     current_X_train, current_X_val = np.hstack(all_oof_preds), np.hstack(all_val_preds)
-                elif self.strategy == "residual":
+                elif current_strategy == "residual":
                     # Only last layer's OOF (no accumulation)
                     current_X_train, current_X_val = np.hstack(layer_oof), np.hstack(layer_val)
                 else: # "simple"
@@ -499,7 +769,7 @@ class PyramidEnsemble:
 # ─── Execution ───────────────────────────────────────────────────────────────
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Highly Customizable Flexible Ensemble Pyramid with RL")
+    parser = argparse.ArgumentParser(description="Highly Customizable Flexible Ensemble Pyramid with RL + NAS")
     parser.add_argument("--layers", type=int, default=NUM_LAYERS)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--min_models", type=int, default=MIN_MODELS_PER_LAYER)
@@ -513,6 +783,14 @@ def main():
     parser.add_argument("--strategy", type=str, choices=["dense", "residual", "simple"], default=STRATEGY)
     parser.add_argument("--max_train_rows", type=int, default=0, help="0 keeps full dataset; >0 samples train rows")
     parser.add_argument("--max_val_rows", type=int, default=0, help="0 keeps full dataset; >0 samples validation rows")
+    
+    # NAS Parameters
+    parser.add_argument("--use_nas", type=bool, default=False, help="Enable Neural Architecture Search")
+    parser.add_argument("--nas_population", type=int, default=10, help="NAS population size")
+    parser.add_argument("--nas_generations", type=int, default=5, help="NAS generations")
+    parser.add_argument("--nas_mutation", type=float, default=0.1, help="NAS mutation rate")
+    parser.add_argument("--nas_crossover", type=float, default=0.7, help="NAS crossover rate")
+    
     args = parser.parse_args()
 
 
@@ -524,9 +802,26 @@ def main():
     current_seed = args.seed
 
     print(f"\n[CONFIG] Layers: {current_layers} | Seed: {current_seed} | RL Epsilon: {args.epsilon}", flush=True)
-    print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer\n", flush=True)
+    print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer", flush=True)
+    print(f"[CONFIG] NAS: {'Enabled' if args.use_nas else 'Disabled'}", flush=True)
+    if args.use_nas:
+        print(f"[CONFIG] NAS: Pop={args.nas_population}, Gen={args.nas_generations}, Mut={args.nas_mutation}, Cross={args.nas_crossover}", flush=True)
+    print()
 
-    with mlflow.start_run(run_name=f"Pyramid_RL_L{current_layers}_Var"):
+    # Initialize NAS Controller if enabled
+    nas_controller = None
+    if args.use_nas:
+        nas_controller = NASController(
+            population_size=args.nas_population,
+            generations=args.nas_generations,
+            mutation_rate=args.nas_mutation,
+            crossover_rate=args.nas_crossover,
+            metric=args.metric
+        )
+        nas_controller.initialize_population()
+        print("[NAS] Population initialized", flush=True)
+
+    with mlflow.start_run(run_name=f"Pyramid_RL_NAS_L{current_layers}_Var" if args.use_nas else f"Pyramid_RL_L{current_layers}_Var"):
         mlflow.log_params({
             "num_layers": current_layers, 
             "seed": current_seed,
@@ -536,7 +831,12 @@ def main():
             "metric": args.metric,
             "jitter": args.jitter,
             "strategy": args.strategy,
-            "tfidf_max": args.tfidf_max
+            "tfidf_max": args.tfidf_max,
+            "use_nas": args.use_nas,
+            "nas_population": args.nas_population,
+            "nas_generations": args.nas_generations,
+            "nas_mutation": args.nas_mutation,
+            "nas_crossover": args.nas_crossover
         })
 
 
@@ -557,12 +857,13 @@ def main():
         X_train = tfidf.fit_transform(train_df['clean_text'].fillna(""))
         X_val = tfidf.transform(val_df['clean_text'].fillna(""))
         
-        rl_learner = RLMetaLearner(epsilon=args.epsilon, metric=args.metric)
+        rl_learner = RLMetaLearner(epsilon=args.epsilon, metric=args.metric, nas_controller=nas_controller)
         pyramid = PyramidEnsemble(num_layers=current_layers, seed=current_seed, 
                                  meta_learner=rl_learner, patience=args.patience,
                                  metric=args.metric, jitter=args.jitter,
                                  strategy=args.strategy,
-                                 min_models=args.min_models, max_models=args.max_models)
+                                 min_models=args.min_models, max_models=args.max_models,
+                                 nas_controller=nas_controller)
         pyramid.train(X_train, y_train, X_val, y_val)
 
 
@@ -572,6 +873,7 @@ def main():
         pd.DataFrame(pyramid.results).to_csv("pyramid_results.csv", index=False)
         mlflow.log_artifact("pyramid_results.csv")
         if rl_learner.path.exists(): mlflow.log_artifact(str(rl_learner.path))
+        if nas_controller and nas_controller.path.exists(): mlflow.log_artifact(str(nas_controller.path))
         
         if pyramid.best_model:
             joblib.dump(pyramid.best_model, "best_pyramid_model.pkl")
