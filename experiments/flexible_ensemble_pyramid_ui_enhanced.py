@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import json
+import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -9,7 +10,10 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
 
 # Add the parent directory to the path to import the pyramid module
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,7 +38,8 @@ try:
         TFIDF_MAX,
         TFIDF_NGRAMS,
         JITTER,
-        STRATEGY
+        STRATEGY,
+        mlflow
     )
 except ImportError:
     st.error("Could not import flexible_ensemble_pyramid module. Please ensure it's in the correct location.")
@@ -172,9 +177,13 @@ if 'training_results' not in st.session_state:
     st.session_state.training_results = None
 if 'pyramid' not in st.session_state:
     st.session_state.pyramid = None
+if 'layer_strategy_map' not in st.session_state:
+    st.session_state.layer_strategy_map = {}
+if 'artifacts_dir' not in st.session_state:
+    st.session_state.artifacts_dir = None
 
 # Enhanced visualization functions
-def create_enhanced_ensemble_visualization(results, pyramid, show_connections=True, show_performance=True):
+def create_enhanced_ensemble_visualization(results, pyramid, show_connections=True, show_performance=True, layer_strategy_map=None):
     """Create enhanced interactive visualization with tree branching"""
     
     if not results:
@@ -258,48 +267,50 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
     
     # Add enhanced connections between layers with tree branching
     if show_connections and len(layers_data) > 1:
-        for layer_idx in range(len(layers_data) - 1):
-            if layer_idx + 1 in layers_data:
-                current_models = layers_data[layer_idx]
-                next_models = layers_data[layer_idx + 1]
-                
-                # Create tree-like branching connections
+        sorted_layers = sorted(layers_data.keys())
+        for target_layer in sorted_layers:
+            if target_layer <= 1:
+                continue
+            next_models = layers_data.get(target_layer, [])
+            if not next_models:
+                continue
+            strategy_for_layer = "simple"
+            if isinstance(layer_strategy_map, dict):
+                strategy_for_layer = layer_strategy_map.get(target_layer, "simple")
+            if strategy_for_layer == "dense":
+                source_layers = [l for l in sorted_layers if l < target_layer]
+            else:
+                source_layers = [target_layer - 1] if (target_layer - 1) in layers_data else []
+            for source_layer in source_layers:
+                current_models = layers_data.get(source_layer, [])
                 for current_model in current_models:
                     current_name = current_model['model']
-                    current_pos = node_positions.get((layer_idx, current_name))
-                    
-                    if current_pos:
-                        for next_model in next_models:
-                            next_name = next_model['model']
-                            next_pos = node_positions.get((layer_idx + 1, next_name))
-                            
-                            if next_pos:
-                                # Calculate connection strength based on performance similarity
-                                perf_similarity = 1 - abs(current_model['f1'] - next_model['f1'])
-                                line_width = 1 + (perf_similarity * 3)
-                                
-                                # Color based on performance improvement
-                                if next_model['f1'] > current_model['f1']:
-                                    line_color = 'green'
-                                elif next_model['f1'] < current_model['f1']:
-                                    line_color = 'red'
-                                else:
-                                    line_color = 'gray'
-                                
-                                # Add connection line
-                                fig.add_trace(go.Scatter(
-                                    x=[current_pos[0], next_pos[0]],
-                                    y=[current_pos[1], next_pos[1]],
-                                    mode='lines',
-                                    line=dict(
-                                        width=line_width,
-                                        color=line_color,
-                                        dash='solid'
-                                    ),
-                                    showlegend=False,
-                                    hoverinfo='none',
-                                    opacity=0.6
-                                ))
+                    current_pos = node_positions.get((source_layer, current_name))
+                    if current_pos is None:
+                        continue
+                    for next_model in next_models:
+                        next_name = next_model['model']
+                        next_pos = node_positions.get((target_layer, next_name))
+                        if next_pos is None:
+                            continue
+                        perf_similarity = 1 - abs(current_model['f1'] - next_model['f1'])
+                        line_width = 1 + (perf_similarity * 3)
+                        if next_model['f1'] > current_model['f1']:
+                            line_color = 'green'
+                        elif next_model['f1'] < current_model['f1']:
+                            line_color = 'red'
+                        else:
+                            line_color = 'gray'
+                        line_dash = "solid" if strategy_for_layer == "dense" else "dot"
+                        fig.add_trace(go.Scatter(
+                            x=[current_pos[0], next_pos[0]],
+                            y=[current_pos[1], next_pos[1]],
+                            mode='lines',
+                            line=dict(width=line_width, color=line_color, dash=line_dash),
+                            showlegend=False,
+                            hoverinfo='none',
+                            opacity=0.6
+                        ))
     
     # Add performance heatmap overlay
     if show_performance:
@@ -471,39 +482,31 @@ def create_layer_analysis_panel(results):
 # Training execution
 if st.session_state.run_training:
     with st.spinner("🚀 Training ensemble pyramid..."):
-        
-        # Setup progress tracking
         progress_bar = st.progress(0)
         status_text = st.empty()
-        
+        live_metrics_placeholder = st.empty()
+        live_chart_placeholder = st.empty()
+        live_results_placeholder = st.empty()
+
         try:
-            # Setup MLflow tracking
             status_text.text("📊 Setting up tracking...")
             setup_tracking()
-            
-            # Load data
             status_text.text("📊 Loading data...")
             train_df, val_df = load_data()
-            
-            # Prepare features and labels
+            status_text.text("🔧 Vectorizing text...")
             vectorizer = TfidfVectorizer(
                 max_features=tfidf_max,
                 ngram_range=tfidf_ngrams,
                 stop_words='english'
             )
-            
-            X_train = vectorizer.fit_transform(train_df['clean_text'])
-            X_val = vectorizer.transform(val_df['clean_text'])
-            
+            X_train = vectorizer.fit_transform(train_df['clean_text'].fillna(""))
+            X_val = vectorizer.transform(val_df['clean_text'].fillna(""))
             le = LabelEncoder()
             y_train = le.fit_transform(train_df['sentiment'])
             y_val = le.transform(val_df['sentiment'])
-            
-            # Initialize meta-learners
+
             rl_learner = RLMetaLearner(epsilon=epsilon_rl, metric=metric)
             nas_controller = NASController(metric=metric) if use_nas else None
-            
-            # Create pyramid ensemble
             pyramid = PyramidEnsemble(
                 num_layers=num_layers,
                 meta_learner=rl_learner,
@@ -515,24 +518,156 @@ if st.session_state.run_training:
                 max_models=max_models,
                 nas_controller=nas_controller
             )
-            
-            # Train the pyramid
-            status_text.text("🧠 Training ensemble layers...")
-            
-            # Mock training progress (actual training would happen here)
-            for i in range(num_layers):
-                progress = (i + 1) / num_layers
-                progress_bar.progress(progress)
-                status_text.text(f"🏗️ Training layer {i+1}/{num_layers}...")
-                time.sleep(0.5)  # Simulate training time
-            
-            # Store results
+
+            layer_strategy_map = {}
+            training_counters = {"planned_models": 0, "trained_models": 0}
+
+            def render_live_dashboard(current_results, current_status):
+                if current_results:
+                    done_layers = sorted({r["layer"] for r in current_results})
+                    best_f1_live = max(r["f1"] for r in current_results)
+                    best_acc_live = max(r["accuracy"] for r in current_results)
+                    cols = live_metrics_placeholder.columns(4)
+                    cols[0].metric("Modelos avaliados", len(current_results))
+                    cols[1].metric("Camadas processadas", len(done_layers))
+                    cols[2].metric("Melhor F1", f"{best_f1_live:.4f}")
+                    cols[3].metric("Melhor Acurácia", f"{best_acc_live:.4f}")
+                    live_fig = create_enhanced_ensemble_visualization(
+                        current_results,
+                        pyramid,
+                        show_connections,
+                        show_performance,
+                        layer_strategy_map
+                    )
+                    if live_fig is not None:
+                        live_chart_placeholder.plotly_chart(live_fig, use_container_width=True)
+                    live_df = pd.DataFrame(current_results).sort_values(["layer", "f1"], ascending=[True, False])
+                    live_results_placeholder.dataframe(
+                        live_df[["layer", "model", "f1", "accuracy", "duration"]].head(20),
+                        use_container_width=True
+                    )
+                status_text.text(current_status)
+
+            def on_training_event(event):
+                event_name = event.get("event")
+                event_layer = event.get("layer")
+                current_results = event.get("results", [])
+                if event_name == "layer_config":
+                    layer_strategy_map[event_layer] = event.get("strategy", strategy)
+                    models_for_layer = event.get("models_to_run", [])
+                    training_counters["planned_models"] += len(models_for_layer) + (1 if len(models_for_layer) > 1 else 0)
+                    render_live_dashboard(
+                        current_results,
+                        f"🧭 Camada {event_layer}/{num_layers}: estratégia {layer_strategy_map[event_layer]} | modelos {models_for_layer}"
+                    )
+                elif event_name in {"model_trained", "voting_trained"}:
+                    training_counters["trained_models"] += 1
+                    progress_value = min(
+                        1.0,
+                        training_counters["trained_models"] / max(training_counters["planned_models"], 1)
+                    )
+                    progress_bar.progress(progress_value)
+                    render_live_dashboard(
+                        current_results,
+                        f"⚙️ Camada {event_layer}/{num_layers}: treinou {event.get('model_name')}"
+                    )
+                elif event_name == "layer_start":
+                    progress_layer = (event_layer - 1) / max(num_layers, 1)
+                    progress_bar.progress(progress_layer)
+                    render_live_dashboard(current_results, f"🏗️ Iniciando camada {event_layer}/{num_layers}")
+                elif event_name == "layer_done":
+                    progress_layer = event_layer / max(num_layers, 1)
+                    progress_bar.progress(progress_layer)
+                    render_live_dashboard(
+                        current_results,
+                        f"✅ Camada {event_layer}/{num_layers} concluída | features: {event.get('n_features')}"
+                    )
+                elif event_name == "training_done":
+                    progress_bar.progress(1.0)
+                    render_live_dashboard(current_results, "✅ Treinamento concluído")
+
+            status_text.text("🧠 Treinando camadas com atualização em tempo real...")
+            run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            artifacts_dir = Path("experiments") / "artifacts" / f"flexible_ensemble_ui_{run_stamp}"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+            with mlflow.start_run(run_name=f"streamlit_ui_{run_stamp}"):
+                mlflow.log_params({
+                    "source": "streamlit_ui",
+                    "num_layers": num_layers,
+                    "patience": patience,
+                    "min_models": min_models,
+                    "max_models": max_models,
+                    "epsilon_rl": epsilon_rl,
+                    "metric": metric,
+                    "strategy": strategy,
+                    "jitter": use_jitter,
+                    "use_nas": use_nas,
+                    "tfidf_max": tfidf_max,
+                    "tfidf_ngrams": str(tfidf_ngrams),
+                    "train_rows": int(len(train_df)),
+                    "val_rows": int(len(val_df)),
+                })
+
+                pyramid.train(X_train, y_train, X_val, y_val, progress_callback=on_training_event)
+
+                results_df = pd.DataFrame(pyramid.results)
+                results_path = artifacts_dir / "pyramid_results.csv"
+                results_df.to_csv(results_path, index=False)
+                mlflow.log_artifact(str(results_path))
+
+                config_payload = {
+                    "num_layers": num_layers,
+                    "patience": patience,
+                    "min_models": min_models,
+                    "max_models": max_models,
+                    "epsilon_rl": epsilon_rl,
+                    "metric": metric,
+                    "strategy": strategy,
+                    "jitter": use_jitter,
+                    "use_nas": use_nas,
+                    "tfidf_max": tfidf_max,
+                    "tfidf_ngrams": list(tfidf_ngrams),
+                    "layer_strategy_map": layer_strategy_map,
+                    "best_score": float(pyramid.best_score),
+                }
+                config_path = artifacts_dir / "run_config.json"
+                with config_path.open("w", encoding="utf-8") as f:
+                    json.dump(config_payload, f, indent=2)
+                mlflow.log_artifact(str(config_path))
+
+                vectorizer_path = artifacts_dir / "tfidf_vectorizer.pkl"
+                joblib.dump(vectorizer, vectorizer_path)
+                mlflow.log_artifact(str(vectorizer_path))
+
+                encoder_path = artifacts_dir / "label_encoder.pkl"
+                joblib.dump(le, encoder_path)
+                mlflow.log_artifact(str(encoder_path))
+
+                if rl_learner.path.exists():
+                    mlflow.log_artifact(str(rl_learner.path))
+                if nas_controller and nas_controller.path.exists():
+                    mlflow.log_artifact(str(nas_controller.path))
+                if pyramid.best_model is not None:
+                    best_model_path = artifacts_dir / "best_pyramid_model.pkl"
+                    joblib.dump(pyramid.best_model, best_model_path)
+                    mlflow.log_artifact(str(best_model_path))
+                    best_res = max(
+                        pyramid.results,
+                        key=lambda r: r["f1"] if metric == "f1" else r["accuracy"]
+                    )
+                    mlflow.log_params({"best_model": best_res["model"], "best_layer": int(best_res["layer"])})
+                    mlflow.log_metric("best_f1", float(best_res["f1"]))
+                    mlflow.log_metric("best_accuracy", float(best_res["accuracy"]))
+
             st.session_state.training_results = pyramid.results
             st.session_state.pyramid = pyramid
-            
-            status_text.text("✅ Training completed!")
+            st.session_state.layer_strategy_map = layer_strategy_map
+            st.session_state.artifacts_dir = str(artifacts_dir)
+            st.session_state.run_training = False
+            status_text.text("✅ Treinamento concluído!")
             progress_bar.progress(1.0)
-            
+
         except Exception as e:
             st.error(f"❌ Error during training: {str(e)}")
             st.session_state.run_training = False
@@ -540,6 +675,10 @@ if st.session_state.run_training:
 # Display results
 if st.session_state.training_results:
     results = st.session_state.training_results
+    layer_strategy_map = st.session_state.layer_strategy_map or {}
+    artifacts_dir = st.session_state.artifacts_dir
+    if artifacts_dir:
+        st.success(f"Resultados e artefatos salvos em: {artifacts_dir}")
     
     # Metrics overview
     st.markdown("<h2 class='sub-header'>📊 Performance Overview</h2>", unsafe_allow_html=True)
@@ -590,7 +729,8 @@ if st.session_state.training_results:
         results, 
         st.session_state.pyramid, 
         show_connections, 
-        show_performance
+        show_performance,
+        layer_strategy_map
     )
     if viz_fig:
         st.plotly_chart(viz_fig, use_container_width=True)

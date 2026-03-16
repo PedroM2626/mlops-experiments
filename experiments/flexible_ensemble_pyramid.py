@@ -604,7 +604,7 @@ class PyramidEnsemble:
         return score
 
 
-    def train(self, X_train, y_train, X_val, y_val):
+    def train(self, X_train, y_train, X_val, y_val, progress_callback=None):
         current_X_train, current_X_val = X_train, X_val
         all_oof_preds, all_val_preds = [], []
         self.layer_meta_models = []
@@ -617,6 +617,14 @@ class PyramidEnsemble:
         for l in range(1, self.num_layers + 1):
             t_layer_start = time.time()
             print(f"\n[LAYER {l:02}] Training...", flush=True)
+            if callable(progress_callback):
+                progress_callback({
+                    "event": "layer_start",
+                    "layer": l,
+                    "num_layers": self.num_layers,
+                    "results": list(self.results),
+                    "best_score": self.best_score,
+                })
             
             # Base pool now includes Bagging variants
             avail_b = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
@@ -639,6 +647,16 @@ class PyramidEnsemble:
                     print(f"  [NAS] Strategy override: {self.strategy} -> {nas_strategy}", flush=True)
             
             print(f"  [HYBRID] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
+            if callable(progress_callback):
+                progress_callback({
+                    "event": "layer_config",
+                    "layer": l,
+                    "num_layers": self.num_layers,
+                    "strategy": current_strategy,
+                    "models_to_run": list(models_to_run),
+                    "results": list(self.results),
+                    "best_score": self.best_score,
+                })
 
 
             layer_models, layer_oof, layer_val = [], [], []
@@ -650,6 +668,18 @@ class PyramidEnsemble:
                 model = get_model(m_type, self.seed + l, jitter=self.jitter)
                 model.fit(current_X_train, y_train)
                 self._evaluate_and_log(model, current_X_val, y_val, l, model_name, t0)
+                if callable(progress_callback):
+                    progress_callback({
+                        "event": "model_trained",
+                        "layer": l,
+                        "num_layers": self.num_layers,
+                        "model_name": model_name,
+                        "strategy": current_strategy,
+                        "models_to_run": list(models_to_run),
+                        "latest_result": dict(self.results[-1]),
+                        "results": list(self.results),
+                        "best_score": self.best_score,
+                    })
 
                 layer_models.append((model_name, model))
 
@@ -681,6 +711,17 @@ class PyramidEnsemble:
 
                 self._evaluate_and_log(v_model, current_X_val, y_val, l, v_name, t0_v)
                 layer_models.append((v_name, v_model))
+                if callable(progress_callback):
+                    progress_callback({
+                        "event": "voting_trained",
+                        "layer": l,
+                        "num_layers": self.num_layers,
+                        "model_name": v_name,
+                        "strategy": current_strategy,
+                        "latest_result": dict(self.results[-1]),
+                        "results": list(self.results),
+                        "best_score": self.best_score,
+                    })
 
             self.layers.append(layer_models)
 
@@ -711,10 +752,28 @@ class PyramidEnsemble:
                     current_X_train, current_X_val = np.hstack(layer_oof), np.hstack(layer_val)
                     
                 print(f"  [INFO] Layer {l} Done ({time.time()-t_layer_start:.1f}s). New Feats: {current_X_train.shape[1] if hasattr(current_X_train, 'shape') else len(current_X_train)}", flush=True)
+                if callable(progress_callback):
+                    progress_callback({
+                        "event": "layer_done",
+                        "layer": l,
+                        "num_layers": self.num_layers,
+                        "strategy": current_strategy,
+                        "results": list(self.results),
+                        "best_score": self.best_score,
+                        "n_features": int(current_X_train.shape[1]) if hasattr(current_X_train, "shape") else None,
+                    })
 
 
         print(f"\n{'='*85}\nCOMPLETE | Time: {(time.time()-t_global_start)/60:.1f} min\n{'='*85}", flush=True)
         if self.meta_learner: self.meta_learner.update_knowledge(self.results)
+        if callable(progress_callback):
+            progress_callback({
+                "event": "training_done",
+                "num_layers": self.num_layers,
+                "results": list(self.results),
+                "best_score": self.best_score,
+                "elapsed_seconds": time.time() - t_global_start,
+            })
 
     def predict(self, X):
         """Transform X through the layers to match the best model's required input."""
