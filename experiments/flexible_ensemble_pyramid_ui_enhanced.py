@@ -120,46 +120,82 @@ st.markdown("<h1 class='main-header'>🧠 Enhanced Flexible Ensemble Pyramid</h1
 
 # Sidebar configuration
 with st.sidebar:
-    st.markdown("<h2 style='color: #495057;'>⚙️ Configuration</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #495057;'>⚙️ Configuração</h2>", unsafe_allow_html=True)
     
+    # Speed Presets
+    st.markdown("<h3 style='color: #6c757d;'>⚡ Modo de Velocidade</h3>", unsafe_allow_html=True)
+    speed_mode = st.radio(
+        "Selecione o modo:",
+        ["Personalizado", "Relâmpago (Fastest)", "Equilibrado (Default)", "Completo (Slowest)"],
+        index=2,
+        help="Ajusta automaticamente os parâmetros para priorizar velocidade ou precisão."
+    )
+    
+    # Default values based on speed mode
+    if speed_mode == "Relâmpago (Fastest)":
+        num_layers_val, min_models_val, max_models_val = 3, 2, 2
+        tfidf_max_val, subsample_val = 5000, 5000
+        use_nas_val, use_jitter_val = False, False
+        strategy_val = "simple"
+    elif speed_mode == "Equilibrado (Default)":
+        num_layers_val, min_models_val, max_models_val = 6, 2, 4
+        tfidf_max_val, subsample_val = 15000, 15000
+        use_nas_val, use_jitter_val = True, True
+        strategy_val = "residual"
+    elif speed_mode == "Completo (Slowest)":
+        num_layers_val, min_models_val, max_models_val = 12, 2, 6
+        tfidf_max_val, subsample_val = 50000, 0 # 0 means full dataset
+        use_nas_val, use_jitter_val = True, True
+        strategy_val = "dense"
+    else: # Personalizado
+        num_layers_val, min_models_val, max_models_val = 12, 2, 6
+        tfidf_max_val, subsample_val = 50000, 0
+        use_nas_val, use_jitter_val = True, True
+        strategy_val = "dense"
+
     # Experiment settings
-    st.markdown("<h3 style='color: #6c757d;'>🔬 Experiment Settings</h3>", unsafe_allow_html=True)
-    num_layers = st.slider("Number of Layers", 2, 20, 12, 1,
-                          help="Number of hierarchical layers in the pyramid")
+    st.markdown("<h3 style='color: #6c757d;'>🔬 Configurações do Experimento</h3>", unsafe_allow_html=True)
+    num_layers = st.slider("Número de Camadas", 2, 20, num_layers_val, 1,
+                          help="Número de camadas hierárquicas na pirâmide")
     cv_folds = st.slider("CV Folds", 2, 10, 3, 1,
-                        help="Number of cross-validation folds")
-    patience = st.slider("Patience", 1, 10, 3, 1,
-                        help="Early stopping patience")
+                        help="Número de dobras na validação cruzada")
+    patience = st.slider("Paciência", 1, 10, 3, 1,
+                        help="Paciência para early stopping")
     
     # Model selection parameters
-    st.markdown("<h3 style='color: #6c757d;'>🤖 Model Selection</h3>", unsafe_allow_html=True)
-    min_models = st.slider("Min Models per Layer", 1, 10, 2, 1,
-                          help="Minimum number of models per layer")
-    max_models = st.slider("Max Models per Layer", 2, 15, 6, 1,
-                          help="Maximum number of models per layer")
-    epsilon_rl = st.slider("RL Exploration Rate", 0.0, 1.0, 0.2, 0.05,
+    st.markdown("<h3 style='color: #6c757d;'>🤖 Seleção de Modelos</h3>", unsafe_allow_html=True)
+    min_models = st.slider("Min Modelos por Camada", 1, 10, min_models_val, 1,
+                          help="Número mínimo de modelos por camada")
+    max_models = st.slider("Max Modelos por Camada", 2, 15, max_models_val, 1,
+                          help="Número máximo de modelos por camada")
+    epsilon_rl = st.slider("Taxa de Exploração RL", 0.0, 1.0, 0.2, 0.05,
                           help="Reinforcement learning exploration rate")
     
     # Feature engineering
-    st.markdown("<h3 style='color: #6c757d;'>🔧 Feature Engineering</h3>", unsafe_allow_html=True)
-    tfidf_max = st.slider("TF-IDF Max Features", 1000, 100000, 50000, 1000,
-                         help="Maximum number of TF-IDF features")
+    st.markdown("<h3 style='color: #6c757d;'>🔧 Engenharia de Features</h3>", unsafe_allow_html=True)
+    tfidf_max = st.slider("TF-IDF Max Features", 1000, 100000, tfidf_max_val, 1000,
+                         help="Número máximo de features TF-IDF")
+    subsample_size = st.number_input("Tamanho da Amostra (0 = Tudo)", 0, 100000, subsample_val, 1000,
+                                    help="Reduz o dataset para acelerar o treino.")
     tfidf_ngrams = st.selectbox("TF-IDF N-grams", [(1, 1), (1, 2), (1, 3), (2, 2)], index=1,
                                help="N-gram range for TF-IDF")
     
     # Advanced options
-    st.markdown("<h3 style='color: #6c757d;'>⚡ Advanced Options</h3>", unsafe_allow_html=True)
-    use_jitter = st.checkbox("Use Hyperparameter Jitter", value=True,
-                           help="Add random variation to hyperparameters")
-    use_nas = st.checkbox("Use NAS Controller", value=True,
-                        help="Use Neural Architecture Search for optimization")
-    strategy = st.selectbox("Connection Strategy", ["dense", "residual", "simple"], index=0,
-                           help="How models connect between layers")
-    metric = st.selectbox("Optimization Metric", ["f1", "accuracy"], index=0,
-                        help="Primary metric for optimization")
+    st.markdown("<h3 style='color: #6c757d;'>⚡ Opções Avançadas</h3>", unsafe_allow_html=True)
+    use_jitter = st.checkbox("Usar Hyperparameter Jitter", value=use_jitter_val,
+                           help="Adiciona variação aleatória aos hiperparâmetros")
+    use_nas = st.checkbox("Usar NAS Controller", value=use_nas_val,
+                        help="Usa Neural Architecture Search para otimização")
+    strategy = st.selectbox("Estratégia de Conexão", ["dense", "residual", "simple"], 
+                           index=["dense", "residual", "simple"].index(strategy_val),
+                           help="Como os modelos se conectam entre camadas")
+    metric = st.selectbox("Métrica de Otimização", ["f1", "accuracy"], index=0,
+                        help="Métrica principal para otimização")
+    n_jobs = st.slider("Paralelismo (n_jobs)", -1, 16, -1, 1,
+                      help="-1 usa todos os cores disponíveis. Aumentar acelera o treino.")
     
     # Visualization options
-    st.markdown("<h3 style='color: #6c757d;'>🎨 Visualization</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>🎨 Visualização</h3>", unsafe_allow_html=True)
     show_connections = st.checkbox("Show Model Connections", value=True,
                                  help="Display connections between models across layers")
     show_performance = st.checkbox("Show Performance Heatmap", value=True,
@@ -492,12 +528,13 @@ if st.session_state.run_training:
             status_text.text("📊 Setting up tracking...")
             setup_tracking()
             status_text.text("📊 Loading data...")
-            train_df, val_df = load_data()
+            train_df, val_df = load_data(subsample_train=subsample_size, subsample_val=subsample_size // 4 if subsample_size > 0 else 0)
             status_text.text("🔧 Vectorizing text...")
             vectorizer = TfidfVectorizer(
                 max_features=tfidf_max,
                 ngram_range=tfidf_ngrams,
-                stop_words='english'
+                stop_words='english',
+                min_df=2 # Speed up by ignoring very rare words
             )
             X_train = vectorizer.fit_transform(train_df['clean_text'].fillna(""))
             X_val = vectorizer.transform(val_df['clean_text'].fillna(""))
@@ -516,7 +553,8 @@ if st.session_state.run_training:
                 strategy=strategy,
                 min_models=min_models,
                 max_models=max_models,
-                nas_controller=nas_controller
+                nas_controller=nas_controller,
+                n_jobs=n_jobs
             )
 
             layer_strategy_map = {}
