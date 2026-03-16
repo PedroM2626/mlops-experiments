@@ -137,7 +137,7 @@ def clean_tweet(text: str) -> str:
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-def load_data():
+def load_data(subsample_train=0, subsample_val=0):
     base_path = Path("experiments/senti-pred-variations/logistic-senti-pred/data/raw")
     cols = ['tweet_id', 'entity', 'sentiment', 'text']
     train_file = base_path / "twitter_training.csv"
@@ -152,13 +152,22 @@ def load_data():
     val_df = pd.read_csv(val_file, names=cols, header=None)
     valid_sentiments = ['Positive', 'Negative', 'Neutral', 'Irrelevant']
     
+    # Pre-cleaning to ensure valid samples
     for df in (train_df, val_df):
         df['clean_text'] = df['text'].apply(clean_tweet)
-        df = df[(df['clean_text'].str.len() > 0) & (df['sentiment'].isin(valid_sentiments))]
+        
+    train_df = train_df[(train_df['clean_text'].str.len() > 0) & (train_df['sentiment'].isin(valid_sentiments))]
+    val_df = val_df[(val_df['clean_text'].str.len() > 0) & (val_df['sentiment'].isin(valid_sentiments))]
+
+    if subsample_train > 0 and subsample_train < len(train_df):
+        train_df = train_df.sample(n=subsample_train, random_state=SEED)
+    if subsample_val > 0 and subsample_val < len(val_df):
+        val_df = val_df.sample(n=subsample_val, random_state=SEED)
+        
     return train_df, val_df
 
 # ─── Model Factories ─────────────────────────────────────────────────────────
-def get_model(model_type, seed=SEED, jitter=False):
+def get_model(model_type, seed=SEED, jitter=False, n_jobs=2):
     # Bagging Wrapper
     is_bagging = model_type.startswith("bag_")
     base_type = model_type.replace("bag_", "") if is_bagging else model_type
@@ -169,22 +178,22 @@ def get_model(model_type, seed=SEED, jitter=False):
     j_alpha = np.random.uniform(0.01, 1.0) if jitter else 1.0
 
     if base_type == "lr":
-        m = LogisticRegression(C=11.0 * j_c if jitter else 11.0, max_iter=1000, random_state=seed, n_jobs=2)
+        m = LogisticRegression(C=11.0 * j_c if jitter else 11.0, max_iter=1000, random_state=seed, n_jobs=n_jobs)
     elif base_type == "svc":
-        m = CalibratedClassifierCV(LinearSVC(C=19.0 * j_c if jitter else 19.0, random_state=seed), cv=2)
+        m = CalibratedClassifierCV(LinearSVC(C=19.0 * j_c if jitter else 19.0, random_state=seed), cv=2, n_jobs=n_jobs)
     elif base_type == "nb":
         m = MultinomialNB(alpha=0.1 * j_alpha if jitter else 0.1)
     elif base_type == "rf":
-        m = RandomForestClassifier(n_estimators=j_tree, random_state=seed, n_jobs=2)
+        m = RandomForestClassifier(n_estimators=j_tree, random_state=seed, n_jobs=n_jobs)
     elif base_type == "et":
-        m = ExtraTreesClassifier(n_estimators=j_tree, random_state=seed, n_jobs=2)
+        m = ExtraTreesClassifier(n_estimators=j_tree, random_state=seed, n_jobs=n_jobs)
     elif base_type == "ridge":
-        m = CalibratedClassifierCV(RidgeClassifier(alpha=1.0 * j_alpha if jitter else 1.0), cv=2)
+        m = CalibratedClassifierCV(RidgeClassifier(alpha=1.0 * j_alpha if jitter else 1.0), cv=2, n_jobs=n_jobs)
     else:
-        m = LogisticRegression(random_state=seed)
+        m = LogisticRegression(random_state=seed, n_jobs=n_jobs)
     
     if is_bagging:
-        return BaggingClassifier(m, n_estimators=10, random_state=seed, n_jobs=2)
+        return BaggingClassifier(m, n_estimators=10, random_state=seed, n_jobs=n_jobs)
     return m
 
 
@@ -567,7 +576,7 @@ class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
                  metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY,
                  min_models=MIN_MODELS_PER_LAYER, max_models=MAX_MODELS_PER_LAYER, 
-                 nas_controller=None):
+                 nas_controller=None, n_jobs=2):
         self.num_layers = num_layers
         self.seed = seed
         self.meta_learner = meta_learner
@@ -578,6 +587,7 @@ class PyramidEnsemble:
         self.min_models = min_models
         self.max_models = max_models
         self.nas_controller = nas_controller
+        self.n_jobs = n_jobs
         self.layers = []
         self.layer_meta_models = []
         self.results = []
@@ -665,7 +675,7 @@ class PyramidEnsemble:
             for m_type in models_to_run:
                 t0 = time.time()
                 model_name = f"{m_type}_L{l}"
-                model = get_model(m_type, self.seed + l, jitter=self.jitter)
+                model = get_model(m_type, self.seed + l, jitter=self.jitter, n_jobs=self.n_jobs)
                 model.fit(current_X_train, y_train)
                 self._evaluate_and_log(model, current_X_val, y_val, l, model_name, t0)
                 if callable(progress_callback):
@@ -686,10 +696,10 @@ class PyramidEnsemble:
                 if l < self.num_layers:
                     layer_transformers.append(model)
                     if hasattr(model, "predict_proba"):
-                        oof = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=2)
+                        oof = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=self.n_jobs)
                         vp = model.predict_proba(current_X_val)
                     else:
-                        oof_idx = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, n_jobs=2)
+                        oof_idx = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, n_jobs=self.n_jobs)
                         vp_idx = model.predict(current_X_val)
                         n_c = len(np.unique(y_train))
                         oof = np.eye(n_c)[oof_idx]
@@ -840,8 +850,9 @@ def main():
     parser.add_argument("--tfidf_ngrams", type=int, default=2, help="Max ngrams (1 or 2)")
     parser.add_argument("--jitter", type=bool, default=JITTER)
     parser.add_argument("--strategy", type=str, choices=["dense", "residual", "simple"], default=STRATEGY)
-    parser.add_argument("--max_train_rows", type=int, default=0, help="0 keeps full dataset; >0 samples train rows")
-    parser.add_argument("--max_val_rows", type=int, default=0, help="0 keeps full dataset; >0 samples validation rows")
+    parser.add_argument("--subsample_train", type=int, default=0, help="Number of training samples (0=all)")
+    parser.add_argument("--subsample_val", type=int, default=0, help="Number of validation samples (0=all)")
+    parser.add_argument("--n_jobs", type=int, default=2, help="Parallel jobs for models and CV")
     
     # NAS Parameters
     parser.add_argument("--use_nas", type=bool, default=False, help="Enable Neural Architecture Search")
@@ -860,11 +871,13 @@ def main():
     current_layers = args.layers
     current_seed = args.seed
 
-    print(f"\n[CONFIG] Layers: {current_layers} | Seed: {current_seed} | RL Epsilon: {args.epsilon}", flush=True)
-    print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer", flush=True)
-    print(f"[CONFIG] NAS: {'Enabled' if args.use_nas else 'Disabled'}", flush=True)
+    print(f"\n[CONFIG] Layers: {current_layers} | Seed: {current_seed} | RL Epsilon: {args.epsilon}")
+    print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer")
+    print(f"[CONFIG] Parallelism: n_jobs={args.n_jobs}")
+    if args.subsample_train > 0: print(f"[CONFIG] Subsampling: train={args.subsample_train}, val={args.subsample_val}")
+    print(f"[CONFIG] NAS: {'Enabled' if args.use_nas else 'Disabled'}")
     if args.use_nas:
-        print(f"[CONFIG] NAS: Pop={args.nas_population}, Gen={args.nas_generations}, Mut={args.nas_mutation}, Cross={args.nas_crossover}", flush=True)
+        print(f"[CONFIG] NAS: Pop={args.nas_population}, Gen={args.nas_generations}, Mut={args.nas_mutation}, Cross={args.nas_crossover}")
     print()
 
     # Initialize NAS Controller if enabled
@@ -878,7 +891,7 @@ def main():
             metric=args.metric
         )
         nas_controller.initialize_population()
-        print("[NAS] Population initialized", flush=True)
+        print("[NAS] Population initialized")
 
     with mlflow.start_run(run_name=f"Pyramid_RL_NAS_L{current_layers}_Var" if args.use_nas else f"Pyramid_RL_L{current_layers}_Var"):
         mlflow.log_params({
@@ -895,24 +908,22 @@ def main():
             "nas_population": args.nas_population,
             "nas_generations": args.nas_generations,
             "nas_mutation": args.nas_mutation,
-            "nas_crossover": args.nas_crossover
+            "nas_crossover": args.nas_crossover,
+            "n_jobs": args.n_jobs
         })
 
 
         
-        train_df, val_df = load_data()
-        if args.max_train_rows > 0 and len(train_df) > args.max_train_rows:
-            train_df = train_df.sample(n=args.max_train_rows, random_state=current_seed).reset_index(drop=True)
-            print(f"[SMOKE] Train sample enabled: {len(train_df)} rows", flush=True)
-        if args.max_val_rows > 0 and len(val_df) > args.max_val_rows:
-            val_df = val_df.sample(n=args.max_val_rows, random_state=current_seed).reset_index(drop=True)
-            print(f"[SMOKE] Validation sample enabled: {len(val_df)} rows", flush=True)
+        train_df, val_df = load_data(subsample_train=args.subsample_train, subsample_val=args.subsample_val)
+        
+        status_msg = f"Training on {len(train_df)} rows, validating on {len(val_df)} rows"
+        print(f"[INFO] {status_msg}")
 
         le = LabelEncoder()
         y_train = le.fit_transform(train_df['sentiment'])
         y_val = le.transform(val_df['sentiment'])
         
-        tfidf = TfidfVectorizer(max_features=args.tfidf_max, ngram_range=(1, args.tfidf_ngrams))
+        tfidf = TfidfVectorizer(max_features=args.tfidf_max, ngram_range=(1, args.tfidf_ngrams), stop_words='english', min_df=2)
         X_train = tfidf.fit_transform(train_df['clean_text'].fillna(""))
         X_val = tfidf.transform(val_df['clean_text'].fillna(""))
         
@@ -922,7 +933,8 @@ def main():
                                  metric=args.metric, jitter=args.jitter,
                                  strategy=args.strategy,
                                  min_models=args.min_models, max_models=args.max_models,
-                                 nas_controller=nas_controller)
+                                 nas_controller=nas_controller,
+                                 n_jobs=args.n_jobs)
         pyramid.train(X_train, y_train, X_val, y_val)
 
 
