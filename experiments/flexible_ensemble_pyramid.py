@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from typing import Dict, List, Tuple, Optional, Any
 
 # MLOps
-from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score, classification_report, confusion_matrix
 
 # Models
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -274,17 +274,32 @@ class RLMetaLearner:
             m_base = res["model"].split('_')[0]
             val_f1 = res["f1"]
             val_acc = res["accuracy"]
+            val_prec = res.get("precision", 0.0)
+            val_rec = res.get("recall", 0.0)
             
             if l_str not in self.knowledge["layer_stats"]:
                 self.knowledge["layer_stats"][l_str] = {}
             if m_base not in self.knowledge["layer_stats"][l_str]:
-                self.knowledge["layer_stats"][l_str][m_base] = {"count": 0, "avg_f1": 0.0, "avg_accuracy": 0.0}
+                self.knowledge["layer_stats"][l_str][m_base] = {
+                    "count": 0, 
+                    "avg_f1": 0.0, 
+                    "avg_accuracy": 0.0,
+                    "avg_precision": 0.0,
+                    "avg_recall": 0.0
+                }
             
             s = self.knowledge["layer_stats"][l_str][m_base]
+            s.setdefault("count", 0)
+            s.setdefault("avg_f1", 0.0)
+            s.setdefault("avg_accuracy", 0.0)
+            s.setdefault("avg_precision", 0.0)
+            s.setdefault("avg_recall", 0.0)
             s["count"] += 1
-            # Update both metrics
+            # Update all metrics
             s["avg_f1"] = s["avg_f1"] + (val_f1 - s["avg_f1"]) / s["count"]
             s["avg_accuracy"] = s["avg_accuracy"] + (val_acc - s["avg_accuracy"]) / s["count"]
+            s["avg_precision"] = s["avg_precision"] + (val_prec - s["avg_precision"]) / s["count"]
+            s["avg_recall"] = s["avg_recall"] + (val_rec - s["avg_recall"]) / s["count"]
 
         self._save_knowledge()
         print(f"[RL] Meta-Knowledge updated. Total runs: {self.knowledge['runs']}", flush=True)
@@ -583,6 +598,54 @@ class _PreFittedHardVoting:
         return out
 
 
+class _PreviousLayerSoftVoting:
+    def __init__(self, n_models, n_classes):
+        self.n_models = n_models
+        self.n_classes = n_classes
+
+    def fit(self, X, y=None):
+        return self
+
+    def _reshape(self, X):
+        return np.asarray(X).reshape(X.shape[0], self.n_models, self.n_classes)
+
+    def predict_proba(self, X):
+        return self._reshape(X).mean(axis=1)
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
+class _PreviousLayerBaggingVoting:
+    def __init__(self, n_models, n_classes, n_bags=8, bag_fraction=0.7, seed=SEED):
+        self.n_models = n_models
+        self.n_classes = n_classes
+        self.n_bags = n_bags
+        self.bag_fraction = bag_fraction
+        self.seed = seed
+        self.bag_indices = []
+
+    def fit(self, X, y=None):
+        rng = np.random.RandomState(self.seed)
+        bag_size = max(1, int(np.ceil(self.n_models * self.bag_fraction)))
+        self.bag_indices = [
+            rng.choice(self.n_models, size=bag_size, replace=True)
+            for _ in range(self.n_bags)
+        ]
+        return self
+
+    def _reshape(self, X):
+        return np.asarray(X).reshape(X.shape[0], self.n_models, self.n_classes)
+
+    def predict_proba(self, X):
+        probs = self._reshape(X)
+        bag_preds = [probs[:, idxs, :].mean(axis=1) for idxs in self.bag_indices]
+        return np.mean(bag_preds, axis=0)
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
 # ─── Pyramid Logic ────────────────────────────────────────────────────────────
 class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
@@ -613,12 +676,55 @@ class PyramidEnsemble:
         preds = model.predict(X)
         acc = accuracy_score(y, preds)
         f1 = f1_score(y, preds, average="weighted")
+        precision = precision_score(y, preds, average="weighted", zero_division=0)
+        recall = recall_score(y, preds, average="weighted", zero_division=0)
+        
+        # Calculate AUC if possible
+        auc = 0.0
+        if hasattr(model, "predict_proba"):
+            try:
+                probs = model.predict_proba(X)
+                if probs.shape[1] > 2:
+                    auc = roc_auc_score(y, probs, multi_class="ovr", average="weighted")
+                else:
+                    auc = roc_auc_score(y, probs[:, 1])
+            except:
+                pass
+        
         duration = time.time() - start_time
         
+        metrics = {
+            "layer": layer_idx, 
+            "model": name, 
+            "accuracy": acc, 
+            "f1": f1, 
+            "precision": precision,
+            "recall": recall,
+            "auc": auc,
+            "duration": duration
+        }
+        
+        self.results.append(metrics)
+        
+        # Log to MLflow if a run is active
+        try:
+            if mlflow.active_run():
+                # Use a prefix to avoid collisions with other models in the same run
+                prefix = f"L{layer_idx}_{name}"
+                mlflow.log_metrics({
+                    f"{prefix}_f1": f1,
+                    f"{prefix}_accuracy": acc,
+                    f"{prefix}_precision": precision,
+                    f"{prefix}_recall": recall,
+                    f"{prefix}_auc": auc,
+                    f"{prefix}_duration": duration
+                })
+        except:
+            pass
+
         score = f1 if self.metric == "f1" else acc
-        self.results.append({"layer": layer_idx, "model": name, "accuracy": acc, "f1": f1, "duration": duration})
         status = "NEW BEST!" if score > self.best_score else "       "
-        print(f"  [{status}] Layer {layer_idx:02} | {name:<20} | F1: {f1:.4f} | Acc: {acc:.4f} | {duration:>5.1f}s", flush=True)
+        print(f"  [{status}] Layer {layer_idx:02} | {name:<20} | F1: {f1:.4f} | Acc: {acc:.4f} | P: {precision:.4f} | R: {recall:.4f} | AUC: {auc:.4f} | {duration:>5.1f}s", flush=True)
         
         if score > self.best_score:
             self.best_score = score
@@ -629,6 +735,8 @@ class PyramidEnsemble:
     def train(self, X_train, y_train, X_val, y_val, progress_callback=None):
         current_X_train, current_X_val = X_train, X_val
         all_oof_preds, all_val_preds = [], []
+        prev_layer_train_stack, prev_layer_val_stack = None, None
+        prev_layer_model_names = []
         self.layer_meta_models = []
         t_global_start = time.time()
         
@@ -649,17 +757,21 @@ class PyramidEnsemble:
                 })
             
             # Base pool: Layer 1 should only have simple base models to build the foundation
-            # Subsequent layers use meta-features and can include bagging/ensembles
+            # Subsequent layers only use ensembles built from previous-layer outputs
             avail_base = ["lr", "svc", "nb", "ridge", "rf", "et"]
-            avail_meta = ["lr", "ridge", "rf", "bag_lr", "bag_svc", "bag_nb"]
+            avail_meta = ["stack_prev", "bag_prev", "vote_prev"]
             
+            pool = avail_base if l == 1 else avail_meta
+            effective_min = max(1, min(self.min_models, len(pool)))
+            effective_max = max(effective_min, min(self.max_models, len(pool)))
+
             # The heart of variability: RL Meta-Learner + NAS decides WHAT and HOW MANY
             models_to_run = self.meta_learner.suggest_models(
-                l, 
-                avail_base if l==1 else avail_meta,
-                min_p=self.min_models,
-                max_p=self.max_models,
-            ) if self.meta_learner else (avail_base if l==1 else avail_meta)
+                l,
+                pool,
+                min_p=effective_min,
+                max_p=effective_max,
+            ) if self.meta_learner else pool
             
             # NAS-optimized strategy selection
             current_strategy = self.strategy
@@ -684,13 +796,37 @@ class PyramidEnsemble:
 
             layer_models, layer_oof, layer_val = [], [], []
             layer_transformers = []
+            layer_feature_model_names = []
             score_before_layer = self.best_score  # snapshot before any model in this layer updates it
             for m_type in models_to_run:
                 t0 = time.time()
                 model_name = f"{m_type}_L{l}"
-                model = get_model(m_type, self.seed + l, jitter=self.jitter, n_jobs=self.n_jobs)
-                model.fit(current_X_train, y_train)
-                self._evaluate_and_log(model, current_X_val, y_val, l, model_name, t0)
+
+                if l == 1:
+                    layer_train_input, layer_val_input = current_X_train, current_X_val
+                    model = get_model(m_type, self.seed + l, jitter=self.jitter, n_jobs=self.n_jobs)
+                    model.fit(layer_train_input, y_train)
+                else:
+                    if prev_layer_train_stack is None or prev_layer_val_stack is None:
+                        raise ValueError("Camada anterior indisponível para montar ensembles hierárquicos.")
+                    layer_train_input, layer_val_input = prev_layer_train_stack, prev_layer_val_stack
+                    n_classes = len(np.unique(y_train))
+                    n_prev_models = max(1, len(prev_layer_model_names))
+                    if m_type == "stack_prev":
+                        model = LogisticRegression(max_iter=1000, random_state=self.seed + l, n_jobs=self.n_jobs)
+                    elif m_type == "bag_prev":
+                        model = _PreviousLayerBaggingVoting(
+                            n_models=n_prev_models,
+                            n_classes=n_classes,
+                            seed=self.seed + l
+                        )
+                    elif m_type == "vote_prev":
+                        model = _PreviousLayerSoftVoting(n_models=n_prev_models, n_classes=n_classes)
+                    else:
+                        raise ValueError(f"Tipo de modelo inválido para camada meta: {m_type}")
+                    model.fit(layer_train_input, y_train)
+
+                self._evaluate_and_log(model, layer_val_input, y_val, l, model_name, t0)
                 if callable(progress_callback):
                     progress_callback({
                         "event": "model_trained",
@@ -708,44 +844,21 @@ class PyramidEnsemble:
 
                 if l < self.num_layers:
                     layer_transformers.append(model)
-                    if hasattr(model, "predict_proba"):
-                        oof = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=self.n_jobs)
-                        vp = model.predict_proba(current_X_val)
+                    layer_feature_model_names.append(model_name)
+                    if m_type == "stack_prev":
+                        oof = cross_val_predict(model, layer_train_input, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=self.n_jobs)
+                        vp = model.predict_proba(layer_val_input)
+                    elif hasattr(model, "predict_proba"):
+                        oof = model.predict_proba(layer_train_input)
+                        vp = model.predict_proba(layer_val_input)
                     else:
-                        oof_idx = cross_val_predict(model, current_X_train, y_train, cv=CV_FOLDS, n_jobs=self.n_jobs)
-                        vp_idx = model.predict(current_X_val)
+                        oof_idx = model.predict(layer_train_input)
+                        vp_idx = model.predict(layer_val_input)
                         n_c = len(np.unique(y_train))
                         oof = np.eye(n_c)[oof_idx]
                         vp = np.eye(n_c)[vp_idx]
                     layer_oof.append(oof)
                     layer_val.append(vp)
-
-            # --- Automatic Layer Voting (Meta-Ensemble of the Layer) ---
-            # Uses pre-fitted models directly to avoid retraining them inside VotingClassifier
-            # Skipping layer 1 to keep it clean from ensembles as requested
-            if l > 1 and len(layer_models) > 1:
-                t0_v = time.time()
-                v_name = f"voting_L{l}"
-                all_have_proba = all(hasattr(m[1], "predict_proba") for m in layer_models)
-
-                if all_have_proba:
-                    v_model = _PreFittedSoftVoting(layer_models)
-                else:
-                    v_model = _PreFittedHardVoting(layer_models, len(np.unique(y_train)))
-
-                self._evaluate_and_log(v_model, current_X_val, y_val, l, v_name, t0_v)
-                layer_models.append((v_name, v_model))
-                if callable(progress_callback):
-                    progress_callback({
-                        "event": "voting_trained",
-                        "layer": l,
-                        "num_layers": self.num_layers,
-                        "model_name": v_name,
-                        "strategy": current_strategy,
-                        "latest_result": dict(self.results[-1]),
-                        "results": list(self.results),
-                        "best_score": self.best_score,
-                    })
 
             self.layers.append(layer_models)
 
@@ -763,8 +876,11 @@ class PyramidEnsemble:
 
             if l < self.num_layers:
                 self.layer_meta_models.append(layer_transformers)
-                all_oof_preds.append(np.hstack(layer_oof))
-                all_val_preds.append(np.hstack(layer_val))
+                prev_layer_train_stack = np.hstack(layer_oof)
+                prev_layer_val_stack = np.hstack(layer_val)
+                prev_layer_model_names = list(layer_feature_model_names)
+                all_oof_preds.append(prev_layer_train_stack)
+                all_val_preds.append(prev_layer_val_stack)
                 
                 # Dynamic Strategy (use NAS-optimized strategy for this layer)
                 if current_strategy == "dense":
