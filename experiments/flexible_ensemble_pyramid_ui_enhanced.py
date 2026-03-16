@@ -3,6 +3,7 @@ import sys
 import time
 import json
 import joblib
+import re
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -48,7 +49,7 @@ except ImportError:
 # Page configuration
 st.set_page_config(
     page_title="Flexible Ensemble Pyramid - Enhanced",
-    page_icon="🧠",
+    page_icon="B",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -86,6 +87,14 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     }
+    .metric-card h3 {
+        color: #1f2937;
+        margin-bottom: 0.6rem;
+    }
+    .metric-card h1 {
+        color: #111827;
+        margin: 0;
+    }
     .layer-card {
         background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
         border-radius: 1rem;
@@ -116,14 +125,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Main header
-st.markdown("<h1 class='main-header'>🧠 Enhanced Flexible Ensemble Pyramid</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>Enhanced Flexible Ensemble Pyramid</h1>", unsafe_allow_html=True)
 
 # Sidebar configuration
 with st.sidebar:
-    st.markdown("<h2 style='color: #495057;'>⚙️ Configuração</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #495057;'>Configuracao</h2>", unsafe_allow_html=True)
     
     # Speed Presets
-    st.markdown("<h3 style='color: #6c757d;'>⚡ Modo de Velocidade</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Modo de Velocidade</h3>", unsafe_allow_html=True)
     speed_mode = st.radio(
         "Selecione o modo:",
         ["Personalizado", "Relâmpago (Fastest)", "Equilibrado (Default)", "Completo (Slowest)"],
@@ -154,7 +163,7 @@ with st.sidebar:
         strategy_val = "dense"
 
     # Experiment settings
-    st.markdown("<h3 style='color: #6c757d;'>🔬 Configurações do Experimento</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Configuracoes do Experimento</h3>", unsafe_allow_html=True)
     num_layers = st.slider("Número de Camadas", 2, 20, num_layers_val, 1,
                           help="Número de camadas hierárquicas na pirâmide")
     cv_folds = st.slider("CV Folds", 2, 10, 3, 1,
@@ -163,7 +172,7 @@ with st.sidebar:
                         help="Paciência para early stopping")
     
     # Model selection parameters
-    st.markdown("<h3 style='color: #6c757d;'>🤖 Seleção de Modelos</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Selecao de Modelos</h3>", unsafe_allow_html=True)
     min_models = st.slider("Min Modelos por Camada", 1, 10, min_models_val, 1,
                           help="Número mínimo de modelos por camada")
     max_models = st.slider("Max Modelos por Camada", 2, 15, max_models_val, 1,
@@ -172,7 +181,7 @@ with st.sidebar:
                           help="Reinforcement learning exploration rate")
     
     # Feature engineering
-    st.markdown("<h3 style='color: #6c757d;'>🔧 Engenharia de Features</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Engenharia de Features</h3>", unsafe_allow_html=True)
     tfidf_max = st.slider("TF-IDF Max Features", 1000, 100000, tfidf_max_val, 1000,
                          help="Número máximo de features TF-IDF")
     subsample_size = st.number_input("Tamanho da Amostra (0 = Tudo)", 0, 100000, subsample_val, 1000,
@@ -181,7 +190,7 @@ with st.sidebar:
                                help="N-gram range for TF-IDF")
     
     # Advanced options
-    st.markdown("<h3 style='color: #6c757d;'>⚡ Opções Avançadas</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Opcoes Avancadas</h3>", unsafe_allow_html=True)
     use_jitter = st.checkbox("Usar Hyperparameter Jitter", value=use_jitter_val,
                            help="Adiciona variação aleatória aos hiperparâmetros")
     use_nas = st.checkbox("Usar NAS Controller", value=use_nas_val,
@@ -195,14 +204,14 @@ with st.sidebar:
                       help="-1 usa todos os cores disponíveis. Aumentar acelera o treino.")
     
     # Visualization options
-    st.markdown("<h3 style='color: #6c757d;'>🎨 Visualização</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #6c757d;'>Visualizacao</h3>", unsafe_allow_html=True)
     show_connections = st.checkbox("Show Model Connections", value=True,
                                  help="Display connections between models across layers")
     show_performance = st.checkbox("Show Performance Heatmap", value=True,
                                   help="Display performance heatmap overlay")
     
     # Run button
-    if st.button("🚀 Run Ensemble Training", use_container_width=True, 
+    if st.button("Run Ensemble Training", use_container_width=True, 
                 help="Start the ensemble training process"):
         st.session_state.run_training = True
 
@@ -240,8 +249,10 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
     model_colors = {
         'lr': '#1f77b4', 'svc': '#ff7f0e', 'nb': '#2ca02c',
         'rf': '#d62728', 'et': '#9467bd', 'ridge': '#8c564b',
-        'bag_lr': '#e377c2', 'bag_svc': '#7f7f7f', 'bag_nb': '#bcbd22'
+        'bag_lr': '#e377c2', 'bag_svc': '#7f7f7f', 'bag_nb': '#bcbd22',
+        'voting': '#111827', 'stack_prev': '#0ea5e9', 'bag_prev': '#a855f7', 'vote_prev': '#16a34a'
     }
+    present_model_types = set()
     
     # Position layers vertically with better spacing
     max_models_in_layer = max(len(models) for models in layers_data.values())
@@ -251,7 +262,44 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
     # Store node positions for connection drawing
     node_positions = {}
     connection_count = 0
+
+    if show_performance:
+        heatmap_data = []
+        for layer_idx, models in layers_data.items():
+            for i, model_result in enumerate(models):
+                x_pos = (i - (len(models) - 1) / 2) * horizontal_spacing
+                y_pos = -layer_idx * layer_height
+                heatmap_data.append([x_pos, y_pos, model_result['f1']])
+        if heatmap_data:
+            heatmap_df = pd.DataFrame(heatmap_data, columns=['x', 'y', 'f1'])
+            fig.add_trace(go.Contour(
+                z=heatmap_df['f1'],
+                x=heatmap_df['x'],
+                y=heatmap_df['y'],
+                colorscale='Viridis',
+                showscale=True,
+                opacity=0.22,
+                name="Performance Heatmap",
+                hoverinfo='skip',
+                showlegend=False
+            ))
     
+    model_type_labels = {
+        "lr": "Logistic Regression",
+        "svc": "Linear SVC calibrado",
+        "nb": "Multinomial Naive Bayes",
+        "rf": "Random Forest",
+        "et": "Extra Trees",
+        "ridge": "Ridge Classifier calibrado",
+        "bag_lr": "Bagging de Logistic Regression",
+        "bag_svc": "Bagging de Linear SVC calibrado",
+        "bag_nb": "Bagging de Multinomial Naive Bayes",
+        "voting": "Voting por camada",
+        "stack_prev": "Stacking da camada anterior",
+        "bag_prev": "Bagging sobre saídas da camada anterior",
+        "vote_prev": "Voting sobre saídas da camada anterior"
+    }
+
     # Add nodes (models) with enhanced styling
     for layer_idx, models in layers_data.items():
         y_pos = -layer_idx * layer_height
@@ -259,8 +307,30 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
         
         for i, model_result in enumerate(models):
             model_name = model_result['model']
-            base_model = model_name.split('_')[0] if 'bag_' in model_name else model_name
+            base_model = re.sub(r"_L\d+$", "", model_name)
             color = model_colors.get(base_model, '#17becf')
+            present_model_types.add(base_model)
+            model_description = model_type_labels.get(base_model, base_model)
+            if base_model.startswith("bag_"):
+                model_details = "Composto por 10 estimadores base em Bagging"
+                composed_models = "10 estimadores base"
+            elif base_model == "bag_prev":
+                model_details = "Ensemble por bagging das predições da camada anterior"
+                composed_models = "Modelos da camada anterior"
+            elif base_model == "stack_prev":
+                model_details = "Meta-modelo treinado com as saídas da camada anterior"
+                composed_models = "Modelos da camada anterior"
+            elif base_model == "vote_prev":
+                model_details = "Votação das predições da camada anterior"
+                composed_models = "Modelos da camada anterior"
+            elif base_model == "voting":
+                model_details = "Composto por votação dos modelos da própria camada"
+                composed_models = ", ".join(
+                    [m["model"] for m in models if not m["model"].startswith("voting_")]
+                )
+            else:
+                model_details = "Modelo individual"
+                composed_models = "N/A"
             
             # Calculate x position (centered with spacing)
             x_pos = (i - (num_models - 1) / 2) * horizontal_spacing
@@ -275,32 +345,63 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             fig.add_trace(go.Scatter(
                 x=[x_pos],
                 y=[y_pos],
-                mode='markers+text',
+                mode='markers',
                 marker=dict(
                     size=node_size,
                     color=color,
-                    line=dict(width=2, color='white'),
-                    opacity=0.8
+                    line=dict(width=2, color='#0f172a'),
+                    opacity=0.9
                 ),
-                text=model_name,
-                textposition="middle center",
-                textfont=dict(size=10, color='white'),
                 name=f"Layer {layer_idx}: {model_name}",
+                showlegend=False,
                 customdata=[[
-                    model_result['f1'], 
-                    model_result['accuracy'], 
-                    model_result['duration'],
-                    base_model
+                    int(layer_idx),
+                    model_name,
+                    model_description,
+                    model_details,
+                    composed_models,
+                    model_result['f1'],
+                    model_result['accuracy'],
+                    model_result['duration']
                 ]],
                 hovertemplate="""
-                <b>%{text}</b><br>
-                Layer: %{customdata[3]}<br>
-                F1: %{customdata[0]:.3f}<br>
-                Accuracy: %{customdata[1]:.3f}<br>
-                Duration: %{customdata[2]:.1f}s
+                <b>%{customdata[1]}</b><br>
+                Camada: %{customdata[0]}<br>
+                Tipo: %{customdata[2]}<br>
+                Detalhe: %{customdata[3]}<br>
+                Composição: %{customdata[4]}<br>
+                F1: %{customdata[5]:.3f}<br>
+                Accuracy: %{customdata[6]:.3f}<br>
+                Duração: %{customdata[7]:.1f}s
                 <extra></extra>
                 """
             ))
+
+    model_type_legend_labels = {
+        "lr": "LR",
+        "svc": "SVC",
+        "nb": "NB",
+        "rf": "RF",
+        "et": "ET",
+        "ridge": "Ridge",
+        "bag_lr": "Bag LR",
+        "bag_svc": "Bag SVC",
+        "bag_nb": "Bag NB",
+        "voting": "Voting",
+        "stack_prev": "Stack Prev",
+        "bag_prev": "Bag Prev",
+        "vote_prev": "Vote Prev"
+    }
+    for model_type in sorted(present_model_types):
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            marker=dict(size=11, color=model_colors.get(model_type, '#17becf')),
+            name=model_type_legend_labels.get(model_type, model_type),
+            legendgroup=model_type,
+            showlegend=True
+        ))
     
     # Add enhanced connections between layers with tree branching
     if show_connections and len(layers_data) > 1:
@@ -314,10 +415,7 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             strategy_for_layer = "simple"
             if isinstance(layer_strategy_map, dict):
                 strategy_for_layer = layer_strategy_map.get(target_layer, "simple")
-            if strategy_for_layer == "dense":
-                source_layers = [l for l in sorted_layers if l < target_layer]
-            else:
-                source_layers = [target_layer - 1] if (target_layer - 1) in layers_data else []
+            source_layers = [target_layer - 1] if (target_layer - 1) in layers_data else []
             for source_layer in source_layers:
                 current_models = layers_data.get(source_layer, [])
                 for current_model in current_models:
@@ -349,30 +447,6 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
                             opacity=0.6
                         ))
                         connection_count += 1
-    
-    # Add performance heatmap overlay
-    if show_performance:
-        # Create a heatmap layer for performance visualization
-        heatmap_data = []
-        for layer_idx, models in layers_data.items():
-            for i, model_result in enumerate(models):
-                x_pos = (i - (len(models) - 1) / 2) * horizontal_spacing
-                y_pos = -layer_idx * layer_height
-                heatmap_data.append([x_pos, y_pos, model_result['f1']])
-        
-        if heatmap_data:
-            heatmap_df = pd.DataFrame(heatmap_data, columns=['x', 'y', 'f1'])
-            
-            fig.add_trace(go.Contour(
-                z=heatmap_df['f1'],
-                x=heatmap_df['x'],
-                y=heatmap_df['y'],
-                colorscale='Viridis',
-                showscale=True,
-                opacity=0.3,
-                name="Performance Heatmap",
-                hoverinfo='none'
-            ))
     
     # Enhanced layout configuration
     x_values = [pos[0] for pos in node_positions.values()] or [0]
@@ -411,6 +485,8 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             text="Enhanced Ensemble Pyramid Architecture",
             x=0.5,
             xanchor='center',
+            y=0.97,
+            yanchor='top',
             font=dict(size=20, color='#2c3e50')
         ),
         showlegend=True,
@@ -428,39 +504,45 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             range=[y_min, y_max]
         ),
         height=dynamic_height,
-        margin=dict(l=40, r=40, t=120, b=80),
-        plot_bgcolor='rgba(240,240,240,0.1)',
-        paper_bgcolor='rgba(240,240,240,0.1)',
+        margin=dict(l=40, r=220, t=170, b=80),
+        template="plotly_white",
+        font=dict(color="#111827"),
+        plot_bgcolor='rgba(255,255,255,1)',
+        paper_bgcolor='rgba(255,255,255,1)',
         legend=dict(
             x=0.01,
             y=0.90,
             xanchor='left',
             yanchor='top',
-            bgcolor='rgba(255,255,255,0.8)'
+            bgcolor='rgba(255,255,255,0.95)',
+            bordercolor="#cbd5e1",
+            borderwidth=1,
+            font=dict(color="#0f172a", size=12),
+            itemsizing="constant"
         ),
         annotations=[
             dict(
                 x=0.0,
-                y=1.08,
+                y=1.16,
                 xref="paper",
                 yref="paper",
                 xanchor="left",
                 yanchor="bottom",
                 text=summary_text,
                 showarrow=False,
-                font=dict(size=13, color="#1f2937"),
+                font=dict(size=13, color="#0f172a"),
                 align="left",
             ),
             dict(
                 x=0.0,
-                y=1.03,
+                y=1.10,
                 xref="paper",
                 yref="paper",
                 xanchor="left",
                 yanchor="bottom",
                 text=strategy_text,
                 showarrow=False,
-                font=dict(size=12, color="#374151"),
+                font=dict(size=12, color="#1f2937"),
                 align="left",
             ),
         ]
@@ -470,18 +552,75 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
         models_in_layer = len(layers_data[layer_id])
         layer_y = -layer_id * layer_height
         fig.add_annotation(
-            x=x_min + 0.05,
+            x=1.02,
             y=layer_y,
-            xref="x",
+            xref="paper",
             yref="y",
             text=f"Camada {layer_id} ({models_in_layer} nós)",
             showarrow=False,
             xanchor="left",
-            font=dict(size=11, color="#475569"),
-            bgcolor="rgba(255,255,255,0.7)"
+            font=dict(size=11, color="#0f172a"),
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="#cbd5e1",
+            borderwidth=1
         )
+
+    for layer_idx, models in layers_data.items():
+        y_pos = -layer_idx * layer_height
+        num_models = len(models)
+        for i, model_result in enumerate(models):
+            x_pos = (i - (num_models - 1) / 2) * horizontal_spacing
+            model_label = model_result["model"]
+            fig.add_annotation(
+                x=x_pos,
+                y=y_pos,
+                xref="x",
+                yref="y",
+                text=model_label,
+                showarrow=False,
+                yshift=18,
+                xanchor="center",
+                font=dict(size=10, color="#0f172a"),
+                bgcolor="rgba(255,255,255,0.92)",
+                bordercolor="#cbd5e1",
+                borderwidth=1
+            )
     
     return fig
+
+def create_node_details_dataframe(results, layer_strategy_map=None):
+    if not results:
+        return pd.DataFrame()
+    df = pd.DataFrame(results).copy()
+    df["model_base"] = df["model"].str.replace(r"_L\d+$", "", regex=True)
+    model_description_map = {
+        "lr": "Logistic Regression",
+        "svc": "Linear SVC calibrado",
+        "nb": "Multinomial Naive Bayes",
+        "rf": "Random Forest",
+        "et": "Extra Trees",
+        "ridge": "Ridge Classifier calibrado",
+        "bag_lr": "Bagging(Logistic Regression)",
+        "bag_svc": "Bagging(Linear SVC calibrado)",
+        "bag_nb": "Bagging(Multinomial Naive Bayes)",
+        "voting": "Voting por camada",
+        "stack_prev": "Stacking da camada anterior",
+        "bag_prev": "Bagging da camada anterior",
+        "vote_prev": "Voting da camada anterior"
+    }
+    df["descrição"] = df["model_base"].map(model_description_map).fillna(df["model_base"])
+    df["tipo"] = np.where(df["model_base"].str.startswith("bag_"), "Ensemble Bagging", np.where(df["model_base"].eq("voting"), "Ensemble Voting", "Modelo Base"))
+    if isinstance(layer_strategy_map, dict):
+        df["estratégia_camada"] = df["layer"].map(layer_strategy_map).fillna("n/a")
+    else:
+        df["estratégia_camada"] = "n/a"
+    df["f1"] = df["f1"].round(4)
+    df["accuracy"] = df["accuracy"].round(4)
+    df["precision"] = df.get("precision", 0.0).round(4)
+    df["recall"] = df.get("recall", 0.0).round(4)
+    df["auc"] = df.get("auc", 0.0).round(4)
+    df["duration"] = df["duration"].round(2)
+    return df[["layer", "model", "model_base", "tipo", "descrição", "estratégia_camada", "f1", "accuracy", "precision", "recall", "auc", "duration"]].sort_values(["layer", "f1"], ascending=[True, False])
 
 def create_interactive_performance_dashboard(results):
     """Create interactive performance dashboard with multiple views"""
@@ -491,23 +630,67 @@ def create_interactive_performance_dashboard(results):
     df = pd.DataFrame(results)
     df['layer_model'] = df['layer'].astype(str) + '_' + df['model']
     df['model_type'] = df['model'].apply(lambda x: x.split('_')[0] if 'bag_' in x else x)
+    df['model_base'] = df['model'].str.replace(r'_L\d+$', '', regex=True)
     
     # Create tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Performance Trends", "📊 Model Distribution", "🔥 Heatmap", "📋 Details"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Performance Trends", "Model Distribution", "Heatmap", "Details"])
     
     with tab1:
+        df_trend = (
+            df.groupby(["layer", "model_base"], as_index=False)[["f1", "accuracy", "precision", "recall", "auc"]]
+            .mean()
+            .sort_values(["model_base", "layer"])
+        )
+
         # Performance trends across layers
-        fig1 = px.line(df, x='layer', y='f1', color='model', 
+        fig1 = px.line(df_trend, x='layer', y='f1', color='model_base', 
                       title="F1 Score Evolution Across Layers",
-                      labels={'layer': 'Layer', 'f1': 'F1 Score'})
-        fig1.update_layout(height=400)
+                      labels={'layer': 'Layer', 'f1': 'F1 Score'},
+                      markers=True)
+        fig1.update_traces(mode="lines+markers", marker=dict(size=9), line=dict(width=2))
+        fig1.update_layout(
+            height=420,
+            template="plotly_white",
+            font=dict(color="#111827"),
+            legend=dict(bgcolor="rgba(255,255,255,0.9)", bordercolor="#cbd5e1", borderwidth=1, font=dict(color="#0f172a"))
+        )
         st.plotly_chart(fig1, use_container_width=True, key="perf_trends_f1")
         
         # Accuracy trends
-        fig2 = px.line(df, x='layer', y='accuracy', color='model',
-                      title="Accuracy Evolution Across Layers")
-        fig2.update_layout(height=400)
+        fig2 = px.line(df_trend, x='layer', y='accuracy', color='model_base',
+                      title="Accuracy Evolution Across Layers",
+                      markers=True)
+        fig2.update_traces(mode="lines+markers", marker=dict(size=9), line=dict(width=2))
+        fig2.update_layout(
+            height=420,
+            template="plotly_white",
+            font=dict(color="#111827"),
+            legend=dict(bgcolor="rgba(255,255,255,0.9)", bordercolor="#cbd5e1", borderwidth=1, font=dict(color="#0f172a"))
+        )
         st.plotly_chart(fig2, use_container_width=True, key="perf_trends_acc")
+
+        # Precision and Recall trends
+        col_pr1, col_pr2 = st.columns(2)
+        with col_pr1:
+            fig_p = px.line(df_trend, x='layer', y='precision', color='model_base',
+                          title="Precision Evolution",
+                          markers=True)
+            fig_p.update_layout(height=350, template="plotly_white")
+            st.plotly_chart(fig_p, use_container_width=True, key="perf_trends_prec")
+        with col_pr2:
+            fig_r = px.line(df_trend, x='layer', y='recall', color='model_base',
+                          title="Recall Evolution",
+                          markers=True)
+            fig_r.update_layout(height=350, template="plotly_white")
+            st.plotly_chart(fig_r, use_container_width=True, key="perf_trends_rec")
+
+        # AUC Trend if available
+        if df_trend['auc'].max() > 0:
+            fig_auc = px.line(df_trend, x='layer', y='auc', color='model_base',
+                            title="AUC Evolution",
+                            markers=True)
+            fig_auc.update_layout(height=350, template="plotly_white")
+            st.plotly_chart(fig_auc, use_container_width=True, key="perf_trends_auc")
     
     with tab2:
         # Model type distribution
@@ -569,7 +752,7 @@ def create_layer_analysis_panel(results):
         st.metric("Performance Range", f"{layer_data['f1'].max() - layer_data['f1'].min():.3f}")
     
     # Model cards
-    st.markdown("### 🎯 Models in This Layer")
+    st.markdown("### Models in This Layer")
     cols = st.columns(3)
     
     for i, (_, model) in enumerate(layer_data.iterrows()):
@@ -580,17 +763,17 @@ def create_layer_analysis_panel(results):
                         border-left: 4px solid {'#28a745' if model['f1'] == best_model['f1'] else '#6c757d'};
                         box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
                 <h4 style='margin: 0; color: #495057;'>{model['model']}</h4>
-                <p style='margin: 0.5rem 0; color: #6c757d;'>
-                    F1: <b>{model['f1']:.3f}</b><br>
-                    Accuracy: <b>{model['accuracy']:.3f}</b><br>
-                    Duration: <b>{model['duration']:.1f}s</b>
+                <p style='margin: 0.5rem 0; color: #6c757d; font-size: 0.9rem;'>
+                    F1: <b>{model['f1']:.3f}</b> | Acc: <b>{model['accuracy']:.3f}</b><br>
+                    Prec: <b>{model.get('precision', 0.0):.3f}</b> | Rec: <b>{model.get('recall', 0.0):.3f}</b><br>
+                    AUC: <b>{model.get('auc', 0.0):.3f}</b> | Dur: <b>{model['duration']:.1f}s</b>
                 </p>
             </div>
             """, unsafe_allow_html=True)
 
 # Training execution
 if st.session_state.run_training:
-    with st.spinner("🚀 Training ensemble pyramid..."):
+    with st.spinner("Training ensemble pyramid..."):
         progress_bar = st.progress(0)
         status_text = st.empty()
         live_metrics_placeholder = st.empty()
@@ -598,11 +781,11 @@ if st.session_state.run_training:
         live_results_placeholder = st.empty()
 
         try:
-            status_text.text("📊 Setting up tracking...")
+            status_text.text("Setting up tracking...")
             setup_tracking()
-            status_text.text("📊 Loading data...")
+            status_text.text("Loading data...")
             train_df, val_df = load_data(subsample_train=subsample_size, subsample_val=subsample_size // 4 if subsample_size > 0 else 0)
-            status_text.text("🔧 Vectorizing text...")
+            status_text.text("Vectorizing text...")
             vectorizer = TfidfVectorizer(
                 max_features=tfidf_max,
                 ngram_range=tfidf_ngrams,
@@ -638,11 +821,13 @@ if st.session_state.run_training:
                     done_layers = sorted({r["layer"] for r in current_results})
                     best_f1_live = max(r["f1"] for r in current_results)
                     best_acc_live = max(r["accuracy"] for r in current_results)
-                    cols = live_metrics_placeholder.columns(4)
-                    cols[0].metric("Modelos avaliados", len(current_results))
-                    cols[1].metric("Camadas processadas", len(done_layers))
-                    cols[2].metric("Melhor F1", f"{best_f1_live:.4f}")
-                    cols[3].metric("Melhor Acurácia", f"{best_acc_live:.4f}")
+                    cols = live_metrics_placeholder.columns(6)
+                    cols[0].metric("Modelos", len(current_results))
+                    cols[1].metric("Camadas", len(done_layers))
+                    cols[2].metric("Best F1", f"{best_f1_live:.4f}")
+                    cols[3].metric("Best Acc", f"{best_acc_live:.4f}")
+                    cols[4].metric("Best Prec", f"{max(r.get('precision', 0.0) for r in current_results):.4f}")
+                    cols[5].metric("Best Rec", f"{max(r.get('recall', 0.0) for r in current_results):.4f}")
                     live_fig = create_enhanced_ensemble_visualization(
                         current_results,
                         pyramid,
@@ -674,7 +859,7 @@ if st.session_state.run_training:
                     training_counters["planned_models"] += len(models_for_layer) + (1 if len(models_for_layer) > 1 else 0)
                     render_live_dashboard(
                         current_results,
-                        f"🧭 Camada {event_layer}/{num_layers}: estratégia {layer_strategy_map[event_layer]} | modelos {models_for_layer}"
+                        f"Camada {event_layer}/{num_layers}: estratégia {layer_strategy_map[event_layer]} | modelos {models_for_layer}"
                     )
                 elif event_name in {"model_trained", "voting_trained"}:
                     training_counters["trained_models"] += 1
@@ -685,24 +870,24 @@ if st.session_state.run_training:
                     progress_bar.progress(progress_value)
                     render_live_dashboard(
                         current_results,
-                        f"⚙️ Camada {event_layer}/{num_layers}: treinou {event.get('model_name')}"
+                        f"Camada {event_layer}/{num_layers}: treinou {event.get('model_name')}"
                     )
                 elif event_name == "layer_start":
                     progress_layer = (event_layer - 1) / max(num_layers, 1)
                     progress_bar.progress(progress_layer)
-                    render_live_dashboard(current_results, f"🏗️ Iniciando camada {event_layer}/{num_layers}")
+                    render_live_dashboard(current_results, f"Iniciando camada {event_layer}/{num_layers}")
                 elif event_name == "layer_done":
                     progress_layer = event_layer / max(num_layers, 1)
                     progress_bar.progress(progress_layer)
                     render_live_dashboard(
                         current_results,
-                        f"✅ Camada {event_layer}/{num_layers} concluída | features: {event.get('n_features')}"
+                        f"Camada {event_layer}/{num_layers} concluída | features: {event.get('n_features')}"
                     )
                 elif event_name == "training_done":
                     progress_bar.progress(1.0)
-                    render_live_dashboard(current_results, "✅ Treinamento concluído")
+                    render_live_dashboard(current_results, "Treinamento concluído")
 
-            status_text.text("🧠 Treinando camadas com atualização em tempo real...")
+            status_text.text("Treinando camadas com atualização em tempo real...")
             run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             artifacts_dir = Path("experiments") / "artifacts" / f"flexible_ensemble_ui_{run_stamp}"
             artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -775,17 +960,21 @@ if st.session_state.run_training:
                     mlflow.log_params({"best_model": best_res["model"], "best_layer": int(best_res["layer"])})
                     mlflow.log_metric("best_f1", float(best_res["f1"]))
                     mlflow.log_metric("best_accuracy", float(best_res["accuracy"]))
+                    mlflow.log_metric("best_precision", float(best_res.get("precision", 0.0)))
+                    mlflow.log_metric("best_recall", float(best_res.get("recall", 0.0)))
+                    if best_res.get("auc", 0.0) > 0:
+                        mlflow.log_metric("best_auc", float(best_res.get("auc")))
 
             st.session_state.training_results = pyramid.results
             st.session_state.pyramid = pyramid
             st.session_state.layer_strategy_map = layer_strategy_map
             st.session_state.artifacts_dir = str(artifacts_dir)
             st.session_state.run_training = False
-            status_text.text("✅ Treinamento concluído!")
+            status_text.text("Treinamento concluído!")
             progress_bar.progress(1.0)
 
         except Exception as e:
-            st.error(f"❌ Error during training: {str(e)}")
+            st.error(f"Error during training: {str(e)}")
             st.session_state.run_training = False
 
 # Display results
@@ -797,7 +986,7 @@ if st.session_state.training_results:
         st.success(f"Resultados e artefatos salvos em: {artifacts_dir}")
     
     # Metrics overview
-    st.markdown("<h2 class='sub-header'>📊 Performance Overview</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Performance Overview</h2>", unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -805,7 +994,7 @@ if st.session_state.training_results:
         best_f1 = max(result['f1'] for result in results)
         st.markdown(f"""
         <div class='metric-card'>
-            <h3>🏆 Best F1</h3>
+            <h3>Best F1</h3>
             <h1 style='color: #28a745;'>{best_f1:.3f}</h1>
         </div>
         """, unsafe_allow_html=True)
@@ -814,7 +1003,7 @@ if st.session_state.training_results:
         best_acc = max(result['accuracy'] for result in results)
         st.markdown(f"""
         <div class='metric-card'>
-            <h3>🎯 Best Accuracy</h3>
+            <h3>Best Accuracy</h3>
             <h1 style='color: #007bff;'>{best_acc:.3f}</h1>
         </div>
         """, unsafe_allow_html=True)
@@ -823,7 +1012,7 @@ if st.session_state.training_results:
         total_models = len(results)
         st.markdown(f"""
         <div class='metric-card'>
-            <h3>🤖 Total Models</h3>
+            <h3>Total Models</h3>
             <h1 style='color: #6f42c1;'>{total_models}</h1>
         </div>
         """, unsafe_allow_html=True)
@@ -832,13 +1021,13 @@ if st.session_state.training_results:
         total_layers = max(result['layer'] for result in results) + 1
         st.markdown(f"""
         <div class='metric-card'>
-            <h3>🏗️ Layers Trained</h3>
+            <h3>Layers Trained</h3>
             <h1 style='color: #fd7e14;'>{total_layers}</h1>
         </div>
         """, unsafe_allow_html=True)
     
     # Enhanced visualization section
-    st.markdown("<h2 class='sub-header'>🎨 Enhanced Visualization</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Enhanced Visualization</h2>", unsafe_allow_html=True)
     
     # Create enhanced visualization
     viz_fig = create_enhanced_ensemble_visualization(
@@ -852,22 +1041,48 @@ if st.session_state.training_results:
         st.plotly_chart(viz_fig, use_container_width=True, key="final_ensemble_viz")
     
     # Interactive performance dashboard
-    st.markdown("<h2 class='sub-header'>📈 Performance Analysis</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Performance Analysis</h2>", unsafe_allow_html=True)
     create_interactive_performance_dashboard(results)
     
     # Layer analysis
-    st.markdown("<h2 class='sub-header'>🔍 Layer Analysis</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Layer Analysis</h2>", unsafe_allow_html=True)
     create_layer_analysis_panel(results)
 
 else:
-    # Welcome and instructions
+# Welcome and instructions
     st.markdown("""
-    ## 🎯 Welcome to the Enhanced Flexible Ensemble Pyramid Interface
+    ## Welcome to the Enhanced Flexible Ensemble Pyramid Interface
     
     This interactive tool provides advanced visualization and analysis capabilities for hierarchical ensemble 
     learning. Experience real-time model connections, performance heatmaps, and detailed layer analysis.
+    """)
     
-    ### 🚀 Enhanced Features
+    # Data Preview Section
+    st.markdown("<h2 class='sub-header'>Data Overview</h2>", unsafe_allow_html=True)
+    try:
+        train_df, val_df = load_data(subsample_train=subsample_size, subsample_val=subsample_size // 4 if subsample_size > 0 else 0)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Training Distribution")
+            fig_train = px.pie(train_df, names='sentiment', title="Sentiment Distribution (Train)")
+            st.plotly_chart(fig_train, use_container_width=True)
+            st.write(f"Total Training Samples: {len(train_df)}")
+            
+        with col2:
+            st.markdown("### Validation Distribution")
+            fig_val = px.pie(val_df, names='sentiment', title="Sentiment Distribution (Validation)")
+            st.plotly_chart(fig_val, use_container_width=True)
+            st.write(f"Total Validation Samples: {len(val_df)}")
+            
+        st.markdown("### Data Sample")
+        st.dataframe(train_df[['sentiment', 'text']].head(10), use_container_width=True)
+        
+    except Exception as e:
+        st.info("Run the training to see data analysis or ensure data files are accessible.")
+    
+    st.markdown("""
+    ### Enhanced Features
     
     - **Tree Branching Visualization**: See how models connect across layers with performance-based coloring
     - **Performance Heatmaps**: Visual overlay showing model performance across the pyramid
@@ -875,7 +1090,7 @@ else:
     - **Enhanced Styling**: Modern UI with gradient backgrounds and hover effects
     - **Real-time Connections**: Dynamic connections that reflect performance relationships
     
-    ### 📊 What You'll Discover
+    ### What You'll Discover
     
     - How different model types perform at each layer
     - Performance trends across the hierarchical structure
@@ -883,7 +1098,7 @@ else:
     - Layer-by-layer performance breakdown
     - Model distribution and specialization patterns
     
-    ### ⚡ Quick Start
+    ### Quick Start
     
     1. Configure your experiment in the sidebar
     2. Click "Run Ensemble Training"
@@ -898,7 +1113,7 @@ else:
     with col1:
         st.markdown("""
         <div style='text-align: center; padding: 1rem;'>
-            <h3>🌳 Tree Connections</h3>
+            <h3>Tree Connections</h3>
             <p>Visualize model relationships with performance-based branching</p>
         </div>
         """, unsafe_allow_html=True)
@@ -906,7 +1121,7 @@ else:
     with col2:
         st.markdown("""
         <div style='text-align: center; padding: 1rem;'>
-            <h3>🔥 Heatmaps</h3>
+            <h3>Heatmaps</h3>
             <p>See performance patterns with interactive heatmap overlays</p>
         </div>
         """, unsafe_allow_html=True)
@@ -914,7 +1129,7 @@ else:
     with col3:
         st.markdown("""
         <div style='text-align: center; padding: 1rem;'>
-            <h3>📊 Multi-view</h3>
+            <h3>Multi-view</h3>
             <p>Explore data through multiple interactive visualization tabs</p>
         </div>
         """, unsafe_allow_html=True)
@@ -923,7 +1138,7 @@ else:
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #6c757d; padding: 2rem;'>
-    <p style='font-size: 1.1rem;'>Built with ❤️ using Streamlit | Enhanced Flexible Ensemble Pyramid</p>
+    <p style='font-size: 1.1rem;'>Built with Streamlit | Enhanced Flexible Ensemble Pyramid</p>
     <p style='font-size: 0.9rem;'>MLOps Experiments - Advanced Visualization Interface</p>
 </div>
 """, unsafe_allow_html=True)
