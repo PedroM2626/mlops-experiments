@@ -331,12 +331,15 @@ class NASController:
             "model_types": []
         }
         
-        available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+        base_models = ["lr", "svc", "nb", "ridge", "rf", "et"]
+        ensemble_models = ["bag_lr", "bag_svc", "bag_nb"]
         strategies = ["dense", "residual", "simple"]
         
         for layer in range(num_layers):
-            n_models = np.random.randint(2, min(max_models_per_layer, len(available_models)) + 1)
-            layer_models = np.random.choice(available_models, n_models, replace=False).tolist()
+            # Layer 1 only base models, subsequent layers can have ensembles
+            current_pool = base_models if layer == 0 else (base_models + ensemble_models)
+            n_models = np.random.randint(2, min(max_models_per_layer, len(current_pool)) + 1)
+            layer_models = np.random.choice(current_pool, n_models, replace=False).tolist()
             strategy = np.random.choice(strategies)
             
             architecture["models_per_layer"].append(n_models)
@@ -377,10 +380,16 @@ class NASController:
                 mutated["layers"] -= 1
             elif len(mutated["models_per_layer"]) < 8:
                 # Add layer
-                available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+                base_models = ["lr", "svc", "nb", "ridge", "rf", "et"]
+                ensemble_models = ["bag_lr", "bag_svc", "bag_nb"]
                 strategies = ["dense", "residual", "simple"]
+                
+                # Logic for new layer position
+                new_layer_idx = len(mutated["models_per_layer"]) # added at the end
+                current_pool = base_models if new_layer_idx == 0 else (base_models + ensemble_models)
+                
                 n_models = np.random.randint(2, 5)
-                layer_models = np.random.choice(available_models, n_models, replace=False).tolist()
+                layer_models = np.random.choice(current_pool, n_models, replace=False).tolist()
                 strategy = np.random.choice(strategies)
                 
                 mutated["models_per_layer"].append(n_models)
@@ -392,9 +401,12 @@ class NASController:
             # Mutate models in a random layer
             if mutated["models_per_layer"]:
                 layer_idx = np.random.randint(len(mutated["models_per_layer"]))
-                available_models = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
+                base_models = ["lr", "svc", "nb", "ridge", "rf", "et"]
+                ensemble_models = ["bag_lr", "bag_svc", "bag_nb"]
+                current_pool = base_models if layer_idx == 0 else (base_models + ensemble_models)
+                
                 n_models = np.random.randint(2, 5)
-                mutated["model_types"][layer_idx] = np.random.choice(available_models, n_models, replace=False).tolist()
+                mutated["model_types"][layer_idx] = np.random.choice(current_pool, n_models, replace=False).tolist()
                 mutated["models_per_layer"][layer_idx] = n_models
         
         if np.random.random() < self.mutation_rate:
@@ -636,17 +648,18 @@ class PyramidEnsemble:
                     "best_score": self.best_score,
                 })
             
-            # Base pool now includes Bagging variants
-            avail_b = ["lr", "svc", "nb", "ridge", "rf", "et", "bag_lr", "bag_svc", "bag_nb"]
-            avail_m = ["lr", "ridge", "rf", "bag_lr"]
+            # Base pool: Layer 1 should only have simple base models to build the foundation
+            # Subsequent layers use meta-features and can include bagging/ensembles
+            avail_base = ["lr", "svc", "nb", "ridge", "rf", "et"]
+            avail_meta = ["lr", "ridge", "rf", "bag_lr", "bag_svc", "bag_nb"]
             
             # The heart of variability: RL Meta-Learner + NAS decides WHAT and HOW MANY
             models_to_run = self.meta_learner.suggest_models(
                 l, 
-                avail_b if l==1 else avail_m,
+                avail_base if l==1 else avail_meta,
                 min_p=self.min_models,
                 max_p=self.max_models,
-            ) if self.meta_learner else (avail_b if l==1 else avail_m)
+            ) if self.meta_learner else (avail_base if l==1 else avail_meta)
             
             # NAS-optimized strategy selection
             current_strategy = self.strategy
@@ -709,7 +722,8 @@ class PyramidEnsemble:
 
             # --- Automatic Layer Voting (Meta-Ensemble of the Layer) ---
             # Uses pre-fitted models directly to avoid retraining them inside VotingClassifier
-            if len(layer_models) > 1:
+            # Skipping layer 1 to keep it clean from ensembles as requested
+            if l > 1 and len(layer_models) > 1:
                 t0_v = time.time()
                 v_name = f"voting_L{l}"
                 all_have_proba = all(hasattr(m[1], "predict_proba") for m in layer_models)

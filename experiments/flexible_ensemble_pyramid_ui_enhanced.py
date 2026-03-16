@@ -250,6 +250,7 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
     
     # Store node positions for connection drawing
     node_positions = {}
+    connection_count = 0
     
     # Add nodes (models) with enhanced styling
     for layer_idx, models in layers_data.items():
@@ -347,6 +348,7 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
                             hoverinfo='none',
                             opacity=0.6
                         ))
+                        connection_count += 1
     
     # Add performance heatmap overlay
     if show_performance:
@@ -373,6 +375,37 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             ))
     
     # Enhanced layout configuration
+    x_values = [pos[0] for pos in node_positions.values()] or [0]
+    y_values = [pos[1] for pos in node_positions.values()] or [0]
+    x_padding = max(0.8, horizontal_spacing * 1.4)
+    y_padding = max(1.0, layer_height * 0.8)
+    x_min, x_max = min(x_values) - x_padding, max(x_values) + x_padding
+    y_min, y_max = min(y_values) - y_padding, max(y_values) + y_padding
+
+    layer_ids_sorted = sorted(layers_data.keys())
+    strategy_counts = {"dense": 0, "residual": 0, "simple": 0}
+    if isinstance(layer_strategy_map, dict):
+        for layer_id in layer_ids_sorted:
+            if layer_id in layer_strategy_map and layer_strategy_map[layer_id] in strategy_counts:
+                strategy_counts[layer_strategy_map[layer_id]] += 1
+    node_count = len(node_positions)
+    avg_models_per_layer = node_count / max(len(layer_ids_sorted), 1)
+    density = connection_count / max(node_count, 1)
+    dynamic_height = int(max(900, len(layer_ids_sorted) * 170 + 280))
+
+    summary_text = (
+        f"<b>Nós:</b> {node_count} | "
+        f"<b>Conexões:</b> {connection_count} | "
+        f"<b>Camadas:</b> {len(layer_ids_sorted)} | "
+        f"<b>Média modelos/camada:</b> {avg_models_per_layer:.2f} | "
+        f"<b>Densidade:</b> {density:.2f} conn/nó"
+    )
+    strategy_text = (
+        f"<b>Estratégias:</b> dense={strategy_counts['dense']} | "
+        f"residual={strategy_counts['residual']} | "
+        f"simple={strategy_counts['simple']}"
+    )
+
     fig.update_layout(
         title=dict(
             text="Enhanced Ensemble Pyramid Architecture",
@@ -386,27 +419,67 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
             showgrid=False, 
             zeroline=False, 
             showticklabels=False,
-            range=[-max_models_in_layer * horizontal_spacing / 2, 
-                   max_models_in_layer * horizontal_spacing / 2]
+            range=[x_min, x_max]
         ),
         yaxis=dict(
             showgrid=False, 
             zeroline=False, 
             showticklabels=False,
-            range=[-(len(layers_data) * layer_height) + layer_height, layer_height]
+            range=[y_min, y_max]
         ),
-        height=800,
-        margin=dict(l=20, r=20, t=80, b=20),
+        height=dynamic_height,
+        margin=dict(l=40, r=40, t=120, b=80),
         plot_bgcolor='rgba(240,240,240,0.1)',
         paper_bgcolor='rgba(240,240,240,0.1)',
         legend=dict(
             x=0.01,
-            y=0.99,
+            y=0.90,
             xanchor='left',
             yanchor='top',
             bgcolor='rgba(255,255,255,0.8)'
-        )
+        ),
+        annotations=[
+            dict(
+                x=0.0,
+                y=1.08,
+                xref="paper",
+                yref="paper",
+                xanchor="left",
+                yanchor="bottom",
+                text=summary_text,
+                showarrow=False,
+                font=dict(size=13, color="#1f2937"),
+                align="left",
+            ),
+            dict(
+                x=0.0,
+                y=1.03,
+                xref="paper",
+                yref="paper",
+                xanchor="left",
+                yanchor="bottom",
+                text=strategy_text,
+                showarrow=False,
+                font=dict(size=12, color="#374151"),
+                align="left",
+            ),
+        ]
     )
+
+    for layer_id in layer_ids_sorted:
+        models_in_layer = len(layers_data[layer_id])
+        layer_y = -layer_id * layer_height
+        fig.add_annotation(
+            x=x_min + 0.05,
+            y=layer_y,
+            xref="x",
+            yref="y",
+            text=f"Camada {layer_id} ({models_in_layer} nós)",
+            showarrow=False,
+            xanchor="left",
+            font=dict(size=11, color="#475569"),
+            bgcolor="rgba(255,255,255,0.7)"
+        )
     
     return fig
 
@@ -428,13 +501,13 @@ def create_interactive_performance_dashboard(results):
                       title="F1 Score Evolution Across Layers",
                       labels={'layer': 'Layer', 'f1': 'F1 Score'})
         fig1.update_layout(height=400)
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width=True, key="perf_trends_f1")
         
         # Accuracy trends
         fig2 = px.line(df, x='layer', y='accuracy', color='model',
                       title="Accuracy Evolution Across Layers")
         fig2.update_layout(height=400)
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True, key="perf_trends_acc")
     
     with tab2:
         # Model type distribution
@@ -442,13 +515,13 @@ def create_interactive_performance_dashboard(results):
                      title="Model Type Distribution",
                      hole=0.3)
         fig3.update_layout(height=400)
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True, key="model_dist_pie")
         
         # Performance by model type
         fig4 = px.box(df, x='model_type', y='f1', 
                      title="F1 Score Distribution by Model Type")
         fig4.update_layout(height=400)
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True, key="model_dist_box")
     
     with tab3:
         # Performance heatmap
@@ -457,7 +530,7 @@ def create_interactive_performance_dashboard(results):
                         title="F1 Score Heatmap (Model × Layer)",
                         color_continuous_scale='Viridis')
         fig5.update_layout(height=500)
-        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig5, use_container_width=True, key="perf_heatmap")
     
     with tab4:
         # Detailed performance table
@@ -558,7 +631,7 @@ if st.session_state.run_training:
             )
 
             layer_strategy_map = {}
-            training_counters = {"planned_models": 0, "trained_models": 0}
+            training_counters = {"planned_models": 0, "trained_models": 0, "render_seq": 0}
 
             def render_live_dashboard(current_results, current_status):
                 if current_results:
@@ -578,7 +651,12 @@ if st.session_state.run_training:
                         layer_strategy_map
                     )
                     if live_fig is not None:
-                        live_chart_placeholder.plotly_chart(live_fig, use_container_width=True)
+                        training_counters["render_seq"] += 1
+                        live_chart_placeholder.plotly_chart(
+                            live_fig,
+                            use_container_width=True,
+                            key=f"live_training_chart_{training_counters['render_seq']}"
+                        )
                     live_df = pd.DataFrame(current_results).sort_values(["layer", "f1"], ascending=[True, False])
                     live_results_placeholder.dataframe(
                         live_df[["layer", "model", "f1", "accuracy", "duration"]].head(20),
@@ -771,7 +849,7 @@ if st.session_state.training_results:
         layer_strategy_map
     )
     if viz_fig:
-        st.plotly_chart(viz_fig, use_container_width=True)
+        st.plotly_chart(viz_fig, use_container_width=True, key="final_ensemble_viz")
     
     # Interactive performance dashboard
     st.markdown("<h2 class='sub-header'>📈 Performance Analysis</h2>", unsafe_allow_html=True)
