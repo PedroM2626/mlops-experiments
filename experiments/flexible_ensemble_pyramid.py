@@ -23,7 +23,7 @@ from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, BaggingClassifier
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.model_selection import cross_val_predict
+from sklearn.model_selection import cross_val_predict, StratifiedKFold
 
 
 
@@ -99,6 +99,9 @@ TFIDF_MAX = 50000
 TFIDF_NGRAMS = (1, 2)
 JITTER = True            # Random hyperparameter variation
 STRATEGY = "dense"       # "dense", "residual", "simple"
+PYRAMID_LAYER_TYPE = "heterogeneous"  # "heterogeneous", "homogeneous"
+HOMOGENEOUS_MODEL = "lr"
+HOMOGENEOUS_VARIANTS = 4
 
 
 
@@ -167,7 +170,7 @@ def load_data(subsample_train=0, subsample_val=0):
     return train_df, val_df
 
 # ─── Model Factories ─────────────────────────────────────────────────────────
-def get_model(model_type, seed=SEED, jitter=False, n_jobs=2):
+def get_model(model_type, seed=SEED, jitter=False, n_jobs=2, variant_scale=1.0):
     # Bagging Wrapper
     is_bagging = model_type.startswith("bag_")
     base_type = model_type.replace("bag_", "") if is_bagging else model_type
@@ -178,23 +181,58 @@ def get_model(model_type, seed=SEED, jitter=False, n_jobs=2):
     j_alpha = np.random.uniform(0.01, 1.0) if jitter else 1.0
 
     if base_type == "lr":
-        m = LogisticRegression(C=11.0 * j_c if jitter else 11.0, max_iter=1000, random_state=seed, n_jobs=n_jobs)
+        m = LogisticRegression(C=max(0.01, (11.0 * j_c if jitter else 11.0) * variant_scale), max_iter=1000, random_state=seed, n_jobs=n_jobs)
     elif base_type == "svc":
-        m = CalibratedClassifierCV(LinearSVC(C=19.0 * j_c if jitter else 19.0, random_state=seed), cv=2, n_jobs=n_jobs)
+        m = CalibratedClassifierCV(LinearSVC(C=max(0.01, (19.0 * j_c if jitter else 19.0) * variant_scale), random_state=seed), cv=2, n_jobs=n_jobs)
     elif base_type == "nb":
-        m = MultinomialNB(alpha=0.1 * j_alpha if jitter else 0.1)
+        m = MultinomialNB(alpha=max(1e-4, (0.1 * j_alpha if jitter else 0.1) * variant_scale))
     elif base_type == "rf":
-        m = RandomForestClassifier(n_estimators=j_tree, random_state=seed, n_jobs=n_jobs)
+        m = RandomForestClassifier(n_estimators=max(20, int(j_tree * variant_scale)), random_state=seed, n_jobs=n_jobs)
     elif base_type == "et":
-        m = ExtraTreesClassifier(n_estimators=j_tree, random_state=seed, n_jobs=n_jobs)
+        m = ExtraTreesClassifier(n_estimators=max(20, int(j_tree * variant_scale)), random_state=seed, n_jobs=n_jobs)
     elif base_type == "ridge":
-        m = CalibratedClassifierCV(RidgeClassifier(alpha=1.0 * j_alpha if jitter else 1.0), cv=2, n_jobs=n_jobs)
+        m = CalibratedClassifierCV(RidgeClassifier(alpha=max(0.01, (1.0 * j_alpha if jitter else 1.0) * variant_scale)), cv=2, n_jobs=n_jobs)
     else:
         m = LogisticRegression(random_state=seed, n_jobs=n_jobs)
     
     if is_bagging:
         return BaggingClassifier(m, n_estimators=10, random_state=seed, n_jobs=n_jobs)
     return m
+
+
+def _to_jsonable(v):
+    if isinstance(v, (np.integer, np.floating)):
+        return v.item()
+    if isinstance(v, (np.ndarray,)):
+        return v.tolist()
+    if isinstance(v, (str, int, float, bool)) or v is None:
+        return v
+    return str(v)
+
+
+def _extract_model_hyperparams(model):
+    if hasattr(model, "get_params"):
+        try:
+            params = model.get_params(deep=False)
+            allowed = {
+                "C", "alpha", "max_iter", "n_estimators", "random_state", "n_jobs",
+                "cv", "penalty", "solver", "fit_intercept", "class_weight",
+                "max_depth", "min_samples_split", "min_samples_leaf"
+            }
+            out = {}
+            for k, val in params.items():
+                if k in allowed:
+                    out[k] = _to_jsonable(val)
+            return out
+        except Exception:
+            return {}
+
+    keys = ["n_models", "n_classes", "n_bags", "bag_fraction", "seed"]
+    out = {}
+    for k in keys:
+        if hasattr(model, k):
+            out[k] = _to_jsonable(getattr(model, k))
+    return out
 
 
 
@@ -271,7 +309,8 @@ class RLMetaLearner:
         self.knowledge["runs"] += 1
         for res in results:
             l_str = str(res["layer"])
-            m_base = res["model"].split('_')[0]
+            m_base = re.sub(r"_L\d+$", "", res["model"])
+            m_base = re.sub(r"__v\d+$", "", m_base)
             val_f1 = res["f1"]
             val_acc = res["accuracy"]
             val_prec = res.get("precision", 0.0)
@@ -651,7 +690,9 @@ class PyramidEnsemble:
     def __init__(self, num_layers=3, seed=SEED, meta_learner=None, patience=PATIENCE, 
                  metric=OPTIM_METRIC, jitter=JITTER, strategy=STRATEGY,
                  min_models=MIN_MODELS_PER_LAYER, max_models=MAX_MODELS_PER_LAYER, 
-                 nas_controller=None, n_jobs=2):
+                 nas_controller=None, n_jobs=2,
+                 layer_type=PYRAMID_LAYER_TYPE, homogeneous_model=HOMOGENEOUS_MODEL,
+                 homogeneous_variants=HOMOGENEOUS_VARIANTS):
         self.num_layers = num_layers
         self.seed = seed
         self.meta_learner = meta_learner
@@ -663,9 +704,13 @@ class PyramidEnsemble:
         self.max_models = max_models
         self.nas_controller = nas_controller
         self.n_jobs = n_jobs
+        self.layer_type = layer_type
+        self.homogeneous_model = homogeneous_model
+        self.homogeneous_variants = homogeneous_variants
         self.layers = []
         self.layer_meta_models = []
         self.results = []
+        self.training_metadata = {"run": {}, "layers": [], "models": []}
         self.best_model = None
         self.best_score = 0
         self.no_improve_layers = 0 # Early stopping counter
@@ -738,6 +783,24 @@ class PyramidEnsemble:
         prev_layer_train_stack, prev_layer_val_stack = None, None
         prev_layer_model_names = []
         self.layer_meta_models = []
+        self.training_metadata = {
+            "run": {
+                "num_layers": self.num_layers,
+                "seed": self.seed,
+                "metric": self.metric,
+                "strategy": self.strategy,
+                "layer_type": self.layer_type,
+                "homogeneous_model": self.homogeneous_model,
+                "homogeneous_variants": self.homogeneous_variants,
+                "min_models": self.min_models,
+                "max_models": self.max_models,
+                "cv_folds": CV_FOLDS,
+                "train_shape": [int(X_train.shape[0]), int(X_train.shape[1])],
+                "val_shape": [int(X_val.shape[0]), int(X_val.shape[1])]
+            },
+            "layers": [],
+            "models": []
+        }
         t_global_start = time.time()
         
         print(f"\n{'='*85}\n{'STARTING ENSEMBLE PYRAMID TRAINING':^85}\n{'='*85}", flush=True)
@@ -765,13 +828,17 @@ class PyramidEnsemble:
             effective_min = max(1, min(self.min_models, len(pool)))
             effective_max = max(effective_min, min(self.max_models, len(pool)))
 
-            # The heart of variability: RL Meta-Learner + NAS decides WHAT and HOW MANY
-            models_to_run = self.meta_learner.suggest_models(
-                l,
-                pool,
-                min_p=effective_min,
-                max_p=effective_max,
-            ) if self.meta_learner else pool
+            if l == 1 and self.layer_type == "homogeneous":
+                n_variants = max(1, min(self.homogeneous_variants, self.max_models))
+                models_to_run = [f"{self.homogeneous_model}__v{i+1}" for i in range(n_variants)]
+            else:
+                # The heart of variability: RL Meta-Learner + NAS decides WHAT and HOW MANY
+                models_to_run = self.meta_learner.suggest_models(
+                    l,
+                    pool,
+                    min_p=effective_min,
+                    max_p=effective_max,
+                ) if self.meta_learner else pool
             
             # NAS-optimized strategy selection
             current_strategy = self.strategy
@@ -782,6 +849,15 @@ class PyramidEnsemble:
                     print(f"  [NAS] Strategy override: {self.strategy} -> {nas_strategy}", flush=True)
             
             print(f"  [HYBRID] Selected set ({len(models_to_run)} models): {models_to_run}", flush=True)
+            layer_metadata = {
+                "layer": l,
+                "selected_models": list(models_to_run),
+                "strategy": current_strategy,
+                "layer_type": self.layer_type if l == 1 else "meta_ensemble",
+                "source_previous_layer_models": list(prev_layer_model_names),
+                "input_features": int(layer_train_input.shape[1]) if l > 1 and hasattr(prev_layer_train_stack, "shape") else (int(current_X_train.shape[1]) if hasattr(current_X_train, "shape") else None)
+            }
+            self.training_metadata["layers"].append(layer_metadata)
             if callable(progress_callback):
                 progress_callback({
                     "event": "layer_config",
@@ -798,13 +874,16 @@ class PyramidEnsemble:
             layer_transformers = []
             layer_feature_model_names = []
             score_before_layer = self.best_score  # snapshot before any model in this layer updates it
-            for m_type in models_to_run:
+            for model_idx, m_type in enumerate(models_to_run):
                 t0 = time.time()
                 model_name = f"{m_type}_L{l}"
+                raw_type = re.sub(r"__v\d+$", "", m_type)
+                variant_scale = 1.0 + ((model_idx % 5) - 2) * 0.12
+                model_seed = self.seed + l + (model_idx * 37)
 
                 if l == 1:
                     layer_train_input, layer_val_input = current_X_train, current_X_val
-                    model = get_model(m_type, self.seed + l, jitter=self.jitter, n_jobs=self.n_jobs)
+                    model = get_model(raw_type, model_seed, jitter=self.jitter, n_jobs=self.n_jobs, variant_scale=variant_scale)
                     model.fit(layer_train_input, y_train)
                 else:
                     if prev_layer_train_stack is None or prev_layer_val_stack is None:
@@ -813,12 +892,12 @@ class PyramidEnsemble:
                     n_classes = len(np.unique(y_train))
                     n_prev_models = max(1, len(prev_layer_model_names))
                     if m_type == "stack_prev":
-                        model = LogisticRegression(max_iter=1000, random_state=self.seed + l, n_jobs=self.n_jobs)
+                        model = LogisticRegression(max_iter=1000, random_state=model_seed, n_jobs=self.n_jobs)
                     elif m_type == "bag_prev":
                         model = _PreviousLayerBaggingVoting(
                             n_models=n_prev_models,
                             n_classes=n_classes,
-                            seed=self.seed + l
+                            seed=model_seed
                         )
                     elif m_type == "vote_prev":
                         model = _PreviousLayerSoftVoting(n_models=n_prev_models, n_classes=n_classes)
@@ -827,6 +906,44 @@ class PyramidEnsemble:
                     model.fit(layer_train_input, y_train)
 
                 self._evaluate_and_log(model, layer_val_input, y_val, l, model_name, t0)
+                cv_info = {
+                    "method": "stratified_kfold" if (m_type == "stack_prev" or l == 1) else "none",
+                    "n_splits": CV_FOLDS if (m_type == "stack_prev" or l == 1) else None,
+                    "shuffle": True if (m_type == "stack_prev" or l == 1) else None,
+                    "random_state": model_seed if (m_type == "stack_prev" or l == 1) else None
+                }
+                model_metadata = {
+                    "layer": l,
+                    "model": model_name,
+                    "model_type": m_type,
+                    "model_family": raw_type,
+                    "seed": int(model_seed),
+                    "variant_scale": float(variant_scale),
+                    "hyperparameters": _extract_model_hyperparams(model),
+                    "cv_info": cv_info,
+                    "split_info": {
+                        "train_rows": int(layer_train_input.shape[0]) if hasattr(layer_train_input, "shape") else None,
+                        "val_rows": int(layer_val_input.shape[0]) if hasattr(layer_val_input, "shape") else None,
+                        "train_features": int(layer_train_input.shape[1]) if hasattr(layer_train_input, "shape") else None,
+                        "val_features": int(layer_val_input.shape[1]) if hasattr(layer_val_input, "shape") else None
+                    },
+                    "previous_layer_models": list(prev_layer_model_names) if l > 1 else []
+                }
+                self.training_metadata["models"].append(model_metadata)
+                self.results[-1].update({
+                    "model_type": m_type,
+                    "model_family": raw_type,
+                    "seed": int(model_seed),
+                    "variant_scale": float(variant_scale),
+                    "cv_method": cv_info["method"],
+                    "cv_n_splits": cv_info["n_splits"],
+                    "cv_random_state": cv_info["random_state"],
+                    "hyperparameters": model_metadata["hyperparameters"],
+                    "train_rows": model_metadata["split_info"]["train_rows"],
+                    "val_rows": model_metadata["split_info"]["val_rows"],
+                    "train_features": model_metadata["split_info"]["train_features"],
+                    "val_features": model_metadata["split_info"]["val_features"]
+                })
                 if callable(progress_callback):
                     progress_callback({
                         "event": "model_trained",
@@ -846,7 +963,12 @@ class PyramidEnsemble:
                     layer_transformers.append(model)
                     layer_feature_model_names.append(model_name)
                     if m_type == "stack_prev":
-                        oof = cross_val_predict(model, layer_train_input, y_train, cv=CV_FOLDS, method="predict_proba", n_jobs=self.n_jobs)
+                        cv_splitter = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=model_seed)
+                        oof = cross_val_predict(model, layer_train_input, y_train, cv=cv_splitter, method="predict_proba", n_jobs=self.n_jobs)
+                        vp = model.predict_proba(layer_val_input)
+                    elif hasattr(model, "predict_proba") and l == 1:
+                        cv_splitter = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=model_seed)
+                        oof = cross_val_predict(model, layer_train_input, y_train, cv=cv_splitter, method="predict_proba", n_jobs=self.n_jobs)
                         vp = model.predict_proba(layer_val_input)
                     elif hasattr(model, "predict_proba"):
                         oof = model.predict_proba(layer_train_input)
@@ -905,6 +1027,8 @@ class PyramidEnsemble:
 
 
         print(f"\n{'='*85}\nCOMPLETE | Time: {(time.time()-t_global_start)/60:.1f} min\n{'='*85}", flush=True)
+        self.training_metadata["run"]["elapsed_seconds"] = float(time.time() - t_global_start)
+        self.training_metadata["run"]["best_score"] = float(self.best_score)
         if self.meta_learner: self.meta_learner.update_knowledge(self.results)
         if callable(progress_callback):
             progress_callback({
@@ -980,6 +1104,9 @@ def main():
     parser.add_argument("--tfidf_ngrams", type=int, default=2, help="Max ngrams (1 or 2)")
     parser.add_argument("--jitter", type=bool, default=JITTER)
     parser.add_argument("--strategy", type=str, choices=["dense", "residual", "simple"], default=STRATEGY)
+    parser.add_argument("--layer_type", type=str, choices=["heterogeneous", "homogeneous"], default=PYRAMID_LAYER_TYPE)
+    parser.add_argument("--homogeneous_model", type=str, choices=["lr", "svc", "nb", "ridge", "rf", "et"], default=HOMOGENEOUS_MODEL)
+    parser.add_argument("--homogeneous_variants", type=int, default=HOMOGENEOUS_VARIANTS)
     parser.add_argument("--subsample_train", type=int, default=0, help="Number of training samples (0=all)")
     parser.add_argument("--subsample_val", type=int, default=0, help="Number of validation samples (0=all)")
     parser.add_argument("--n_jobs", type=int, default=2, help="Parallel jobs for models and CV")
@@ -1003,6 +1130,9 @@ def main():
 
     print(f"\n[CONFIG] Layers: {current_layers} | Seed: {current_seed} | RL Epsilon: {args.epsilon}")
     print(f"[CONFIG] Diversity: {args.min_models}-{args.max_models} models per layer")
+    print(f"[CONFIG] Layer Type: {args.layer_type}")
+    if args.layer_type == "homogeneous":
+        print(f"[CONFIG] Homogeneous Model: {args.homogeneous_model} | Variants: {args.homogeneous_variants}")
     print(f"[CONFIG] Parallelism: n_jobs={args.n_jobs}")
     if args.subsample_train > 0: print(f"[CONFIG] Subsampling: train={args.subsample_train}, val={args.subsample_val}")
     print(f"[CONFIG] NAS: {'Enabled' if args.use_nas else 'Disabled'}")
@@ -1033,6 +1163,9 @@ def main():
             "metric": args.metric,
             "jitter": args.jitter,
             "strategy": args.strategy,
+            "layer_type": args.layer_type,
+            "homogeneous_model": args.homogeneous_model,
+            "homogeneous_variants": args.homogeneous_variants,
             "tfidf_max": args.tfidf_max,
             "use_nas": args.use_nas,
             "nas_population": args.nas_population,
@@ -1064,7 +1197,10 @@ def main():
                                  strategy=args.strategy,
                                  min_models=args.min_models, max_models=args.max_models,
                                  nas_controller=nas_controller,
-                                 n_jobs=args.n_jobs)
+                                 n_jobs=args.n_jobs,
+                                 layer_type=args.layer_type,
+                                 homogeneous_model=args.homogeneous_model,
+                                 homogeneous_variants=args.homogeneous_variants)
         pyramid.train(X_train, y_train, X_val, y_val)
 
 
@@ -1073,6 +1209,36 @@ def main():
         # Artifacts
         pd.DataFrame(pyramid.results).to_csv("pyramid_results.csv", index=False)
         mlflow.log_artifact("pyramid_results.csv")
+        run_details = {
+            "run_config": {
+                "num_layers": current_layers,
+                "seed": current_seed,
+                "epsilon": args.epsilon,
+                "min_models": args.min_models,
+                "max_models": args.max_models,
+                "metric": args.metric,
+                "jitter": args.jitter,
+                "strategy": args.strategy,
+                "layer_type": args.layer_type,
+                "homogeneous_model": args.homogeneous_model,
+                "homogeneous_variants": args.homogeneous_variants,
+                "cv_folds": CV_FOLDS,
+                "tfidf_max": args.tfidf_max,
+                "tfidf_ngrams": args.tfidf_ngrams,
+                "n_jobs": args.n_jobs
+            },
+            "dataset_profile": {
+                "train_rows": int(len(train_df)),
+                "val_rows": int(len(val_df)),
+                "train_class_distribution": train_df["sentiment"].value_counts().to_dict(),
+                "val_class_distribution": val_df["sentiment"].value_counts().to_dict()
+            },
+            "training_metadata": pyramid.training_metadata,
+            "results_detailed": pyramid.results
+        }
+        with open("pyramid_run_details.json", "w", encoding="utf-8") as f:
+            json.dump(run_details, f, indent=2)
+        mlflow.log_artifact("pyramid_run_details.json")
         if rl_learner.path.exists(): mlflow.log_artifact(str(rl_learner.path))
         if nas_controller and nas_controller.path.exists(): mlflow.log_artifact(str(nas_controller.path))
         

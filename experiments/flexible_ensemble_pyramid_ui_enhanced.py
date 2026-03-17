@@ -40,6 +40,9 @@ try:
         TFIDF_NGRAMS,
         JITTER,
         STRATEGY,
+        PYRAMID_LAYER_TYPE,
+        HOMOGENEOUS_MODEL,
+        HOMOGENEOUS_VARIANTS,
         mlflow
     )
 except ImportError:
@@ -198,6 +201,28 @@ with st.sidebar:
     strategy = st.selectbox("Estratégia de Conexão", ["dense", "residual", "simple"], 
                            index=["dense", "residual", "simple"].index(strategy_val),
                            help="Como os modelos se conectam entre camadas")
+    layer_type = st.selectbox(
+        "Pyramid Layer Type",
+        ["heterogeneous", "homogeneous"],
+        index=0 if PYRAMID_LAYER_TYPE == "heterogeneous" else 1,
+        help="heterogeneous usa modelos distintos; homogeneous usa o mesmo modelo com variações."
+    )
+    homogeneous_model = st.selectbox(
+        "Modelo Base Homogêneo",
+        ["lr", "svc", "nb", "ridge", "rf", "et"],
+        index=["lr", "svc", "nb", "ridge", "rf", "et"].index(HOMOGENEOUS_MODEL),
+        disabled=(layer_type != "homogeneous"),
+        help="Modelo único usado quando Pyramid Layer Type = homogeneous."
+    )
+    homogeneous_variants = st.slider(
+        "Variantes Homogêneas",
+        1,
+        12,
+        HOMOGENEOUS_VARIANTS,
+        1,
+        disabled=(layer_type != "homogeneous"),
+        help="Quantidade de variações do mesmo modelo (seed, split e hiperparâmetros)."
+    )
     metric = st.selectbox("Métrica de Otimização", ["f1", "accuracy"], index=0,
                         help="Métrica principal para otimização")
     n_jobs = st.slider("Paralelismo (n_jobs)", -1, 16, -1, 1,
@@ -307,7 +332,8 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
         
         for i, model_result in enumerate(models):
             model_name = model_result['model']
-            base_model = re.sub(r"_L\d+$", "", model_name)
+            base_model_raw = re.sub(r"_L\d+$", "", model_name)
+            base_model = re.sub(r"__v\d+$", "", base_model_raw)
             color = model_colors.get(base_model, '#17becf')
             present_model_types.add(base_model)
             model_description = model_type_labels.get(base_model, base_model)
@@ -481,14 +507,7 @@ def create_enhanced_ensemble_visualization(results, pyramid, show_connections=Tr
     )
 
     fig.update_layout(
-        title=dict(
-            text="Enhanced Ensemble Pyramid Architecture",
-            x=0.5,
-            xanchor='center',
-            y=0.97,
-            yanchor='top',
-            font=dict(size=20, color='#2c3e50')
-        ),
+        title=None,
         showlegend=True,
         hovermode='closest',
         xaxis=dict(
@@ -593,6 +612,7 @@ def create_node_details_dataframe(results, layer_strategy_map=None):
         return pd.DataFrame()
     df = pd.DataFrame(results).copy()
     df["model_base"] = df["model"].str.replace(r"_L\d+$", "", regex=True)
+    df["model_family"] = df["model_base"].str.replace(r"__v\d+$", "", regex=True)
     model_description_map = {
         "lr": "Logistic Regression",
         "svc": "Linear SVC calibrado",
@@ -608,8 +628,12 @@ def create_node_details_dataframe(results, layer_strategy_map=None):
         "bag_prev": "Bagging da camada anterior",
         "vote_prev": "Voting da camada anterior"
     }
-    df["descrição"] = df["model_base"].map(model_description_map).fillna(df["model_base"])
-    df["tipo"] = np.where(df["model_base"].str.startswith("bag_"), "Ensemble Bagging", np.where(df["model_base"].eq("voting"), "Ensemble Voting", "Modelo Base"))
+    df["descrição"] = df["model_family"].map(model_description_map).fillna(df["model_family"])
+    df["tipo"] = np.where(
+        df["model_family"].str.startswith("bag_"),
+        "Ensemble Bagging",
+        np.where(df["model_family"].isin(["voting", "vote_prev"]), "Ensemble Voting", np.where(df["model_family"].eq("stack_prev"), "Ensemble Stacking", "Modelo Base"))
+    )
     if isinstance(layer_strategy_map, dict):
         df["estratégia_camada"] = df["layer"].map(layer_strategy_map).fillna("n/a")
     else:
@@ -620,7 +644,7 @@ def create_node_details_dataframe(results, layer_strategy_map=None):
     df["recall"] = df.get("recall", 0.0).round(4)
     df["auc"] = df.get("auc", 0.0).round(4)
     df["duration"] = df["duration"].round(2)
-    return df[["layer", "model", "model_base", "tipo", "descrição", "estratégia_camada", "f1", "accuracy", "precision", "recall", "auc", "duration"]].sort_values(["layer", "f1"], ascending=[True, False])
+    return df[["layer", "model", "model_base", "model_family", "tipo", "descrição", "estratégia_camada", "f1", "accuracy", "precision", "recall", "auc", "duration"]].sort_values(["layer", "f1"], ascending=[True, False])
 
 def create_interactive_performance_dashboard(results):
     """Create interactive performance dashboard with multiple views"""
@@ -631,19 +655,20 @@ def create_interactive_performance_dashboard(results):
     df['layer_model'] = df['layer'].astype(str) + '_' + df['model']
     df['model_type'] = df['model'].apply(lambda x: x.split('_')[0] if 'bag_' in x else x)
     df['model_base'] = df['model'].str.replace(r'_L\d+$', '', regex=True)
+    df['model_family'] = df['model_base'].str.replace(r'__v\d+$', '', regex=True)
     
     # Create tabs for different views
     tab1, tab2, tab3, tab4 = st.tabs(["Performance Trends", "Model Distribution", "Heatmap", "Details"])
     
     with tab1:
         df_trend = (
-            df.groupby(["layer", "model_base"], as_index=False)[["f1", "accuracy", "precision", "recall", "auc"]]
+            df.groupby(["layer", "model_family"], as_index=False)[["f1", "accuracy", "precision", "recall", "auc"]]
             .mean()
-            .sort_values(["model_base", "layer"])
+            .sort_values(["model_family", "layer"])
         )
 
         # Performance trends across layers
-        fig1 = px.line(df_trend, x='layer', y='f1', color='model_base', 
+        fig1 = px.line(df_trend, x='layer', y='f1', color='model_family', 
                       title="F1 Score Evolution Across Layers",
                       labels={'layer': 'Layer', 'f1': 'F1 Score'},
                       markers=True)
@@ -657,7 +682,7 @@ def create_interactive_performance_dashboard(results):
         st.plotly_chart(fig1, use_container_width=True, key="perf_trends_f1")
         
         # Accuracy trends
-        fig2 = px.line(df_trend, x='layer', y='accuracy', color='model_base',
+        fig2 = px.line(df_trend, x='layer', y='accuracy', color='model_family',
                       title="Accuracy Evolution Across Layers",
                       markers=True)
         fig2.update_traces(mode="lines+markers", marker=dict(size=9), line=dict(width=2))
@@ -672,13 +697,13 @@ def create_interactive_performance_dashboard(results):
         # Precision and Recall trends
         col_pr1, col_pr2 = st.columns(2)
         with col_pr1:
-            fig_p = px.line(df_trend, x='layer', y='precision', color='model_base',
+            fig_p = px.line(df_trend, x='layer', y='precision', color='model_family',
                           title="Precision Evolution",
                           markers=True)
             fig_p.update_layout(height=350, template="plotly_white")
             st.plotly_chart(fig_p, use_container_width=True, key="perf_trends_prec")
         with col_pr2:
-            fig_r = px.line(df_trend, x='layer', y='recall', color='model_base',
+            fig_r = px.line(df_trend, x='layer', y='recall', color='model_family',
                           title="Recall Evolution",
                           markers=True)
             fig_r.update_layout(height=350, template="plotly_white")
@@ -686,7 +711,7 @@ def create_interactive_performance_dashboard(results):
 
         # AUC Trend if available
         if df_trend['auc'].max() > 0:
-            fig_auc = px.line(df_trend, x='layer', y='auc', color='model_base',
+            fig_auc = px.line(df_trend, x='layer', y='auc', color='model_family',
                             title="AUC Evolution",
                             markers=True)
             fig_auc.update_layout(height=350, template="plotly_white")
@@ -810,7 +835,10 @@ if st.session_state.run_training:
                 min_models=min_models,
                 max_models=max_models,
                 nas_controller=nas_controller,
-                n_jobs=n_jobs
+                n_jobs=n_jobs,
+                layer_type=layer_type,
+                homogeneous_model=homogeneous_model,
+                homogeneous_variants=homogeneous_variants
             )
 
             layer_strategy_map = {}
@@ -902,6 +930,9 @@ if st.session_state.run_training:
                     "epsilon_rl": epsilon_rl,
                     "metric": metric,
                     "strategy": strategy,
+                    "layer_type": layer_type,
+                    "homogeneous_model": homogeneous_model,
+                    "homogeneous_variants": homogeneous_variants,
                     "jitter": use_jitter,
                     "use_nas": use_nas,
                     "tfidf_max": tfidf_max,
@@ -917,7 +948,26 @@ if st.session_state.run_training:
                 results_df.to_csv(results_path, index=False)
                 mlflow.log_artifact(str(results_path))
 
+                dataset_profile = {
+                    "train_rows": int(len(train_df)),
+                    "val_rows": int(len(val_df)),
+                    "train_class_distribution": train_df["sentiment"].value_counts().to_dict(),
+                    "val_class_distribution": val_df["sentiment"].value_counts().to_dict()
+                }
+                vectorizer_config = {
+                    "max_features": int(tfidf_max),
+                    "ngram_range": list(tfidf_ngrams),
+                    "stop_words": "english",
+                    "min_df": 2,
+                    "vocabulary_size": int(len(vectorizer.vocabulary_)) if hasattr(vectorizer, "vocabulary_") else None
+                }
+                best_res = max(
+                    pyramid.results,
+                    key=lambda r: r["f1"] if metric == "f1" else r["accuracy"]
+                ) if pyramid.results else {}
+
                 config_payload = {
+                    "run_timestamp": run_stamp,
                     "num_layers": num_layers,
                     "patience": patience,
                     "min_models": min_models,
@@ -925,17 +975,47 @@ if st.session_state.run_training:
                     "epsilon_rl": epsilon_rl,
                     "metric": metric,
                     "strategy": strategy,
+                    "layer_type": layer_type,
+                    "homogeneous_model": homogeneous_model,
+                    "homogeneous_variants": homogeneous_variants,
+                    "cv_folds": CV_FOLDS,
                     "jitter": use_jitter,
                     "use_nas": use_nas,
                     "tfidf_max": tfidf_max,
                     "tfidf_ngrams": list(tfidf_ngrams),
                     "layer_strategy_map": layer_strategy_map,
                     "best_score": float(pyramid.best_score),
+                    "best_model_summary": {
+                        "model": best_res.get("model"),
+                        "layer": int(best_res.get("layer", 0)) if best_res else None,
+                        "f1": float(best_res.get("f1", 0.0)) if best_res else None,
+                        "accuracy": float(best_res.get("accuracy", 0.0)) if best_res else None,
+                        "precision": float(best_res.get("precision", 0.0)) if best_res else None,
+                        "recall": float(best_res.get("recall", 0.0)) if best_res else None,
+                        "auc": float(best_res.get("auc", 0.0)) if best_res else None
+                    },
+                    "dataset_profile": dataset_profile,
+                    "vectorizer_config": vectorizer_config,
+                    "label_classes": [str(c) for c in le.classes_],
+                    "training_metadata": pyramid.training_metadata,
                 }
                 config_path = artifacts_dir / "run_config.json"
                 with config_path.open("w", encoding="utf-8") as f:
                     json.dump(config_payload, f, indent=2)
                 mlflow.log_artifact(str(config_path))
+
+                details_payload = {
+                    "run_timestamp": run_stamp,
+                    "results_detailed": pyramid.results,
+                    "training_metadata": pyramid.training_metadata,
+                    "layer_strategy_map": layer_strategy_map,
+                    "dataset_profile": dataset_profile,
+                    "vectorizer_config": vectorizer_config
+                }
+                details_path = artifacts_dir / "run_details.json"
+                with details_path.open("w", encoding="utf-8") as f:
+                    json.dump(details_payload, f, indent=2)
+                mlflow.log_artifact(str(details_path))
 
                 vectorizer_path = artifacts_dir / "tfidf_vectorizer.pkl"
                 joblib.dump(vectorizer, vectorizer_path)
@@ -953,10 +1033,6 @@ if st.session_state.run_training:
                     best_model_path = artifacts_dir / "best_pyramid_model.pkl"
                     joblib.dump(pyramid.best_model, best_model_path)
                     mlflow.log_artifact(str(best_model_path))
-                    best_res = max(
-                        pyramid.results,
-                        key=lambda r: r["f1"] if metric == "f1" else r["accuracy"]
-                    )
                     mlflow.log_params({"best_model": best_res["model"], "best_layer": int(best_res["layer"])})
                     mlflow.log_metric("best_f1", float(best_res["f1"]))
                     mlflow.log_metric("best_accuracy", float(best_res["accuracy"]))
