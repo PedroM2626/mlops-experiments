@@ -1,0 +1,256 @@
+{
+  "dataset_info": {
+    "total_tweets": 2000,
+    "unique_topics": 32,
+    "topics": [
+      "Fortnite",
+      "CS-GO",
+      "HomeDepot",
+      "Overwatch",
+      "Borderlands",
+      "TomClancysRainbowSix",
+      "Battlefield",
+      "RedDeadRedemption(RDR)",
+      "Google",
+      "GrandTheftAuto(GTA)",
+      "CallOfDutyBlackopsColdWar",
+      "Verizon",
+      "NBA2K",
+      "CallOfDuty",
+      "AssassinsCreed",
+      "LeagueOfLegends",
+      "Amazon",
+      "johnson&johnson",
+      "Cyberpunk2077",
+      "PlayStation5(PS5)",
+      "WorldOfCraft",
+      "Hearthstone",
+      "PlayerUnknownsBattlegrounds(PUBG)",
+      "Nvidia",
+      "FIFA",
+      "Microsoft",
+      "Xbox(Xseries)",
+      "Dota2",
+      "ApexLegends",
+      "MaddenNFL",
+      "TomClancysGhostRecon",
+      "Facebook"
+    ],
+    "unique_sentiments": 4,
+    "sentiments": [
+      "Irrelevant",
+      "Positive",
+      "Negative",
+      "Neutral"
+    ]
+  },
+  "preprocessing": {
+    "tweets_after_cleaning": 1937,
+    "avg_tokens": 10.186886938564792
+  },
+  "clustering": {
+    "optimal_k": 10,
+    "silhouette_score": 0.011712315344264389,
+    "davies_bouldin_index": 8.011188830249848,
+    "cluster_distribution": {
+      "9": 590,
+      "3": 338,
+      "4": 331,
+      "2": 251,
+      "1": 162,
+      "8": 156,
+      "7": 41,
+      "5": 30,
+      "6": 20,
+      "0": 18
+    }
+  },
+  "topic_modeling": {
+    "num_topics": 5,
+    "perplexity_score": 3532.0955580661976,
+    "topics": {
+      "topic_0": "game, shit, play, like, love, still, fucking, best, new, fuck",
+      "topic_1": "johnson, one, good, get, look, account, league, stop, baby, always",
+      "topic_2": "game, dead, red, player, redemption, get, like, see, battlefield, one",
+      "topic_3": "rhandlerr, game, year, playing, still, one, amazon, cant, google, via",
+      "topic_4": "really, good, love, health, access, people, great, verizon, time, unk"
+    },
+    "topics_distribution": {
+      "0": 478,
+      "4": 387,
+      "2": 383,
+      "3": 355,
+      "1": 334
+    }
+  },
+  "sentiment_analysis": {
+    "by_cluster": [
+      {
+        "cluster_id": 0,
+        "size": 18,
+        "sentiments": {
+          "Negative": 13,
+          "Positive": 2,
+          "Irrelevant": 2,
+          "Neutral": 1
+        },
+        "top_words": "bro controller finna go eamaddennfl wtf wtf hell dumbass wtf red dead redemption someone knocked midnight moonshine delivery item payment"
+      },
+      {
+        "cluster_id": 1,
+        "size": 162,
+        "sentiments": {
+          "Positive": 50,
+          "Negative": 42,
+          "Irrelevant": 37,
+          "Neutral": 33
+        },
+        "top_words": "miss battlefield day ezio forever heart morning looking kinda lit tho unk lord tired working week there probably border flow"
+      },
+      {
+        "cluster_id": 2,
+        "size": 251,
+        "sentiments": {
+          "Negative": 94,
+          "Positive": 70,
+          "Irrelevant": 52,
+          "Neutral": 35
+        },
+        "top_words": "omg dreamcatcher league legend crumbling weapon sunsetting best feature ive heard long time play multi season game strategy involved know"
+      },
+      {
+        "cluster_id": 3,
+        "size": 338,
+        "sentiments": {
+          "Neutral": 99,
+          "Positive": 92,
+          "Negative": 89,
+          "Irrelevant": 58
+        },
+        "top_words": "popular google result previous hour europa league flash arrow lovecraft country antifa alex waiting impatiently game said internet mad anymore"
+      },
+      {
+        "cluster_id": 4,
+        "size": 331,
+        "sentiments": {
+          "Negative": 101,
+          "Positive": 96,
+          "Neutral": 85,
+          "Irrelevant": 49
+        },
+        "top_words": "guy notified say name forwarded litter list lmaoooo get fuck overwatch strange as dude rainbowgame xbox verizon shed pay target"
+      },
+      {
+        "cluster_id": 5,
+        "size": 30,
+        "sentiments": {
+          "Negative": 11,
+          "Positive": 10,
+          "Neutral": 5,
+          "Irrelevant": 4
+        },
+        "top_words": "loving new dlc rhandlerr rhandlerr rhandlerr pictwittercompkzjxlgxlj love collector stuff got rhandlerr blackshark battlefield headset original box complete new unused"
+      },
+      {
+        "cluster_id": 6,
+        "size": 20,
+        "sentiments": {
+          "Positive": 12,
+          "Irrelevant": 4,
+          "Negative": 2,
+          "Neutral": 2
+        },
+        "top_words": "unk yasss excellent snarly behavior unk unk unk unk unk shot meter annoying unk let gooo unk unk unk game"
+      },
+      {
+        "cluster_id": 7,
+        "size": 41,
+        "sentiments": {
+          "Neutral": 32,
+          "Negative": 7,
+          "Positive": 2
+        },
+        "top_words": "china close foxconn johnson johnson samsung factory amid virus outbreak libertarianhubcomchi thousand plaintiff give green light talk lawsuit johnson johnson"
+      },
+      {
+        "cluster_id": 8,
+        "size": 156,
+        "sentiments": {
+          "Negative": 54,
+          "Positive": 45,
+          "Irrelevant": 37,
+          "Neutral": 20
+        },
+        "top_words": "attention executive administrator ever store getting big delivery order sent pallet brick downtown area effectively used mainly helping negotiate destruction"
+      },
+      {
+        "cluster_id": 9,
+        "size": 590,
+        "sentiments": {
+          "Positive": 192,
+          "Neutral": 161,
+          "Negative": 155,
+          "Irrelevant": 82
+        },
+        "top_words": "said told getting box brain dead controller player look lit overwatch combo lmao gamer jason could kill thinkin gta stripper"
+      }
+    ],
+    "by_topic": [
+      {
+        "topic_id": 0,
+        "size": 478,
+        "sentiments": {
+          "Negative": 151,
+          "Positive": 135,
+          "Neutral": 114,
+          "Irrelevant": 78
+        },
+        "top_words": "guy notified say name forwarded litter list lmaoooo get fuck overwatch strange as dude rainbowgame xbox miss battlefield day said"
+      },
+      {
+        "topic_id": 1,
+        "size": 334,
+        "sentiments": {
+          "Neutral": 103,
+          "Negative": 93,
+          "Positive": 87,
+          "Irrelevant": 51
+        },
+        "top_words": "forgot hated ezio forever heart morning looking kinda lit tho unk game mutuals pok\u00e9mon borderland two much sims havent played"
+      },
+      {
+        "topic_id": 2,
+        "size": 383,
+        "sentiments": {
+          "Negative": 129,
+          "Positive": 96,
+          "Neutral": 87,
+          "Irrelevant": 71
+        },
+        "top_words": "said told getting box brain dead controller player loving new dlc rhandlerr rhandlerr rhandlerr pictwittercompkzjxlgxlj lmao gamer jason could kill"
+      },
+      {
+        "topic_id": 3,
+        "size": 355,
+        "sentiments": {
+          "Negative": 109,
+          "Positive": 101,
+          "Neutral": 100,
+          "Irrelevant": 45
+        },
+        "top_words": "attention executive administrator ever store getting big delivery order sent pallet brick downtown area effectively used mainly helping negotiate destruction"
+      },
+      {
+        "topic_id": 4,
+        "size": 387,
+        "sentiments": {
+          "Positive": 152,
+          "Negative": 86,
+          "Irrelevant": 80,
+          "Neutral": 69
+        },
+        "top_words": "look lit overwatch combo verizon shed pay target customer cord cutting technology escalates breitbart com entertainment via verizon gave million"
+      }
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "dataset": {
+    "prices_count": 300,
+    "price_range": [
+      1.0,
+      100.0
+    ]
+  },
+  "training": {
+    "final_rewards": [
+      -1.2421740928352156,
+      -1.5573698298258998,
+      -1.2746578680953555,
+      -0.8122638731338289,
+      -0.7267293789845019
+    ],
+    "avg_reward": -1.1226390085749602
+  },
+  "testing": {
+    "rl_agent": {
+      "final_portfolio": 1000.0,
+      "return_pct": 0.0,
+      "actions_taken": 0
+    },
+    "buy_hold": {
+      "final_value": 1383.8704364315752,
+      "return_pct": 38.38704364315751
+    }
+  },
+  "comparison": {
+    "rl_return": 0.0,
+    "buy_hold_return": 38.38704364315751,
+    "outperformance_pct": -38.38704364315751
+  }
+}

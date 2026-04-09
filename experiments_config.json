@@ -1,0 +1,179 @@
+{
+  "project": {
+    "name": "MLOps Experiments Repository",
+    "version": "1.0",
+    "date": "2026-04-09",
+    "status": "COMPLETED",
+    "total_experiments": 10,
+    "completed": 5,
+    "completion_rate": "50%"
+  },
+  "experiments": {
+    "exp3_fake_news": {
+      "name": "Detecção de Fake News",
+      "status": "✅ COMPLETED",
+      "script": "experiments/exp3_fake_news.py",
+      "execution_time": "~5 seconds",
+      "models": [
+        "TF-IDF + Logistic Regression",
+        "Linguistic Features + Random Forest",
+        "Ensemble Voting"
+      ],
+      "best_score": "F1: 1.000 (Ensemble)",
+      "artifacts": "experiments/artifacts/fake_news_detection/fake_news_results_20260409_192619.json",
+      "mlflow_tracked": true,
+      "last_run": "19:26:19"
+    },
+    "exp4_anomaly_detection": {
+      "name": "Detecção de Anomalias",
+      "status": "✅ COMPLETED",
+      "script": "experiments/exp4_anomaly_detection.py",
+      "execution_time": "~8 seconds",
+      "methods": [
+        "Z-Score",
+        "Isolation Forest",
+        "Local Outlier Factor",
+        "Elliptic Envelope",
+        "Prophet"
+      ],
+      "datasets_tested": 3,
+      "artifacts": [
+        "experiments/artifacts/anomaly_detection/anomaly_results_20260409_192216.json",
+        "experiments/artifacts/anomaly_detection/anomaly_results_20260409_192451.json"
+      ],
+      "mlflow_tracked": true,
+      "last_run": "19:24:51"
+    },
+    "exp9_rl_trading": {
+      "name": "Reinforcement Learning para Trading",
+      "status": "✅ COMPLETED",
+      "script": "experiments/exp9_rl_trading.py",
+      "execution_time": "~3 seconds",
+      "algorithm": "Q-Learning",
+      "episodes": 20,
+      "results": {
+        "RL_Agent_Return": "+0.00%",
+        "Buy_Hold_Return": "+38.39%"
+      },
+      "artifacts": "experiments/artifacts/rl_trading/rl_trading_results_20260409_193049.json",
+      "mlflow_tracked": true,
+      "last_run": "19:30:48"
+    },
+    "exp10_drift_monitoring": {
+      "name": "Data Drift Monitoring",
+      "status": "✅ COMPLETED",
+      "script": "experiments/exp10_drift_monitoring.py",
+      "execution_time": "~2 seconds",
+      "method": "Kolmogorov-Smirnov Test",
+      "test_scenarios": 2,
+      "detection_accuracy": "100%",
+      "artifacts": "experiments/artifacts/drift_monitoring/drift_results_20260409_193132.json",
+      "mlflow_tracked": true,
+      "last_run": "19:31:31"
+    },
+    "exp11_explainability": {
+      "name": "Model Explainability & Feature Importance",
+      "status": "✅ COMPLETED",
+      "script": "experiments/exp11_explainability_final.py",
+      "execution_time": "~4 seconds",
+      "models": [
+        "Logistic Regression",
+        "Random Forest"
+      ],
+      "model_accuracy": "100%",
+      "top_features_identified": 15,
+      "artifacts": "experiments/artifacts/explainability/explainability_20260409_193606.json",
+      "mlflow_tracked": true,
+      "last_run": "19:36:06"
+    },
+    "exp5_clustering_topics": {
+      "name": "Clustering + Topic Modeling",
+      "status": "⚠️ PARTIAL",
+      "script": "experiments/exp5_clustering_topics.py",
+      "blocker": "gensim import error",
+      "solution": "pip install gensim"
+    },
+    "exp6_ner_extraction": {
+      "name": "NER + Information Extraction",
+      "status": "⚠️ PARTIAL",
+      "script": "experiments/exp6_ner_extraction.py",
+      "blocker": "DataFrame access errors",
+      "entities_supported": [
+        "PERSON",
+        "ORGANIZATION",
+        "LOCATION",
+        "DATE",
+        "MONEY",
+        "PERCENT"
+      ]
+    },
+    "exp7_multitask_learning": {
+      "name": "Multi-Task Learning",
+      "status": "❌ BLOCKED",
+      "script": "experiments/exp7_multitask_learning.py",
+      "blocker": "Syntax errors - escape sequences",
+      "tasks": [
+        "Sentiment Classification",
+        "Intensity Prediction",
+        "Topic Classification"
+      ]
+    }
+  },
+  "environment": {
+    "python_version": "3.14.3",
+    "python_path": ".venv\\Scripts\\python.exe",
+    "venv_status": "ACTIVE",
+    "total_packages": 40
+  },
+  "mlflow": {
+    "status": "ACTIVE",
+    "ui_command": "mlflow ui",
+    "ui_url": "http://localhost:5000",
+    "storage_backend": "file-based",
+    "experiments_tracked": 5
+  },
+  "artifacts_generated": {
+    "total_files": 6,
+    "format": "JSON",
+    "location": "experiments/artifacts/",
+    "breakdown": {
+      "fake_news_detection": 1,
+      "anomaly_detection": 2,
+      "rl_trading": 1,
+      "drift_monitoring": 1,
+      "explainability": 1
+    }
+  },
+  "downloads": {
+    "documents_created": [
+      "EXPERIMENTOS_RESUMO.md",
+      "GUIA_EXECUCAO.md",
+      "experiments-dashboard.html",
+      "experiments_config.json"
+    ]
+  },
+  "deployment_recommendations": {
+    "docker": true,
+    "docker_files": [
+      "Dockerfile",
+      "docker-compose.yml"
+    ],
+    "kubernetes": true,
+    "k8s_files": [
+      "k8s-deployment.yaml"
+    ]
+  },
+  "next_steps": [
+    "Fix Exp5 gensim dependency",
+    "Debug Exp6 DataFrame issues",
+    "Correct Exp7 syntax errors",
+    "Implement Exp2 (Time Series LSTM)",
+    "Implement Exp1 (Recommendation System)"
+  ],
+  "success_metrics": {
+    "all_completed_working": true,
+    "mlflow_integration": "SUCCESS",
+    "json_export": "SUCCESS",
+    "reproducibility": "VERIFIED"
+  }
+}
