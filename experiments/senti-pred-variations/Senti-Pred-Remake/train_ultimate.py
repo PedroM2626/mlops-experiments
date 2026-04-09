@@ -1,4 +1,6 @@
 import os
+import random
+from pathlib import Path
 import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -10,6 +12,8 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
+
+from run_context import create_run_context, log_reproducibility
 from pathlib import Path
 
 # Configuração MLOps
@@ -17,7 +21,12 @@ load_dotenv()
 dagshub.init(repo_owner="PedroM2626", repo_name="experiments")
 mlflow.set_tracking_uri("https://dagshub.com/PedroM2626/experiments.mlflow")
 
-DATA_DIR = Path(__file__).parent / "data" / "raw"
+SEED = 42
+random.seed(SEED)
+
+BASE_DIR = Path(__file__).resolve().parent
+RUN_CONTEXT = create_run_context(BASE_DIR, "senti_pred_ultimate")
+DATA_DIR = BASE_DIR / "data" / "raw"
 
 def clean_text_v2(text):
     text = str(text).lower()
@@ -47,6 +56,7 @@ def train_ultimate():
     mlflow.set_experiment("Twitter_Sentiment_Classic_ML")
     
     with mlflow.start_run(run_name="PassiveAggressive_Ultimate"):
+        log_reproducibility(mlflow, RUN_CONTEXT, SEED)
         df_train, df_val = load_data()
         
         # Vetorização ainda mais agressiva
@@ -75,6 +85,7 @@ def train_ultimate():
         mlflow.log_param("model_type", "PassiveAggressive")
         mlflow.log_param("max_features", 40000)
         mlflow.log_metric("accuracy", acc)
+        mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
         
         print(classification_report(y_val, y_pred))
         
@@ -83,14 +94,17 @@ def train_ultimate():
         plt.figure(figsize=(10,7))
         sns.heatmap(cm, annot=True, fmt='d', xticklabels=model.classes_, yticklabels=model.classes_)
         plt.title(f"Ultimate Model - Acc: {acc:.4f}")
-        plt.savefig("cm_ultimate.png")
-        mlflow.log_artifact("cm_ultimate.png")
+        cm_path = RUN_CONTEXT.artifact_dir / "cm_ultimate.png"
+        plt.savefig(cm_path)
+        mlflow.log_artifact(str(cm_path))
         
         # Salvar
-        joblib.dump(model, "ultimate_model.pkl")
-        joblib.dump(vectorizer, "ultimate_vectorizer.pkl")
-        mlflow.log_artifact("ultimate_model.pkl")
-        mlflow.log_artifact("ultimate_vectorizer.pkl")
+        model_path = RUN_CONTEXT.artifact_dir / "ultimate_model.pkl"
+        vectorizer_path = RUN_CONTEXT.artifact_dir / "ultimate_vectorizer.pkl"
+        joblib.dump(model, model_path)
+        joblib.dump(vectorizer, vectorizer_path)
+        mlflow.log_artifact(str(model_path))
+        mlflow.log_artifact(str(vectorizer_path))
         
         print(f"Treino Final Concluído! Acurácia: {acc:.4f}")
 

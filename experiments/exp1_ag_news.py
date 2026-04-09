@@ -1,4 +1,6 @@
 import os
+import random
+from pathlib import Path
 
 # Forçar o uso de PyTorch e desativar TensorFlow no transformers
 os.environ["USE_TORCH"] = "1"
@@ -13,6 +15,9 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import mlflow
 import dagshub
 from dotenv import load_dotenv
+from transformers import set_seed
+
+from run_context import create_run_context, log_reproducibility, first_existing_path
 
 # Configuração DagsHub
 load_dotenv()
@@ -21,6 +26,14 @@ repo_name = os.getenv("DAGSHUB_REPO_NAME", "experiments")
 
 dagshub.init(repo_owner=repo_owner, repo_name=repo_name)
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+set_seed(SEED)
+
+BASE_DIR = Path(__file__).resolve().parent
 
 def compute_metrics(pred):
     labels = pred.label_ids
@@ -38,14 +51,22 @@ def run_experiment():
     mlflow.set_experiment("AG_News_Classification")
     
     with mlflow.start_run():
+        context = create_run_context(BASE_DIR, "ag_news_classification")
+        log_reproducibility(mlflow, context, SEED)
         print("🚀 Iniciando Experimento 1: AG News Classification")
         
         # Carregar dados
-        train_path = r"c:\Users\pedro\Downloads\experiments\experiments\datasets\AG_News-train.csv"
-        test_path = r"c:\Users\pedro\Downloads\experiments\experiments\datasets\AG_News-test.csv"
+        train_path = first_existing_path([
+            BASE_DIR / "datasets" / "AG_News-train.csv",
+            BASE_DIR.parent / "datasets" / "AG_News-train.csv",
+        ])
+        test_path = first_existing_path([
+            BASE_DIR / "datasets" / "AG_News-test.csv",
+            BASE_DIR.parent / "datasets" / "AG_News-test.csv",
+        ])
         
-        train_df = pd.read_csv(train_path).sample(1000, random_state=42) # Subset para velocidade
-        test_df = pd.read_csv(test_path).sample(200, random_state=42)
+        train_df = pd.read_csv(train_path).sample(1000, random_state=SEED) # Subset para velocidade
+        test_df = pd.read_csv(test_path).sample(200, random_state=SEED)
         
         # Preparar dados
         train_df['text'] = train_df['Title'] + " " + train_df['Description']
@@ -101,11 +122,12 @@ def run_experiment():
         mlflow.log_params(training_args.to_dict())
         
         # Salvar modelo e artefatos
-        model_dir = "./ag_news_model"
+        model_dir = context.artifact_dir / "ag_news_model"
         trainer.save_model(model_dir)
         tokenizer.save_pretrained(model_dir)
         
-        mlflow.log_artifacts(model_dir, artifact_path="model")
+        mlflow.log_artifacts(str(model_dir), artifact_path="model")
+        mlflow.log_param("artifact_version", context.run_id)
         
         print("✅ Experimento 1 concluído e logado no DagsHub!")
 

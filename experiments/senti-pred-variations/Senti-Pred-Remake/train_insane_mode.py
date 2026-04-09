@@ -1,4 +1,5 @@
 import os
+import random
 import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -17,12 +18,17 @@ import seaborn as sns
 from dotenv import load_dotenv
 from pathlib import Path
 
+from run_context import create_run_context, log_reproducibility
+
 # Configuração MLOps
 load_dotenv()
 dagshub.init(repo_owner="PedroM2626", repo_name="experiments")
 mlflow.set_tracking_uri("https://dagshub.com/PedroM2626/experiments.mlflow")
 
 DATA_DIR = Path(__file__).parent / "data" / "raw"
+SEED = 42
+random.seed(SEED)
+RUN_CONTEXT = create_run_context(Path(__file__).resolve().parent, "senti_pred_insane_mode")
 
 def clean_text_insane(text):
     text = str(text).lower()
@@ -48,6 +54,7 @@ def train_insane_mode():
     mlflow.set_experiment("Twitter_Sentiment_Classic_ML")
     
     with mlflow.start_run(run_name="Insane_Mode_Stacking"):
+        log_reproducibility(mlflow, RUN_CONTEXT, SEED)
         df_train, df_val = load_data()
         
         print("--- Vetorizando (60k Features + Chi2 Selection) ---")
@@ -76,7 +83,7 @@ def train_insane_mode():
         
         # Definindo os Especialistas (Base Models)
         base_models = [
-            ('pa', PassiveAggressiveClassifier(max_iter=1000, random_state=42, C=0.5)),
+            ('pa', PassiveAggressiveClassifier(max_iter=1000, random_state=SEED, C=0.5)),
             ('nb', ComplementNB(alpha=0.1)), # ComplementNB é excelente para texto desbalanceado
             ('lr', LogisticRegression(max_iter=2000, C=10, solver='saga', n_jobs=-1))
         ]
@@ -105,14 +112,16 @@ def train_insane_mode():
         mlflow.log_param("meta_learner", "LR")
         mlflow.log_param("k_best", 40000)
         mlflow.log_metric("accuracy", acc)
+        mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
         
         # Matriz de Confusão
         cm = confusion_matrix(y_val, y_pred)
         plt.figure(figsize=(10,7))
         sns.heatmap(cm, annot=True, fmt='d', xticklabels=stacking.classes_, yticklabels=stacking.classes_)
         plt.title(f"Insane Mode Stacking - Acc: {acc:.4f}")
-        plt.savefig("cm_insane.png")
-        mlflow.log_artifact("cm_insane.png")
+        cm_path = RUN_CONTEXT.artifact_dir / "cm_insane.png"
+        plt.savefig(cm_path)
+        mlflow.log_artifact(str(cm_path))
         
         # Salvar Pipeline Completo (Vetorizador + Seletor + Scaler + Modelo)
         # Para facilitar a inferência depois
@@ -122,8 +131,9 @@ def train_insane_mode():
             'scaler': scaler,
             'model': stacking
         }
-        joblib.dump(pipeline, "insane_model_bundle.pkl")
-        mlflow.log_artifact("insane_model_bundle.pkl")
+        model_path = RUN_CONTEXT.artifact_dir / "insane_model_bundle.pkl"
+        joblib.dump(pipeline, model_path)
+        mlflow.log_artifact(str(model_path))
         
         print(f"Treino Insane Mode Concluído! Nova Acurácia: {acc:.4f}")
 

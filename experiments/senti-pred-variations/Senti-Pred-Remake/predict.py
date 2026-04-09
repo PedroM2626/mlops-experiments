@@ -1,10 +1,29 @@
 import joblib
 import re
 import os
+from pathlib import Path
 
-# Caminhos dos arquivos salvos pelo train_god_mode.py (O recordista de 97.5%)
-MODEL_PATH = "god_mode_model.pkl"
-VECTORIZER_PATH = "god_mode_vectorizer.pkl"
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def find_latest_artifact(stable_name: str) -> Path:
+    stable_path = BASE_DIR / stable_name
+    if stable_path.exists():
+        return stable_path
+
+    artifact_candidates = sorted(
+        (path for path in (BASE_DIR / "artifacts").rglob(stable_name) if path.is_file()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if artifact_candidates:
+        return artifact_candidates[0]
+
+    raise FileNotFoundError(f"Não encontrei '{stable_name}' nem versões em 'artifacts/'.")
+
+
+MODEL_PATH = find_latest_artifact("god_mode_model.pkl")
+VECTORIZER_PATH = find_latest_artifact("god_mode_vectorizer.pkl")
 
 def clean_text_god_mode(text):
     text = str(text).lower()
