@@ -1,4 +1,5 @@
 import os
+import random
 import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -13,12 +14,17 @@ import seaborn as sns
 from dotenv import load_dotenv
 from pathlib import Path
 
+from run_context import create_run_context, log_reproducibility
+
 # Configuração MLOps
 load_dotenv()
 dagshub.init(repo_owner="PedroM2626", repo_name="experiments")
 mlflow.set_tracking_uri("https://dagshub.com/PedroM2626/experiments.mlflow")
 
 DATA_DIR = Path(__file__).parent / "data" / "raw"
+SEED = 42
+random.seed(SEED)
+RUN_CONTEXT = create_run_context(Path(__file__).resolve().parent, "senti_pred_god_mode")
 
 def clean_text_god_mode(text):
     text = str(text).lower()
@@ -44,6 +50,7 @@ def train_god_mode():
     mlflow.set_experiment("Twitter_Sentiment_Classic_ML")
     
     with mlflow.start_run(run_name="God_Mode_Ensemble"):
+        log_reproducibility(mlflow, RUN_CONTEXT, SEED)
         df_train, df_val = load_data()
         
         print("--- Vetorizando (Max Features 50k + Bigrams/Trigrams) ---")
@@ -82,20 +89,24 @@ def train_god_mode():
         mlflow.log_param("estimators", "PA, LR, SGD")
         mlflow.log_param("max_features", 50000)
         mlflow.log_metric("accuracy", acc)
+        mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
         
         # Matriz de Confusão
         cm = confusion_matrix(y_val, y_pred)
         plt.figure(figsize=(10,7))
         sns.heatmap(cm, annot=True, fmt='d', xticklabels=ensemble.classes_, yticklabels=ensemble.classes_)
         plt.title(f"God Mode Ensemble - Acc: {acc:.4f}")
-        plt.savefig("cm_god_mode.png")
-        mlflow.log_artifact("cm_god_mode.png")
+        cm_path = RUN_CONTEXT.artifact_dir / "cm_god_mode.png"
+        plt.savefig(cm_path)
+        mlflow.log_artifact(str(cm_path))
         
         # Salvar
-        joblib.dump(ensemble, "god_mode_model.pkl")
-        joblib.dump(vectorizer, "god_mode_vectorizer.pkl")
-        mlflow.log_artifact("god_mode_model.pkl")
-        mlflow.log_artifact("god_mode_vectorizer.pkl")
+        model_path = RUN_CONTEXT.artifact_dir / "god_mode_model.pkl"
+        vectorizer_path = RUN_CONTEXT.artifact_dir / "god_mode_vectorizer.pkl"
+        joblib.dump(ensemble, model_path)
+        joblib.dump(vectorizer, vectorizer_path)
+        mlflow.log_artifact(str(model_path))
+        mlflow.log_artifact(str(vectorizer_path))
         
         print(f"Treino God Mode Concluído! Nova Acurácia: {acc:.4f}")
 

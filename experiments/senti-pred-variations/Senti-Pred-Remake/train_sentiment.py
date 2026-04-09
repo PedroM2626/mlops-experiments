@@ -1,4 +1,6 @@
 import os
+import random
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import torch
@@ -17,6 +19,8 @@ import mlflow
 import dagshub
 from dotenv import load_dotenv
 
+from run_context import create_run_context, log_reproducibility
+
 # Configuração MLOps
 load_dotenv()
 REPO_OWNER = os.getenv("DAGSHUB_REPO_OWNER", "PedroM2626")
@@ -29,7 +33,16 @@ except Exception as e:
     print(f"Erro ao inicializar DagsHub/MLflow: {e}")
 
 MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment-latest"
-DATA_DIR = r"c:\Users\pedro\Downloads\experiments\experiments\Senti-Pred-Remake\data\raw"
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+
+BASE_DIR = Path(__file__).resolve().parent
+RUN_CONTEXT = create_run_context(BASE_DIR, "senti_pred_roberta")
+DATA_DIR = BASE_DIR / "data" / "raw"
 
 def load_and_preprocess_data():
     train_path = os.path.join(DATA_DIR, "twitter_training.csv")
@@ -75,6 +88,7 @@ def train():
     mlflow.set_experiment("Twitter_Sentiment_RoBERTa_V2")
     
     with mlflow.start_run():
+        log_reproducibility(mlflow, RUN_CONTEXT, SEED)
         print("--- Carregando dados ---")
         df_train, df_val = load_and_preprocess_data()
         
@@ -92,7 +106,7 @@ def train():
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=3, ignore_mismatched_sizes=True)
         
         training_args = TrainingArguments(
-            output_dir="./results",
+            output_dir=str(RUN_CONTEXT.artifact_dir / "results"),
             evaluation_strategy="epoch",
             save_strategy="epoch",
             learning_rate=2e-5,
@@ -134,9 +148,11 @@ def train():
         mlflow.log_artifact("confusion_matrix.png")
         
         # Salvar modelo
-        model.save_pretrained("./best_model")
-        tokenizer.save_pretrained("./best_model")
-        mlflow.log_artifacts("./best_model", artifact_path="model")
+        model_dir = RUN_CONTEXT.artifact_dir / "best_model"
+        model.save_pretrained(model_dir)
+        tokenizer.save_pretrained(model_dir)
+        mlflow.log_artifacts(str(model_dir), artifact_path="model")
+        mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
         
         print("Treino concluído com sucesso!")
 

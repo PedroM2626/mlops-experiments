@@ -131,6 +131,34 @@ A "inteligência" do modelo de vendas veio da criação de features que capturam
 
 ---
 
+## ⚙️ Padrões do Repositório
+
+Para manter os experimentos reproduzíveis e fáceis de executar em qualquer máquina, os novos scripts seguem estes padrões:
+
+- Todos os caminhos de dados e artefatos usam caminhos relativos ao arquivo do experimento ou à raiz do repositório.
+- Cada execução cria uma pasta versionada em `experiments/artifacts/<experimento>_<timestamp>_<git_sha>/`.
+- Seeds são definidas de forma consistente e registradas junto com o experimento.
+- O `pip freeze` da execução é salvo em `pip_freeze.txt` dentro da pasta versionada e também enviado ao MLflow quando disponível.
+- Artefatos de modelo seguem nomes previsíveis, por exemplo `model.pkl`, `joblib`, `SavedModel/` ou `torchscript/`, sempre dentro da pasta versionada.
+
+### Convenção de Runtime
+
+| Experimento | Hardware recomendado | Expectativa prática |
+|---|---|---|
+| `exp1_ag_news.py` | GPU recomendada | Transformer fine-tuning fica bem mais rápido em GPU; em CPU pode levar bem mais tempo. |
+| `exp3_sentiment_twitter.py` | CPU suficiente | É um pipeline de inferência, normalmente roda rápido em CPU. |
+| `ensemble_pyramid.py` | CPU recomendada com memória sobrando | O ensemble piramidal é pesado em treinamento, mas não depende de GPU. |
+| `twitter-sentiment-analysis.ipynb` | CPU suficiente | Modelos clássicos com TF-IDF rodam bem em CPU. |
+| `price-prediction-multiple-linear-regression.ipynb` | CPU suficiente | Regressão linear e EDA são leves. |
+| `property-sales-time-series.ipynb` | CPU suficiente | SARIMA/EDA rodam em CPU; `auto_arima` pode ser o trecho mais demorado. |
+| `animal-classifier.ipynb` | GPU recomendada | PyTorch + TensorFlow com modelos pré-treinados fica mais ágil em GPU. |
+
+### Dicas de Reprodutibilidade
+
+- Sempre rode o experimento a partir do próprio arquivo/script para que os caminhos relativos resolvam corretamente.
+- Se o ambiente estiver com MLflow/DagsHub configurado, verifique os parâmetros `seed`, `git_sha`, `run_timestamp` e o artefato `pip_freeze.txt` no run.
+- Em notebooks, prefira executar as células na ordem original antes de alterar os caminhos ou a estrutura.
+
 ## 🤖 AutoML e MLOps Studio
 
 *(Esta seção será expandida conforme o desenvolvimento do [AutoMLOps-Studio](experiments/AutoMLOps-Studio) avança.)*
@@ -151,6 +179,20 @@ A "inteligência" do modelo de vendas veio da criação de features que capturam
 - **[exp1_ag_news.py](experiments/exp1_ag_news.py)**: Classificação de notícias com DistilBERT.
 - **[exp2_time_series.py](experiments/exp2_time_series.py)**: Previsão de temperatura com Prophet.
 - **[exp3_sentiment_twitter.py](experiments/exp3_sentiment_twitter.py)**: Análise de sentimento zero-shot com HuggingFace Pipelines.
+
+### Formato de Saída dos Experimentos
+
+Os scripts recentes gravam os artefatos em uma pasta versionada por execução. O padrão é:
+
+```text
+experiments/artifacts/<nome_experimento>_<YYYYMMDD_HHMMSS>_<git_sha>/
+```
+
+Exemplos comuns:
+- `ag_news_classification_20260409_153000_ab12cd3/ag_news_model/`
+- `temperature_forecasting_20260409_153000_ab12cd3/prophet_model.pkl`
+- `twitter_sentiment_analysis_20260409_153000_ab12cd3/twitter_results.csv`
+- `ensemble_pyramid_20260409_153000_ab12cd3/ensemble_pyramid_best.pkl`
 
 ---
 

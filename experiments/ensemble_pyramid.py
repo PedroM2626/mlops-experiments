@@ -2,6 +2,8 @@ import re
 import pandas as pd
 import numpy as np
 import time
+import random
+from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -17,14 +19,24 @@ from sklearn.ensemble import (
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 import joblib
+import mlflow
+
+from run_context import create_run_context, log_reproducibility, first_existing_path
 
 SEED     = 2007
 CV_FOLDS = 3
 np.random.seed(SEED)
+random.seed(SEED)
+
+BASE_DIR = Path(__file__).resolve().parent
+RUN_CONTEXT = create_run_context(BASE_DIR, "ensemble_pyramid")
 
 print("=" * 65)
 print("🏗️  ENSEMBLE PYRAMID — 6 Camadas de Ensembles sobre Ensembles")
 print("=" * 65)
+mlflow.set_experiment("Ensemble_Pyramid")
+mlflow.start_run(run_name=RUN_CONTEXT.run_id)
+log_reproducibility(mlflow, RUN_CONTEXT, SEED)
 
 # ─── Funções de Limpeza ────────────────────────────────────────────────────────
 def clean_tweet(text: str) -> str:
@@ -42,8 +54,16 @@ def clean_tweet(text: str) -> str:
 # ─── 1. Dados ──────────────────────────────────────────────────────────────────
 print("\n📂 Carregando dados...")
 cols = ['tweet_id', 'entity', 'sentiment', 'text']
-train_df = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/raw/twitter_training.csv", names=cols, header=None)
-val_df   = pd.read_csv("experiments/senti-pred-variations/logistic-senti-pred/data/raw/twitter_validation.csv", names=cols, header=None)
+train_path = first_existing_path([
+    BASE_DIR / "senti-pred-variations" / "logistic-senti-pred" / "data" / "raw" / "twitter_training.csv",
+    BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_training.csv",
+])
+val_path = first_existing_path([
+    BASE_DIR / "senti-pred-variations" / "logistic-senti-pred" / "data" / "raw" / "twitter_validation.csv",
+    BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_validation.csv",
+])
+train_df = pd.read_csv(train_path, names=cols, header=None)
+val_df   = pd.read_csv(val_path, names=cols, header=None)
 
 # Aplica limpeza
 for df in (train_df, val_df):
@@ -468,12 +488,17 @@ print(f"  Ganho C5→C6 : {(layer_bests[5]-layer_bests[4])*100:+.2f}pp")
 print(f"  Ganho Total : {(layer_bests[5]-layer_bests[0])*100:+.2f}pp")
 
 # ─── Salvar ───────────────────────────────────────────────────────────────────
-df_results.to_csv("ensemble_pyramid_results.csv", index=False)
-print("\nResultados salvos: ensemble_pyramid_results.csv")
+results_path = RUN_CONTEXT.artifact_dir / "ensemble_pyramid_results.csv"
+df_results.to_csv(results_path, index=False)
+mlflow.log_artifact(str(results_path))
+print(f"\nResultados salvos: {results_path}")
 
 if best_obj:
-    joblib.dump({"model": best_obj, "tfidf": tfidf, "encoder": le},
-                "ensemble_pyramid_best.pkl")
-    print("Melhor modelo salvo: ensemble_pyramid_best.pkl")
+    model_path = RUN_CONTEXT.artifact_dir / "ensemble_pyramid_best.pkl"
+    joblib.dump({"model": best_obj, "tfidf": tfidf, "encoder": le}, model_path)
+    mlflow.log_artifact(str(model_path))
+    mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
+    print(f"Melhor modelo salvo: {model_path}")
 
 print("\n✅ Ensemble Pyramid concluído!")
+mlflow.end_run()

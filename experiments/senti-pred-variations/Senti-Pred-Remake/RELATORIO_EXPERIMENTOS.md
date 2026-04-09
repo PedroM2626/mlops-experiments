@@ -33,9 +33,9 @@ Ao atingir 97.5%, chegamos provavelmente no limite do dataset. Acima disso, o mo
 
 ## 🛠️ Estrutura do Projeto Consolidada
 
-- **[train_god_mode.py](file:///c:/Users/pedro/Downloads/experiments/experiments/Senti-Pred-Remake/train_god_mode.py)**: Script do recorde final.
-- **[predict.py](file:///c:/Users/pedro/Downloads/experiments/experiments/Senti-Pred-Remake/predict.py)**: Script de inferência em tempo real otimizado.
-- **[requirements.txt](file:///c:/Users/pedro/Downloads/experiments/experiments/Senti-Pred-Remake/requirements.txt)**: Dependências exatas para reprodução.
+- **[train_god_mode.py](train_god_mode.py)**: Script do recorde final.
+- **[predict.py](predict.py)**: Script de inferência em tempo real otimizado.
+- **[requirements.txt](requirements.txt)**: Dependências exatas para reprodução.
 - **MLflow / DagsHub**: Todas as métricas e matrizes de confusão estão logadas remotamente.
 
 ---

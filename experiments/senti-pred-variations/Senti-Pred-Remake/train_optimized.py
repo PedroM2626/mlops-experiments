@@ -1,4 +1,5 @@
 import os
+import random
 import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -12,12 +13,17 @@ import seaborn as sns
 from dotenv import load_dotenv
 from pathlib import Path
 
+from run_context import create_run_context, log_reproducibility
+
 # Configuração MLOps
 load_dotenv()
 dagshub.init(repo_owner="PedroM2626", repo_name="experiments")
 mlflow.set_tracking_uri("https://dagshub.com/PedroM2626/experiments.mlflow")
 
 DATA_DIR = Path(__file__).parent / "data" / "raw"
+SEED = 42
+random.seed(SEED)
+RUN_CONTEXT = create_run_context(Path(__file__).resolve().parent, "senti_pred_optimized")
 
 def clean_text(text):
     # Converter para minúsculo
@@ -47,6 +53,7 @@ def train_optimized():
     mlflow.set_experiment("Twitter_Sentiment_Classic_ML")
     
     with mlflow.start_run(run_name="Logistic_Regression_Optimized"):
+        log_reproducibility(mlflow, RUN_CONTEXT, SEED)
         df_train, df_val = load_data()
         
         # Aumentamos max_features e usamos n-gramas de até 3 palavras
@@ -80,20 +87,24 @@ def train_optimized():
         mlflow.log_param("max_features", 20000)
         mlflow.log_param("clean_text", True)
         mlflow.log_metric("accuracy", acc)
+        mlflow.log_param("artifact_version", RUN_CONTEXT.run_id)
         
         # Matriz de Confusão
         cm = confusion_matrix(y_val, y_pred)
         plt.figure(figsize=(10,7))
         sns.heatmap(cm, annot=True, fmt='d', xticklabels=model.classes_, yticklabels=model.classes_)
         plt.title(f"Confusion Matrix - Acc: {acc:.4f}")
-        plt.savefig("cm_optimized.png")
-        mlflow.log_artifact("cm_optimized.png")
+        cm_path = RUN_CONTEXT.artifact_dir / "cm_optimized.png"
+        plt.savefig(cm_path)
+        mlflow.log_artifact(str(cm_path))
         
         # Salvar Artefatos
-        joblib.dump(model, "optimized_model.pkl")
-        joblib.dump(vectorizer, "optimized_vectorizer.pkl")
-        mlflow.log_artifact("optimized_model.pkl")
-        mlflow.log_artifact("optimized_vectorizer.pkl")
+        model_path = RUN_CONTEXT.artifact_dir / "optimized_model.pkl"
+        vectorizer_path = RUN_CONTEXT.artifact_dir / "optimized_vectorizer.pkl"
+        joblib.dump(model, model_path)
+        joblib.dump(vectorizer, vectorizer_path)
+        mlflow.log_artifact(str(model_path))
+        mlflow.log_artifact(str(vectorizer_path))
         
         print(f"Treino Otimizado Concluído! Nova Acurácia: {acc:.4f}")
 

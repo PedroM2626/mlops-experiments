@@ -1,4 +1,6 @@
 import os
+import random
+from pathlib import Path
 import pandas as pd
 from transformers import pipeline
 from sklearn.metrics import classification_report, confusion_matrix
@@ -7,6 +9,9 @@ import dagshub
 from dotenv import load_dotenv
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+
+from run_context import create_run_context, log_reproducibility, first_existing_path
 
 # Configuração DagsHub
 load_dotenv()
@@ -16,18 +21,29 @@ repo_name = os.getenv("DAGSHUB_REPO_NAME", "experiments")
 dagshub.init(repo_owner=repo_owner, repo_name=repo_name)
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
 
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+BASE_DIR = Path(__file__).resolve().parent
+
 def run_experiment():
     mlflow.set_experiment("Twitter_Sentiment_Analysis")
     
     with mlflow.start_run():
+        context = create_run_context(BASE_DIR, "twitter_sentiment_analysis")
+        log_reproducibility(mlflow, context, SEED)
         print("--- Iniciando Experimento 3: Twitter Sentiment Analysis ---")
         
         # Carregar dados (sem header originalmente)
-        data_path = r"c:\Users\pedro\Downloads\experiments\experiments\senti-pred\data\raw\twitter_validation.csv"
+        data_path = first_existing_path([
+            BASE_DIR / "senti-pred" / "data" / "raw" / "twitter_validation.csv",
+            BASE_DIR / "senti-pred-variations" / "Senti-Pred-Remake" / "data" / "raw" / "twitter_validation.csv",
+            BASE_DIR / "datasets" / "twitter_validation.csv",
+        ])
         df = pd.read_csv(data_path, header=None, names=['id', 'entity', 'sentiment', 'text'])
         
         # Amostra para teste rápido
-        df = df.dropna(subset=['text']).sample(100, random_state=42)
+        df = df.dropna(subset=['text']).sample(100, random_state=SEED)
         
         # Modelo Zero-Shot ou Sentiment Analysis específico
         # Vamos usar um modelo pronto para predição direta
@@ -54,15 +70,18 @@ def run_experiment():
             mlflow.log_metric(f"count_{label}", count)
             
         # Salvar resultados
-        df.to_csv("twitter_results.csv", index=False)
-        mlflow.log_artifact("twitter_results.csv")
+        results_path = context.artifact_dir / "twitter_results.csv"
+        df.to_csv(results_path, index=False)
+        mlflow.log_artifact(str(results_path))
         
         # Plotar distribuição
         plt.figure(figsize=(10, 6))
         sns.countplot(data=df, x='pred_sentiment')
         plt.title("Distribuição de Sentimentos Preditos")
-        plt.savefig("sentiment_dist.png")
-        mlflow.log_artifact("sentiment_dist.png")
+        plot_path = context.artifact_dir / "sentiment_dist.png"
+        plt.savefig(plot_path)
+        mlflow.log_artifact(str(plot_path))
+        mlflow.log_param("artifact_version", context.run_id)
         
         print("Experimento 3 concluido e logado no DagsHub!")
 

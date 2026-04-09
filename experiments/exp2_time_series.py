@@ -1,4 +1,6 @@
 import os
+import random
+from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 from prophet import Prophet
@@ -8,6 +10,8 @@ import dagshub
 from dotenv import load_dotenv
 import numpy as np
 
+from run_context import create_run_context, log_reproducibility, first_existing_path
+
 # Configuração DagsHub
 load_dotenv()
 repo_owner = os.getenv("DAGSHUB_REPO_OWNER", "PedroM2626")
@@ -16,14 +20,24 @@ repo_name = os.getenv("DAGSHUB_REPO_NAME", "experiments")
 dagshub.init(repo_owner=repo_owner, repo_name=repo_name)
 mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
 
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+BASE_DIR = Path(__file__).resolve().parent
+
 def run_experiment():
     mlflow.set_experiment("Temperature_Forecasting")
     
     with mlflow.start_run():
+        context = create_run_context(BASE_DIR, "temperature_forecasting")
+        log_reproducibility(mlflow, context, SEED)
         print("🚀 Iniciando Experimento 2: Temperature Forecasting")
         
         # Carregar dados
-        data_path = r"c:\Users\pedro\Downloads\experiments\experiments\datasets\daily-minimum-temperatures-in-me.csv"
+        data_path = first_existing_path([
+            BASE_DIR / "datasets" / "daily-minimum-temperatures-in-me.csv",
+            BASE_DIR.parent / "datasets" / "daily-minimum-temperatures-in-me.csv",
+        ])
         df = pd.read_csv(data_path)
         
         # Limpeza básica (remover erros de parsing se houver)
@@ -70,8 +84,10 @@ def run_experiment():
         
         # Salvar modelo (como pkl)
         import joblib
-        joblib.dump(model, "prophet_model.pkl")
-        mlflow.log_artifact("prophet_model.pkl")
+        model_path = context.artifact_dir / "prophet_model.pkl"
+        joblib.dump(model, model_path)
+        mlflow.log_artifact(str(model_path))
+        mlflow.log_param("artifact_version", context.run_id)
         
         print("✅ Experimento 2 concluído e logado no DagsHub!")
 
