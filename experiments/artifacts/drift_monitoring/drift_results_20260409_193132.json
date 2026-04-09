@@ -1,0 +1,24 @@
+{
+  "dataset_comparison": {
+    "train_size": 1000,
+    "test_no_drift_size": 500,
+    "test_drift_size": 500
+  },
+  "drift_analysis": {
+    "no_drift_scenario": {
+      "ks_statistic": 0.062,
+      "ks_p_value": 0.15205121375221906,
+      "drift_detected": false
+    },
+    "drift_scenario": {
+      "ks_statistic": 0.302,
+      "ks_p_value": 2.8361968789091185e-27,
+      "drift_detected": true
+    }
+  },
+  "summary": {
+    "scenario_no_drift_correct": true,
+    "scenario_with_drift_detected": true,
+    "overall_status": "OK"
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "dataset": {
+    "total": 500,
+    "sample": true
+  },
+  "entities_statistics": {
+    "PERSON": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "ORG": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "LOCATION": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "DATE": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "MONEY": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "PRODUCT": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    },
+    "PERCENT": {
+      "total": 0,
+      "unique": 0,
+      "top_10": []
+    }
+  },
+  "entities_by_category": {
+    "category_1": {
+      "total_texts": 125,
+      "entities_found": {
+        "PERSON": {
+          "total": 0,
+          "unique": 0
+        },
+        "ORG": {
+          "total": 0,
+          "unique": 0
+        },
+        "LOCATION": {
+          "total": 0,
+          "unique": 0
+        },
+        "DATE": {
+          "total": 0,
+          "unique": 0
+        },
+        "MONEY": {
+          "total": 0,
+          "unique": 0
+        },
+        "PRODUCT": {
+          "total": 0,
+          "unique": 0
+        },
+        "PERCENT": {
+          "total": 0,
+          "unique": 0
+        }
+      }
+    },
+    "category_2": {
+      "total_texts": 125,
+      "entities_found": {
+        "PERSON": {
+          "total": 0,
+          "unique": 0
+        },
+        "ORG": {
+          "total": 0,
+          "unique": 0
+        },
+        "LOCATION": {
+          "total": 0,
+          "unique": 0
+        },
+        "DATE": {
+          "total": 0,
+          "unique": 0
+        },
+        "MONEY": {
+          "total": 0,
+          "unique": 0
+        },
+        "PRODUCT": {
+          "total": 0,
+          "unique": 0
+        },
+        "PERCENT": {
+          "total": 0,
+          "unique": 0
+        }
+      }
+    },
+    "category_3": {
+      "total_texts": 125,
+      "entities_found": {
+        "PERSON": {
+          "total": 0,
+          "unique": 0
+        },
+        "ORG": {
+          "total": 0,
+          "unique": 0
+        },
+        "LOCATION": {
+          "total": 0,
+          "unique": 0
+        },
+        "DATE": {
+          "total": 0,
+          "unique": 0
+        },
+        "MONEY": {
+          "total": 0,
+          "unique": 0
+        },
+        "PRODUCT": {
+          "total": 0,
+          "unique": 0
+        },
+        "PERCENT": {
+          "total": 0,
+          "unique": 0
+        }
+      }
+    },
+    "category_0": {
+      "total_texts": 125,
+      "entities_found": {
+        "PERSON": {
+          "total": 0,
+          "unique": 0
+        },
+        "ORG": {
+          "total": 0,
+          "unique": 0
+        },
+        "LOCATION": {
+          "total": 0,
+          "unique": 0
+        },
+        "DATE": {
+          "total": 0,
+          "unique": 0
+        },
+        "MONEY": {
+          "total": 0,
+          "unique": 0
+        },
+        "PRODUCT": {
+          "total": 0,
+          "unique": 0
+        },
+        "PERCENT": {
+          "total": 0,
+          "unique": 0
+        }
+      }
+    }
+  },
+  "sample_extractions": []
+}

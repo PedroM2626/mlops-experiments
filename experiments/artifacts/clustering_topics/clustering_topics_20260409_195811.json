@@ -1,0 +1,160 @@
+{
+  "dataset_info": {
+    "total_tweets": 500,
+    "unique_topics": 32,
+    "topics": [
+      "Fortnite",
+      "CS-GO",
+      "HomeDepot",
+      "Overwatch",
+      "Borderlands",
+      "TomClancysRainbowSix",
+      "Battlefield",
+      "RedDeadRedemption(RDR)",
+      "Google",
+      "GrandTheftAuto(GTA)",
+      "CallOfDutyBlackopsColdWar",
+      "Verizon",
+      "NBA2K",
+      "CallOfDuty",
+      "AssassinsCreed",
+      "LeagueOfLegends",
+      "Amazon",
+      "johnson&johnson",
+      "Cyberpunk2077",
+      "PlayStation5(PS5)",
+      "WorldOfCraft",
+      "Hearthstone",
+      "PlayerUnknownsBattlegrounds(PUBG)",
+      "Nvidia",
+      "FIFA",
+      "Microsoft",
+      "Xbox(Xseries)",
+      "Dota2",
+      "ApexLegends",
+      "MaddenNFL",
+      "TomClancysGhostRecon",
+      "Facebook"
+    ],
+    "unique_sentiments": 4,
+    "sentiments": [
+      "Irrelevant",
+      "Positive",
+      "Negative",
+      "Neutral"
+    ]
+  },
+  "preprocessing": {
+    "tweets_after_cleaning": 478,
+    "avg_tokens": 10.232217573221757
+  },
+  "clustering": {
+    "optimal_k": 2,
+    "silhouette_score": 0.013681980775335736,
+    "davies_bouldin_index": 2.494233069313115,
+    "cluster_distribution": {
+      "0": 468,
+      "1": 10
+    }
+  },
+  "topic_modeling": {
+    "num_topics": 5,
+    "perplexity_score": 2699.44092179739,
+    "topics": {
+      "topic_0": "xbox, one, like, people, even, love, play, cant, series, gta",
+      "topic_1": "playing, game, league, clothing, tile, enjoyable, access, health, year, care",
+      "topic_2": "game, get, rhandlerr, battlefield, thank, say, one, dont, good, fuck",
+      "topic_3": "rhandlerr, game, johnson, got, like, time, play, guy, great, playing",
+      "topic_4": "unk, love, game, fucking, amazon, great, good, another, got, thing"
+    },
+    "topics_distribution": {
+      "3": 111,
+      "2": 101,
+      "4": 93,
+      "0": 93,
+      "1": 80
+    }
+  },
+  "sentiment_analysis": {
+    "by_cluster": [
+      {
+        "cluster_id": 0,
+        "size": 468,
+        "sentiments": {
+          "Negative": 148,
+          "Positive": 140,
+          "Neutral": 99,
+          "Irrelevant": 81
+        },
+        "top_words": "said told getting box brain dead controller player look lit overwatch combo attention executive administrator ever store getting big delivery"
+      },
+      {
+        "cluster_id": 1,
+        "size": 10,
+        "sentiments": {
+          "Positive": 6,
+          "Negative": 3,
+          "Irrelevant": 1
+        },
+        "top_words": "unk yasss excellent snarly behavior unk unk unk unk false news sorry god unk please unk shot meter annoying unk"
+      }
+    ],
+    "by_topic": [
+      {
+        "topic_id": 0,
+        "size": 93,
+        "sentiments": {
+          "Negative": 29,
+          "Positive": 28,
+          "Irrelevant": 20,
+          "Neutral": 16
+        },
+        "top_words": "attention executive administrator ever store getting big delivery order sent pallet brick downtown area effectively used mainly helping negotiate destruction"
+      },
+      {
+        "topic_id": 1,
+        "size": 80,
+        "sentiments": {
+          "Positive": 23,
+          "Negative": 23,
+          "Neutral": 19,
+          "Irrelevant": 15
+        },
+        "top_words": "verizon shed pay target customer cord cutting technology escalates breitbart com entertainment via verizon gave million blm show industry support"
+      },
+      {
+        "topic_id": 2,
+        "size": 101,
+        "sentiments": {
+          "Negative": 43,
+          "Positive": 32,
+          "Neutral": 16,
+          "Irrelevant": 10
+        },
+        "top_words": "look lit overwatch combo guy notified say name forwarded litter list lmaoooo get fuck overwatch strange as dude miss battlefield"
+      },
+      {
+        "topic_id": 3,
+        "size": 111,
+        "sentiments": {
+          "Positive": 35,
+          "Negative": 32,
+          "Neutral": 24,
+          "Irrelevant": 20
+        },
+        "top_words": "loving new dlc rhandlerr rhandlerr rhandlerr pictwittercompkzjxlgxlj lmao gamer jason could kill popular google result previous hour europa league flash"
+      },
+      {
+        "topic_id": 4,
+        "size": 93,
+        "sentiments": {
+          "Positive": 28,
+          "Neutral": 24,
+          "Negative": 24,
+          "Irrelevant": 17
+        },
+        "top_words": "said told getting box brain dead controller player ezio forever heart morning looking kinda lit tho unk tired working week"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "dataset": {
+    "total": 1000,
+    "sentiment_classes": [
+      "Irrelevant",
+      "Positive",
+      "Negative",
+      "Neutral"
+    ]
+  },
+  "task_performance": {
+    "single_task": {
+      "sentiment_accuracy": 0.495,
+      "intensity_accuracy": 0.62,
+      "topic_accuracy": 0.76,
+      "average_accuracy": 0.625
+    },
+    "multi_task": {
+      "sentiment_accuracy": 0.495,
+      "intensity_accuracy": 0.62,
+      "topic_accuracy": 0.76,
+      "average_accuracy": 0.625
+    }
+  },
+  "comparison": {
+    "single_task_avg": 0.625,
+    "multi_task_avg": 0.625,
+    "improvement_pct": 0.0
+  }
+}

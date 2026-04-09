@@ -1,0 +1,11 @@
+{
+  "Produ\u00e7\u00e3o": {
+    "error": "Unknown format code 'f' for object of type 'str'"
+  },
+  "Produ\u00e7\u00e3o de Cerveja": {
+    "error": "Unknown format code 'f' for object of type 'str'"
+  },
+  "Temperatura M\u00ednima": {
+    "error": "Unknown format code 'f' for object of type 'str'"
+  }
+}
