@@ -1,7 +1,0 @@
-reflex>=0.8.26
-matplotlib>=3.10
-pandas>=2.2
-scikit-learn>=1.7
-seaborn>=0.13
-python-dotenv>=1.0
-joblib>=1.5

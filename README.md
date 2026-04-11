@@ -58,10 +58,10 @@ python experiments/flexible_ensemble_pyramid.py --layers 15 --min_models 3 --max
 Tambem e possivel executar o Flexible Ensemble Pyramid por uma interface web com monitoramento visual em tempo real:
 
 1. Instale as dependencias (incluindo `reflex`).
-	- Para Python 3.13, prefira as dependencias leves da interface:
+	- O arquivo `requirements_reflex_ui.txt` foi descontinuado; use as dependencias do projeto:
 
 ```bash
-pip install -r requirements_reflex_ui.txt
+pip install -r requirements.txt
 ```
 
 2. Execute:
@@ -146,12 +146,37 @@ Para manter os experimentos reproduzíveis e fáceis de executar em qualquer má
 | Experimento | Hardware recomendado | Expectativa prática |
 |---|---|---|
 | `exp1_ag_news.py` | GPU recomendada | Transformer fine-tuning fica bem mais rápido em GPU; em CPU pode levar bem mais tempo. |
-| `exp3_sentiment_twitter.py` | CPU suficiente | É um pipeline de inferência, normalmente roda rápido em CPU. |
+| `exp3_fake_news.py` | CPU suficiente | Classificação tradicional em texto, normalmente roda bem em CPU. |
 | `ensemble_pyramid.py` | CPU recomendada com memória sobrando | O ensemble piramidal é pesado em treinamento, mas não depende de GPU. |
 | `twitter-sentiment-analysis.ipynb` | CPU suficiente | Modelos clássicos com TF-IDF rodam bem em CPU. |
 | `price-prediction-multiple-linear-regression.ipynb` | CPU suficiente | Regressão linear e EDA são leves. |
 | `property-sales-time-series.ipynb` | CPU suficiente | SARIMA/EDA rodam em CPU; `auto_arima` pode ser o trecho mais demorado. |
 | `animal-classifier.ipynb` | GPU recomendada | PyTorch + TensorFlow com modelos pré-treinados fica mais ágil em GPU. |
+| `face_recognition_app.ipynb` | CPU suficiente (GPU opcional) | LBPH roda em CPU; `transfer_yunet` acelera com GPU, mas funciona em CPU. |
+
+### Notebook de Deteccao Facial
+
+- O app de deteccao/reconhecimento facial agora esta **embutido no notebook** `experiments/face_recognition_app.ipynb`.
+- O arquivo Python separado `face_recognition_app.py` nao e mais necessario para executar o fluxo.
+- Modos de treinamento disponiveis no notebook:
+	- `lbph`
+	- `cnn`
+	- `transfer_yunet`
+- Configuracoes importantes via variaveis de ambiente:
+	- `FACE_DETECTOR=yunet|haar`
+	- `FACE_TL_EPOCHS`, `FACE_TL_BATCH`
+	- `FACE_CNN_EPOCHS`, `FACE_CNN_BATCH`
+	- `YUNET_SCORE_THRESHOLD`, `YUNET_NMS_THRESHOLD`, `YUNET_TOP_K`
+
+### Validacao de Notebooks
+
+- Para verificar consistencia estrutural/sintatica dos notebooks, execute:
+
+```bash
+python scripts/validate_notebooks.py
+```
+
+- O validador trata magics (`!`, `%`, `?`) e marca notebooks externos (Databricks/IBM) como `EXT`.
 
 ### Dicas de Reprodutibilidade
 
@@ -178,7 +203,7 @@ Para manter os experimentos reproduzíveis e fáceis de executar em qualquer má
 ### Experimentos Rápidos:
 - **[exp1_ag_news.py](experiments/exp1_ag_news.py)**: Classificação de notícias com DistilBERT.
 - **[exp2_time_series.py](experiments/exp2_time_series.py)**: Previsão de temperatura com Prophet.
-- **[exp3_sentiment_twitter.py](experiments/exp3_sentiment_twitter.py)**: Análise de sentimento zero-shot com HuggingFace Pipelines.
+- **[exp3_fake_news.py](experiments/exp3_fake_news.py)**: Detecção de fake news com pipeline supervisionado.
 
 ### Formato de Saída dos Experimentos
 
