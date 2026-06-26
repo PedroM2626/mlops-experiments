@@ -53,32 +53,25 @@ python experiments/flexible_ensemble_pyramid.py --layers 15 --min_models 3 --max
 
 *(As configurações são automaticamente registradas no MLflow para comparação entre diferentes estratégias de evolução).*
 
-### Interface Visual com Reflex
+### Dashboard Unificado de Experimentos
 
-Tambem e possivel executar o Flexible Ensemble Pyramid por uma interface web com monitoramento visual em tempo real:
+O repositorio inclui uma interface web unificada que apresenta **todos os 38 experimentos** em um dashboard interativo com tema escuro premium:
 
-1. Instale as dependencias (incluindo `reflex`).
-	- O arquivo `requirements_reflex_ui.txt` foi descontinuado; use as dependencias do projeto:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Execute:
+1. Abra o arquivo diretamente no navegador:
 
 ```bash
-reflex run
+# Basta abrir no navegador
+dashboard/index.html
 ```
 
-3. Abra a URL exibida no terminal (normalmente `http://localhost:3000`).
-
-Recursos da interface:
-- Painel de parametros (camadas, epsilon RL, estrategia, TF-IDF, jitter)
-- Barra visual de progresso por camada (percentual em tempo real)
-- Log de treinamento em tempo real
-- Tabela das metricas por modelo/camada
-- Mapa visual da topologia do treino, mostrando fluxo linear entre camadas e ramificacoes (estilo arvore) dos modelos selecionados em cada camada
-- Botao "Teste Rapido" (smoke test): executa com poucas features/modelos e amostragem reduzida para validar start/stop em segundos
+Recursos do dashboard:
+- Visao geral com estatisticas do repositorio (total, completos, categorias, tecnicas)
+- Graficos interativos (distribuicao por categoria, status, evolucao Senti-Pred, radar de tecnicas)
+- Filtros por categoria (Sidebar), status e busca textual em tempo real
+- Cards expandiveis com detalhes de cada experimento (tecnicas, modelos, scripts, metricas)
+- 7 categorias: NLP Sentimento, NLP Classificacao, Series Temporais, Computer Vision, Anomalias, IBM Watson, Regressao
+- Design responsivo (mobile-friendly) com glassmorphism e micro-animacoes
+- Nenhuma dependencia externa necessaria (HTML + CSS + JS vanilla)
 
 **Características de Engenharia:**
 - **Jitter de Hiperparâmetros**: Mutações aleatórias nos parâmetros dos modelos (C, alpha, n_estimators) para descobrir configurações ótimas além do padrão.
