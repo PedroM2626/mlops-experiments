@@ -17,7 +17,7 @@ from typing import Iterable, List, Tuple
 
 
 EXTERNAL_PATH_MARKERS = (
-    "databricks forecast",
+    "databricks-forecast",
     "ibm-experiments",
 )
 

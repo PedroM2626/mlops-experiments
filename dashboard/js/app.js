@@ -301,7 +301,7 @@ const App = (() => {
       description: 'Previsao de vendas com LightGBM otimizado via Optuna (100 trials de busca Bayesiana). Engenharia de features com lags, rolling windows e features ciclicas.',
       techniques: ['LightGBM', 'Optuna', 'Feature Engineering', 'Lags', 'Rolling Windows'],
       metric: { label: 'MAE', value: '2.576', percent: 85 },
-      script: 'experiments/sales forecast/scripts/',
+      script: 'experiments/sales-forecast/scripts/',
       models: ['LightGBM (Optuna-optimized)'],
       dataset: 'Sales Transactions 2022',
       details: '20+ features criadas. Lags sazonais, janelas moveis, features ciclicas (seno/cosseno). Validacao hold-out temporal.'
@@ -343,7 +343,7 @@ const App = (() => {
       description: 'Forecasting gerenciado pela plataforma Databricks usando DeepAR e Prophet. Inclui scripts de download de artefatos.',
       techniques: ['DeepAR', 'Prophet', 'Databricks', 'Cloud ML'],
       metric: null,
-      script: 'experiments/databricks forecast/',
+      script: 'experiments/databricks-forecast/',
       models: ['DeepAR', 'Prophet (Databricks)'],
       dataset: 'Sales Quantity Transactions',
       details: 'Notebooks Databricks com preprocessing, training e tuning. Inclui download_artifacts.py.'
