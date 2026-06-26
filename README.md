@@ -115,7 +115,7 @@ Explorei diferentes abordagens para predição de dados temporais, desde modelos
 
 #### 1. Prophet vs Gradient Boosting
 - No experimento [exp2_time_series.py](experiments/exp2_time_series.py), utilizei o **Prophet** (Meta) para prever temperaturas diárias. O Prophet é excelente para capturar sazonalidades (diária, semanal, anual) de forma automática e robusta a feriados.
-- Já no projeto [sales forecast](experiments/sales%20forecast), o foco foi no **LightGBM** com **Optuna**. Aprendi que para séries temporais com muitas features externas, o Gradient Boosting com lags manuais e janelas móveis tende a ser mais preciso que modelos puramente estatísticos.
+- Já no projeto [sales forecast](experiments/sales-forecast), o foco foi no **LightGBM** com **Optuna**. Aprendi que para séries temporais com muitas features externas, o Gradient Boosting com lags manuais e janelas móveis tende a ser mais preciso que modelos puramente estatísticos.
 
 #### 2. Engenharia de Features Temporais
 A "inteligência" do modelo de vendas veio da criação de features que capturam o tempo:
@@ -189,9 +189,9 @@ python scripts/validate_notebooks.py
 1. **[senti-pred](experiments/senti-pred)**: Foco em AutoML e exploração de múltiplos frameworks.
 2. **[old_senti-pred_upgrade](experiments/old_senti-pred_upgrade)**: Foco em modelos manuais clássicos (LinearSVC, KNN, RF, MLP) e otimização de pipeline TF-IDF.
 3. **[senti-pred-variations](experiments/senti-pred-variations)**: Variações do projeto Senti-Pred incluindo Logistic Regression, MultinomialNB, Random Forest, FLAML AutoML, e o Ensemble Pyramid de 6 camadas.
-4. **[sales forecast](experiments/sales%20forecast)**: Foco em Séries Temporais, LightGBM e Otimização Bayesiana.
+4. **[sales forecast](experiments/sales-forecast)**: Foco em Séries Temporais, LightGBM e Otimização Bayesiana.
 5. **[ibm-experiments](experiments/ibm-experiments)**: Notebooks exploratórios de Boston Housing e produções elétricas usando Snap ML da IBM.
-6. **[databricks forecast](experiments/databricks%20forecast)**: Script de download de artefatos para integração com Databricks.
+6. **[databricks forecast](experiments/databricks-forecast)**: Script de download de artefatos para integração com Databricks.
 
 ### Experimentos Rápidos:
 - **[exp1_ag_news.py](experiments/exp1_ag_news.py)**: Classificação de notícias com DistilBERT.
