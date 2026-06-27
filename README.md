@@ -115,12 +115,24 @@ Explorei diferentes abordagens para predição de dados temporais, desde modelos
 
 #### 1. Prophet vs Gradient Boosting
 - No experimento [exp2_time_series.py](experiments/exp2_time_series.py), utilizei o **Prophet** (Meta) para prever temperaturas diárias. O Prophet é excelente para capturar sazonalidades (diária, semanal, anual) de forma automática e robusta a feriados.
-- Já no projeto [sales forecast](experiments/sales-forecast), o foco foi no **LightGBM** com **Optuna**. Aprendi que para séries temporais com muitas features externas, o Gradient Boosting com lags manuais e janelas móveis tende a ser mais preciso que modelos puramente estatísticos.
+- Já no projeto [Sales Forecast](experiments/sales-forecast), o foco foi no **LightGBM** com **Optuna**. Aprendi que para séries temporais com muitas features externas, o Gradient Boosting com lags manuais e janelas móveis tende a ser mais preciso que modelos puramente estatísticos.
 
-#### 2. Engenharia de Features Temporais
+#### 2. Evolução de Performance no Sales Forecast (V2 -> V2.1 -> V2.2)
+A solução de previsão de vendas semanais por ponto de venda (PDV) evoluiu significativamente através de um pipeline robusto de MLOps:
+- **V2 (Base)**: MAE de **2.5769** com ~21 features e apenas 2 variáveis categóricas sem suporte MLOps.
+- **V2.1 (MLOps)**: MAE de **2.2340** (-13.3%) ao expandir para 23 features, incluir 5 categóricas e rastreamento básico no MLflow.
+- **V2.2 (Atual)**: MAE de **1.4218** (**-44.8% vs V2** e **-36.3% vs V2.1**) com **32 features** detalhadas (10 categóricas dimensionais, features de preço, tendência/volatilidade) e Optuna com Pruning de trials não promissores (20 de 30 trials podados automaticamente), economizando tempo computacional (~12 min de treino). O pipeline conta com tracking completo via MLflow, container Docker e 10 testes automatizados via Pytest.
+
+#### 3. Aprendizados Importantes no Sales Forecast
+- **Engenharia de Váriaveis Categoricas e Elasticidade-Preço**: A inclusão de variáveis categóricas de alta cardinalidade (`subcategoria`, `tipos`, `fabricante`, etc.) tratadas nativamente pelo LightGBM e a feature de `preco_medio_unitario` (gross_value / quantity) representaram, juntas, cerca de 65% do ganho de performance.
+- **O Experimento Frustrado da Transformação Logaritmica (`log1p`)**: Aplicar `log1p` sobre a quantidade para reduzir a assimetria fez o MAE saltar de 1.42 para **2.7094**. Como o MAE (L1 loss) em escala log otimiza o erro relativo (MAPE), o modelo tornou-se muito conservador e subestimou grandes volumes de vendas. O pipeline final foi mantido com o target na escala original.
+- **Limitações do CatBoost no Ensemble (V2.3)**: Tentar misturar LightGBM com CatBoost consumiu mais de 23 GB de RAM e monopolizou a CPU por mais de 30 horas sem terminar a baseline devido à alta cardinalidade (ex: fabricante com 343 categorias unicas). O LightGBM demonstrou enorme superioridade em eficiência de hardware, finalizando o HPO Bayesiano em ~12 minutos.
+
+#### 4. Engenharia de Features Temporais
 A "inteligência" do modelo de vendas veio da criação de features que capturam o tempo:
 - **Lags e Rolling Windows**: Ensinar ao modelo o que aconteceu há 1, 4 e 52 semanas foi vital para capturar sazonalidades anuais.
 - **Features Cíclicas**: Transformar semanas em coordenadas de seno/cosseno permitiu ao modelo entender que a semana 52 está próxima da semana 1.
+
 
 ---
 
@@ -189,7 +201,7 @@ python scripts/validate_notebooks.py
 1. **[senti-pred](experiments/senti-pred)**: Foco em AutoML e exploração de múltiplos frameworks.
 2. **[old_senti-pred_upgrade](experiments/old_senti-pred_upgrade)**: Foco em modelos manuais clássicos (LinearSVC, KNN, RF, MLP) e otimização de pipeline TF-IDF.
 3. **[senti-pred-variations](experiments/senti-pred-variations)**: Variações do projeto Senti-Pred incluindo Logistic Regression, MultinomialNB, Random Forest, FLAML AutoML, e o Ensemble Pyramid de 6 camadas.
-4. **[sales forecast](experiments/sales-forecast)**: Foco em Séries Temporais, LightGBM e Otimização Bayesiana.
+4. **[Sales Forecast](experiments/sales-forecast)**: Foco em Séries Temporais, LightGBM, Otimização Bayesiana com Pruning (Optuna), tracking MLOps completo (MLflow), Pytest e Docker (V2.2).
 5. **[ibm-experiments](experiments/ibm-experiments)**: Notebooks exploratórios de Boston Housing e produções elétricas usando Snap ML da IBM.
 6. **[databricks forecast](experiments/databricks-forecast)**: Script de download de artefatos para integração com Databricks.
 

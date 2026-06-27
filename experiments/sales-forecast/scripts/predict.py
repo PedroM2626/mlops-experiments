@@ -25,7 +25,10 @@ def main(model_path: str, data_path: str, output_path: str, full_forecast: bool)
         predictor.model = artifacts['model']
         predictor.feature_names = artifacts['feature_names']
         predictor.categorical_features = artifacts['categorical_features']
-        logging.info("Modelo e artefatos carregados com sucesso.")
+        predictor.performance_metrics = artifacts.get('performance_metrics', {})
+        predictor.best_params = artifacts.get('best_params', {})
+        predictor.use_log_target = artifacts.get('use_log_target', False)
+        logging.info(f"Modelo e artefatos carregados com sucesso. MAE registrado: {predictor.performance_metrics.get('validation_mae', 'N/A')}")
         df_full_data = predictor.load_data(file_paths)
         df_historical_2022 = df_full_data[df_full_data['ano'] == 2022].copy()
 
