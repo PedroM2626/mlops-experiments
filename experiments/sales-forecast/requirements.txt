@@ -1,0 +1,30 @@
+# =================================================================
+# Dependencias do Projeto de Previsao de Vendas - Hackathon 2025
+# Versao V2.2
+# =================================================================
+# execute: pip install -r requirements.txt
+# -----------------------------------------------------------------
+
+# Core de Manipulacao de Dados
+pandas==2.0.3
+numpy==1.24.3
+pyarrow==17.0.0
+
+# Machine Learning & Modelagem
+scikit-learn==1.3.2
+lightgbm==4.6.0
+optuna==4.5.0
+optuna-integration==4.5.0
+mlflow==2.17.2
+
+# Utilitarios
+joblib==1.4.2
+pytest==8.3.5
+
+# Visualizacao (para os scripts de analise e graficos)
+matplotlib==3.7.2
+seaborn==0.13.2
+squarify==0.4.4
+geopandas==0.13.2
+geopy==2.4.1
+tqdm==4.67.3

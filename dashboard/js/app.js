@@ -294,17 +294,17 @@ const App = (() => {
     },
     {
       id: 21,
-      title: 'Sales Forecast (Hackathon LightGBM)',
+      title: 'Sales Forecast (Hackathon LightGBM V2.2)',
       category: 'timeseries',
       categoryLabel: 'Series Temporais e Forecast',
       status: 'completed',
-      description: 'Previsao de vendas com LightGBM otimizado via Optuna (100 trials de busca Bayesiana). Engenharia de features com lags, rolling windows e features ciclicas.',
-      techniques: ['LightGBM', 'Optuna', 'Feature Engineering', 'Lags', 'Rolling Windows'],
-      metric: { label: 'MAE', value: '2.576', percent: 85 },
-      script: 'experiments/sales-forecast/scripts/',
-      models: ['LightGBM (Optuna-optimized)'],
-      dataset: 'Sales Transactions 2022',
-      details: '20+ features criadas. Lags sazonais, janelas moveis, features ciclicas (seno/cosseno). Validacao hold-out temporal.'
+      description: 'Previsao de demanda semanal com LightGBM otimizado via Optuna (busca Bayesiana com Pruning) e rastreamento completo via MLflow. Arquitetura V2.2 com 32 features e reducao de 44.8% no MAE.',
+      techniques: ['LightGBM', 'Optuna', 'MLflow', 'Docker', 'Pytest', 'Feature Engineering', 'Lags', 'Rolling Windows'],
+      metric: { label: 'MAE', value: '1.4218', percent: 95 },
+      script: 'experiments/sales-forecast/',
+      models: ['LightGBM Regressor (Optuna & Pruning Optimized)'],
+      dataset: 'Sales Transactions 2022 (5.6M rows)',
+      details: 'Evolucao de MAE 2.576 (V2) para 1.4218 (V2.2). Engenharia de 32 features (10 categoricas de alta cardinalidade, lags, medias moveis, preco medio unitario, tendencia e volatilidade). Coberto por 10 testes unitarios via Pytest, conteinerizacao Docker, e tracking completo no MLflow. Experimentos adicionais com log1p (piorou MAE para 2.7094) e CatBoost (inviavel sem GPU).'
     },
     {
       id: 22,
