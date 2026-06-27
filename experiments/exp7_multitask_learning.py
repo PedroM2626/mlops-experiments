@@ -1,289 +1,275 @@
-﻿"""
-Experimento 7: Multi-Task Learning
-===================================
-Treina um modelo multi-tarefa que:
-- Classifica sentimento (pos/neg/neu)
-- Estima intensidade (fraco/moderado/forte)
-- Identifica tÃ³pico (previsÃ£o conjunta)
+"""
+Experimento 7: Multi-Task Learning com Dataset Real (MMoE vs STL)
+==================================================================
+Utiliza o dataset HuggingFace 'go_emotions' (textos anotados com 28 emocoes).
+Compara o treinamento de Redes Neurais Single-Task independentes
+versus a Rede MMoE na predicao simultanea de Alegria, Tristeza e Raiva.
 """
 
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-import json
 import mlflow
+import mlflow.pytorch
+import dagshub
+from dotenv import load_dotenv
 import warnings
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
-from sklearn.metrics import accuracy_score, f1_score, hamming_loss
-from sklearn.model_selection import train_test_split
-import pickle
+from sklearn.metrics import accuracy_score, f1_score
+from datasets import load_dataset
 
 warnings.filterwarnings('ignore')
 
 SEED = 42
+torch.manual_seed(SEED)
 np.random.seed(SEED)
 
-BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw"
+BASE_DIR = Path(__file__).resolve().parent
+
+# Configuracao DagsHub / MLflow
+load_dotenv()
+repo_owner = os.getenv("DAGSHUB_REPO_OWNER", "PedroM2626")
+repo_name = os.getenv("DAGSHUB_REPO_NAME", "experiments")
+dagshub.init(repo_owner=repo_owner, repo_name=repo_name)
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
 
 # ============================================================================
-# GERADOR DE LABELS SINTÃ‰TICOS
+# ARQUITETURAS NEURAIS
 # ============================================================================
 
-def generate_intensity_from_sentiment(text, sentiment):
-    """Gera intensidade a partir do sentimento e caracterÃ­sticas do texto."""
-    text = "" if pd.isna(text) else str(text)
-    sentiment = "" if pd.isna(sentiment) else str(sentiment)
-    
-    strong_indicators = ['!!!', 'LOVE', 'HATE', 'AMAZING', 'TERRIBLE', 'EXCELLENT', 'AWFUL']
-    weak_indicators = ['ok', 'fine', 'alright', 'decent', 'meh']
-    
-    strong_count = sum(1 for ind in strong_indicators if ind in text.upper())
-    weak_count = sum(1 for ind in weak_indicators if ind in text.lower())
-    
-    caps_ratio = sum(1 for c in text if c.isupper()) / max(len(text), 1)
-    
-    if strong_count >= 2 or caps_ratio > 0.3:
-        return 'strong'
-    elif weak_count >= 1 or caps_ratio < 0.05:
-        return 'weak'
-    else:
-        return 'moderate'
+class SingleTaskModel(nn.Module):
+    """Rede Neural Isolada para Classificacao Binaria."""
+    def __init__(self, input_dim):
+        super(SingleTaskModel, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 1) # Saida bruta (logit) para Sigmoid (BCEWithLogits)
+        )
+    def forward(self, x):
+        return self.net(x).squeeze(1)
 
-def generate_topic_from_text(text):
-    """Extrai tÃ³pico presumido do texto."""
-    text = "" if pd.isna(text) else str(text)
-    
-    topics_keywords = {
-        'tech': ['phone', 'app', 'software', 'computer', 'tech', 'device', 'digital'],
-        'sports': ['game', 'team', 'player', 'win', 'sport', 'match', 'football'],
-        'business': ['company', 'business', 'market', 'sales', 'profit', 'corporate'],
-        'entertainment': ['movie', 'show', 'music', 'song', 'actor', 'film', 'entertainment'],
-        'other': []
-    }
-    
-    text_lower = text.lower()
-    
-    for topic, keywords in topics_keywords.items():
-        if any(kw in text_lower for kw in keywords):
-            return topic
-    
-    return 'other'
+class MMoE_MultiTaskModel(nn.Module):
+    """Rede Multi-Task com Mixture of Experts (Mitiga Transferencia Negativa)"""
+    def __init__(self, input_dim, num_experts=3):
+        super(MMoE_MultiTaskModel, self).__init__()
+        
+        self.experts = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(input_dim, 256),
+                nn.ReLU(),
+                nn.Dropout(0.3)
+            ) for _ in range(num_experts)
+        ])
+        
+        self.gate_joy = nn.Sequential(nn.Linear(input_dim, num_experts), nn.Softmax(dim=1))
+        self.gate_sad = nn.Sequential(nn.Linear(input_dim, num_experts), nn.Softmax(dim=1))
+        self.gate_ang = nn.Sequential(nn.Linear(input_dim, num_experts), nn.Softmax(dim=1))
+        
+        self.head_joy = nn.Linear(256, 1)
+        self.head_sad = nn.Linear(256, 1)
+        self.head_ang = nn.Linear(256, 1)
 
-def run_multitask_learning():
-    """Pipeline de multi-task learning."""
-    
-    print("\\n" + "="*80)
-    print("ðŸŽ¯ EXPERIMENTO 7: MULTI-TASK LEARNING")
+    def forward(self, x):
+        exp_outs = torch.stack([expert(x) for expert in self.experts], dim=1)
+        
+        w_joy = self.gate_joy(x).unsqueeze(2)
+        w_sad = self.gate_sad(x).unsqueeze(2)
+        w_ang = self.gate_ang(x).unsqueeze(2)
+        
+        repr_joy = torch.sum(exp_outs * w_joy, dim=1)
+        repr_sad = torch.sum(exp_outs * w_sad, dim=1)
+        repr_ang = torch.sum(exp_outs * w_ang, dim=1)
+        
+        out_joy = self.head_joy(repr_joy).squeeze(1)
+        out_sad = self.head_sad(repr_sad).squeeze(1)
+        out_ang = self.head_ang(repr_ang).squeeze(1)
+        
+        return out_joy, out_sad, out_ang
+
+# ============================================================================
+# PIPELINE DE EXPERIMENTO
+# ============================================================================
+
+def run_experiment():
+    print("\n" + "="*80)
+    print("[INICIO] EXPERIMENTO 7: MMoE COM DADOS REAIS (HUGGINGFACE GO_EMOTIONS)")
     print("="*80 + "\n")
     
-    mlflow.set_experiment("MultiTask_Learning")
+    mlflow.set_experiment("MultiTask_Learning_V4_RealDataset")
     
-    with mlflow.start_run(run_name="multitask_complete"):
+    with mlflow.start_run(run_name="mmoe_vs_stl_goemotions"):
+        print("[1] Baixando e Preparando o Dataset GoEmotions...")
+        dataset = load_dataset("go_emotions", "simplified")
         
-        #Carrega dados
-        print("1ï¸âƒ£  Carregando dados...")
+        # O dataset de treino original possui 43k registros, para prototipagem usaremos 20k
+        df = dataset['train'].to_pandas().sample(n=20000, random_state=SEED).reset_index(drop=True)
+        df_test = dataset['test'].to_pandas()
         
-        train_file = DATA_DIR / "twitter_training.csv"
-        df = pd.read_csv(train_file, header=None)
-        df.columns = ['tweet_id', 'topic', 'sentiment', 'text']
-        df['sentiment'] = df['sentiment'].fillna('').astype(str)
-        df['text'] = df['text'].fillna('').astype(str)
+        # Identificando o indice das emocoes alvo
+        label_names = dataset['train'].features['labels'].feature.names
+        joy_idx = label_names.index('joy')
+        sadness_idx = label_names.index('sadness')
+        anger_idx = label_names.index('anger')
         
-        # Amostra para velocidade
-        df = df.sample(n=min(1000, len(df)), random_state=SEED)
+        print("[2] Mapeando Multi-Labels Binarias...")
+        # A coluna 'labels' contem uma lista de inteiros (ex: [4, 27])
+        df['y_joy'] = df['labels'].apply(lambda x: 1 if joy_idx in x else 0)
+        df['y_sad'] = df['labels'].apply(lambda x: 1 if sadness_idx in x else 0)
+        df['y_ang'] = df['labels'].apply(lambda x: 1 if anger_idx in x else 0)
         
-        print(f"   Total: {len(df)} tweets")
+        df_test['y_joy'] = df_test['labels'].apply(lambda x: 1 if joy_idx in x else 0)
+        df_test['y_sad'] = df_test['labels'].apply(lambda x: 1 if sadness_idx in x else 0)
+        df_test['y_ang'] = df_test['labels'].apply(lambda x: 1 if anger_idx in x else 0)
         
-        results = {
-            'dataset': {
-                'total': len(df),
-                'sentiment_classes': df['sentiment'].unique().tolist(),
-            },
-            'task_performance': {}
-        }
+        print("[3] Extraindo Features (TF-IDF)...")
+        tfidf = TfidfVectorizer(max_features=2500, stop_words='english')
+        X_tr = tfidf.fit_transform(df['text']).toarray()
+        X_te = tfidf.transform(df_test['text']).toarray()
         
-        # ====================================================================
-        # GERA LABELS MULTITAREFA
-        # ====================================================================
-        print("\\n2ï¸âƒ£  Gerando labels multitarefa...")
+        device = torch.device("cpu")
         
-        df['intensity'] = df.apply(lambda x: generate_intensity_from_sentiment(x['text'], x['sentiment']), axis=1)
-        df['inferred_topic'] = df['text'].apply(generate_topic_from_text)
+        # Tensores
+        X_train_t = torch.FloatTensor(X_tr).to(device)
+        y_joy_train_t = torch.FloatTensor(df['y_joy'].values).to(device)
+        y_sad_train_t = torch.FloatTensor(df['y_sad'].values).to(device)
+        y_ang_train_t = torch.FloatTensor(df['y_ang'].values).to(device)
         
-        print(f"   Intensidade: {df['intensity'].unique().tolist()}")
-        print(f"   TÃ³picos inferidos: {df['inferred_topic'].unique().tolist()}")
-        print(f"   Sentimentos: {df['sentiment'].unique().tolist()}\\n")
+        X_test_t = torch.FloatTensor(X_te).to(device)
         
-        # ====================================================================
-        # PREPARAÃ‡ÃƒO DE FEATURES
-        # ====================================================================
-        print("3ï¸âƒ£  Preparando features...")
+        dataset_train = TensorDataset(X_train_t, y_joy_train_t, y_sad_train_t, y_ang_train_t)
+        loader_train = DataLoader(dataset_train, batch_size=128, shuffle=True)
         
-        tfidf = TfidfVectorizer(max_features=1000, ngram_range=(1, 2))
-        X_tfidf = tfidf.fit_transform(df['text'])
+        input_dim = X_tr.shape[1]
         
-        # Codificadores
-        le_sentiment = LabelEncoder()
-        le_intensity = LabelEncoder()
-        le_topic = LabelEncoder()
+        # O F1 score reage melhor a variacao por conta do desbalanceamento (muitos zeros)
+        # Vamos rodar por 12 epocas para aprendizado mais solido
+        epochs = 12 
         
-        y_sentiment = le_sentiment.fit_transform(df['sentiment'])
-        y_intensity = le_intensity.fit_transform(df['intensity'])
-        y_topic = le_topic.fit_transform(df['inferred_topic'])
+        # Como o target eh 0 ou 1, e as classes sao desbalanceadas, podemos usar um peso positivo
+        # Mas para a prova matematica de conceito, BCE simples eh suficiente
+        criterion = nn.BCEWithLogitsLoss()
         
-        print(f"   Features TF-IDF: {X_tfidf.shape}")
-        print(f"   Sentiment classes: {len(le_sentiment.classes_)}")
-        print(f"   Intensity classes: {len(le_intensity.classes_)}")
-        print(f"   Topic classes: {len(le_topic.classes_)}\\n")
+        # ================================================================
+        # TREINAMENTO SINGLE-TASK
+        # ================================================================
+        print("\n[4] Treinando Modelos Single-Task (Isolados)...")
+        model_st_joy = SingleTaskModel(input_dim).to(device)
+        model_st_sad = SingleTaskModel(input_dim).to(device)
+        model_st_ang = SingleTaskModel(input_dim).to(device)
         
-        # Split
-        X_train, X_test, y_sent_train, y_sent_test, y_intens_train, y_intens_test, y_topic_train, y_topic_test = train_test_split(
-            X_tfidf, y_sentiment, y_intensity, y_topic,
-            test_size=0.2, random_state=SEED
-        )
+        opt_st_joy = optim.Adam(model_st_joy.parameters(), lr=0.001)
+        opt_st_sad = optim.Adam(model_st_sad.parameters(), lr=0.001)
+        opt_st_ang = optim.Adam(model_st_ang.parameters(), lr=0.001)
         
-        # ====================================================================
-        # MODELO 1: SINGLE-TASK (Treino independente)
-        # ====================================================================
-        print("4ï¸âƒ£  Modelo 1: Single-Task (3 modelos independentes)...")
+        for epoch in range(epochs):
+            model_st_joy.train(); model_st_sad.train(); model_st_ang.train()
+            for bx, by_j, by_s, by_a in loader_train:
+                opt_st_joy.zero_grad()
+                loss_j = criterion(model_st_joy(bx), by_j)
+                loss_j.backward()
+                opt_st_joy.step()
+                
+                opt_st_sad.zero_grad()
+                loss_s = criterion(model_st_sad(bx), by_s)
+                loss_s.backward()
+                opt_st_sad.step()
+                
+                opt_st_ang.zero_grad()
+                loss_a = criterion(model_st_ang(bx), by_a)
+                loss_a.backward()
+                opt_st_ang.step()
         
-        lr_sentiment = LogisticRegression(random_state=SEED, max_iter=200)
-        lr_intensity = LogisticRegression(random_state=SEED, max_iter=200)
-        lr_topic = LogisticRegression(random_state=SEED, max_iter=200)
+        # ================================================================
+        # TREINAMENTO MMoE MULTI-TASK
+        # ================================================================
+        print("[5] Treinando Modelo MMoE Multi-Task (Joint Loss + Gates)...")
+        model_mt = MMoE_MultiTaskModel(input_dim, num_experts=3).to(device)
+        opt_mt = optim.Adam(model_mt.parameters(), lr=0.001)
         
-        lr_sentiment.fit(X_train, y_sent_train)
-        lr_intensity.fit(X_train, y_intens_train)
-        lr_topic.fit(X_train, y_topic_train)
+        for epoch in range(epochs):
+            model_mt.train()
+            for bx, by_j, by_s, by_a in loader_train:
+                opt_mt.zero_grad()
+                out_j, out_s, out_a = model_mt(bx)
+                
+                loss_j = criterion(out_j, by_j)
+                loss_s = criterion(out_s, by_s)
+                loss_a = criterion(out_a, by_a)
+                
+                # A Multi-Task compartilha as atualizacoes dos Gradientes!
+                joint_loss = loss_j + loss_s + loss_a
+                joint_loss.backward()
+                opt_mt.step()
         
-        y_pred_sent = lr_sentiment.predict(X_test)
-        y_pred_intens = lr_intensity.predict(X_test)
-        y_pred_topic = lr_topic.predict(X_test)
+        # ================================================================
+        # AVALIACAO E COMPARACAO
+        # ================================================================
+        print("\n[6] Avaliando Resultados na Base de Teste...")
+        model_st_joy.eval(); model_st_sad.eval(); model_st_ang.eval(); model_mt.eval()
         
-        acc_sent = accuracy_score(y_sent_test, y_pred_sent)
-        acc_intens = accuracy_score(y_intens_test, y_pred_intens)
-        acc_topic = accuracy_score(y_topic_test, y_pred_topic)
-        
-        print(f"   Sentiment accuracy:  {acc_sent:.3f}")
-        print(f"   Intensity accuracy:  {acc_intens:.3f}")
-        print(f"   Topic accuracy:      {acc_topic:.3f}")
-        print(f"   Average:             {(acc_sent + acc_intens + acc_topic) / 3:.3f}\\n")
-        
-        results['task_performance']['single_task'] = {
-            'sentiment_accuracy': float(acc_sent),
-            'intensity_accuracy': float(acc_intens),
-            'topic_accuracy': float(acc_topic),
-            'average_accuracy': float((acc_sent + acc_intens + acc_topic) / 3)
-        }
-        
-        # ====================================================================
-        # MODELO 2: MULTI-TASK (Modelo compartilhado + heads especÃ­ficas)
-        # ====================================================================
-        print("5ï¸âƒ£  Modelo 2: Multi-Task (Features compartilhadas)...")
-        
-        # Cria features compartilhadas com reduÃ§Ã£o dimensional
-        # Vamos simular com feature engineering compartilhado
-        
-        # Aqui, usamos o mesmo modelo para prÃ©-processar, depois heads especÃ­ficas
-        # Em um cenÃ¡rio real, seria uma rede neural com camadas compartilhadas
-        
-        # Para simplificar e manter compatibilidade sklearn, vamos treinar um "meta-modelo"
-        # que combina as 3 tarefas
-        
-        class MultiTaskModel:
-            def __init__(self, seed=SEED):
-                self.models = {}
-                self.encoders = {}
-                self.seed = seed
+        with torch.no_grad():
+            # Predicoes Single (Sigmoid > 0.5 vira 1, senao 0)
+            pred_st_joy = (torch.sigmoid(model_st_joy(X_test_t)) > 0.5).int().numpy()
+            pred_st_sad = (torch.sigmoid(model_st_sad(X_test_t)) > 0.5).int().numpy()
+            pred_st_ang = (torch.sigmoid(model_st_ang(X_test_t)) > 0.5).int().numpy()
             
-            def fit(self, X, y_dict):
-                # y_dict = {'sentiment': y_s, 'intensity': y_i, 'topic': y_t}
-                for task_name, y_task in y_dict.items():
-                    self.models[task_name] = LogisticRegression(
-                        random_state=self.seed, max_iter=200
-                    )
-                    self.models[task_name].fit(X, y_task)
+            # Predicoes Multi
+            out_mt_j, out_mt_s, out_mt_a = model_mt(X_test_t)
+            pred_mt_joy = (torch.sigmoid(out_mt_j) > 0.5).int().numpy()
+            pred_mt_sad = (torch.sigmoid(out_mt_s) > 0.5).int().numpy()
+            pred_mt_ang = (torch.sigmoid(out_mt_a) > 0.5).int().numpy()
             
-            def predict_all(self, X):
-                predictions = {}
-                for task_name, model in self.models.items():
-                    predictions[task_name] = model.predict(X)
-                return predictions
+        y_test_joy = df_test['y_joy'].values
+        y_test_sad = df_test['y_sad'].values
+        y_test_ang = df_test['y_ang'].values
         
-        mt_model = MultiTaskModel(seed=SEED)
-        mt_model.fit(X_train, {
-            'sentiment': y_sent_train,
-            'intensity': y_intens_train,
-            'topic': y_topic_train
+        # Por causa do desbalanceamento forte de emocoes minoritarias, F1-Score Macro eh a metrica ouro
+        f1_st_joy = f1_score(y_test_joy, pred_st_joy, average='macro')
+        f1_st_sad = f1_score(y_test_sad, pred_st_sad, average='macro')
+        f1_st_ang = f1_score(y_test_ang, pred_st_ang, average='macro')
+        avg_st = (f1_st_joy + f1_st_sad + f1_st_ang) / 3
+        
+        f1_mt_joy = f1_score(y_test_joy, pred_mt_joy, average='macro')
+        f1_mt_sad = f1_score(y_test_sad, pred_mt_sad, average='macro')
+        f1_mt_ang = f1_score(y_test_ang, pred_mt_ang, average='macro')
+        avg_mt = (f1_mt_joy + f1_mt_sad + f1_mt_ang) / 3
+        
+        improvement = ((avg_mt - avg_st) / avg_st) * 100
+        
+        print("\n--- SINGLE-TASK (F1-Score Macro) ---")
+        print(f"Alegria: {f1_st_joy:.4f} | Tristeza: {f1_st_sad:.4f} | Raiva: {f1_st_ang:.4f}")
+        print(f"Media: {avg_st:.4f}")
+        
+        print("\n--- MMoE MULTI-TASK (F1-Score Macro) ---")
+        print(f"Alegria: {f1_mt_joy:.4f} | Tristeza: {f1_mt_sad:.4f} | Raiva: {f1_mt_ang:.4f}")
+        print(f"Media: {avg_mt:.4f}")
+        
+        print(f"\n[!] GANHO DO MMoE: {improvement:+.2f}%")
+        
+        mlflow.log_params({
+            "dataset": "go_emotions (20k amostras)",
+            "epochs": epochs,
+            "architecture": "MMoE",
+            "num_experts": 3
         })
         
-        mt_preds = mt_model.predict_all(X_test)
+        mlflow.log_metrics({
+            "single_task_avg_f1": avg_st,
+            "mmoe_avg_f1": avg_mt,
+            "improvement_pct": improvement
+        })
         
-        mt_acc_sent = accuracy_score(y_sent_test, mt_preds['sentiment'])
-        mt_acc_intens = accuracy_score(y_intens_test, mt_preds['intensity'])
-        mt_acc_topic = accuracy_score(y_topic_test, mt_preds['topic'])
+        mlflow.pytorch.log_model(model_mt, "mmoe_model_real_dataset_pytorch")
         
-        print(f"   Sentiment accuracy:  {mt_acc_sent:.3f}")
-        print(f"   Intensity accuracy:  {mt_acc_intens:.3f}")
-        print(f"   Topic accuracy:      {mt_acc_topic:.3f}")
-        print(f"   Average:             {(mt_acc_sent + mt_acc_intens + mt_acc_topic) / 3:.3f}\\n")
-        
-        results['task_performance']['multi_task'] = {
-            'sentiment_accuracy': float(mt_acc_sent),
-            'intensity_accuracy': float(mt_acc_intens),
-            'topic_accuracy': float(mt_acc_topic),
-            'average_accuracy': float((mt_acc_sent + mt_acc_intens + mt_acc_topic) / 3)
-        }
-        
-        # ====================================================================
-        # COMPARAÃ‡ÃƒO
-        # ====================================================================
-        print("6ï¸âƒ£  ComparaÃ§Ã£o de Performance...")
-        
-        single_task_avg = (acc_sent + acc_intens + acc_topic) / 3
-        multi_task_avg = (mt_acc_sent + mt_acc_intens + mt_acc_topic) / 3
-        
-        improvement = ((multi_task_avg - single_task_avg) / single_task_avg) * 100
-        
-        print(f"   Single-Task Average: {single_task_avg:.3f}")
-        print(f"   Multi-Task Average:  {multi_task_avg:.3f}")
-        print(f"   Improvement:         {improvement:+.1f}% {'âœ…' if improvement >= 0 else 'âŒ'}\\n")
-        
-        results['comparison'] = {
-            'single_task_avg': float(single_task_avg),
-            'multi_task_avg': float(multi_task_avg),
-            'improvement_pct': float(improvement)
-        }
-        
-        # ====================================================================
-        # SALVA RESULTADOS
-        # ====================================================================
-        output_dir = BASE_DIR / "artifacts" / "multitask_learning"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        results_file = output_dir / f"multitask_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(results_file, 'w') as f:
-            json.dump(results, f, indent=2)
-        
-        print(f"âœ… Resultados salvos: {results_file}")
-        
-        # MLflow logging
-        mlflow.log_param("seed", SEED)
-        mlflow.log_param("dataset_size", len(df))
-        mlflow.log_metric("single_task_avg", single_task_avg)
-        mlflow.log_metric("multi_task_avg", multi_task_avg)
-        mlflow.log_metric("improvement_pct", improvement)
-        mlflow.log_artifact(str(results_file))
-        
-        print("\\n" + "="*80)
-        print("âœ… EXPERIMENTO 7 CONCLUÃDO - Multi-Task Learning")
-        print("="*80 + "\\n")
-        
-        return results
+        print("\n[OK] MLOps concluido. O dataset real e as metricas estao salvas no DagsHub!")
 
 if __name__ == "__main__":
-    run_multitask_learning()
-
+    run_experiment()
