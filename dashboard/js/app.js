@@ -280,17 +280,17 @@ const App = (() => {
     // --- Series Temporais e Forecast ---
     {
       id: 20,
-      title: 'Time Series - Prophet (Temperatura)',
+      title: 'Time Series - Prophet V2 (Optuna)',
       category: 'timeseries',
       categoryLabel: 'Series Temporais e Forecast',
       status: 'completed',
-      description: 'Previsao de temperaturas diarias usando Facebook Prophet. Captura automatica de sazonalidades diaria, semanal e anual.',
-      techniques: ['Prophet', 'Seasonality', 'Time Series'],
-      metric: null,
+      description: 'Previsao de temperaturas diarias com Prophet submetido a Busca Bayesiana (Optuna) para otimizar changepoint e sazonalidade minimizando o MAE em Cross Validation.',
+      techniques: ['Prophet', 'Optuna', 'Bayesian Optimization', 'Cross Validation', 'MLflow'],
+      metric: { label: 'MAE CV', value: '2.195', percent: 85 },
       script: 'experiments/exp2_time_series.py',
-      models: ['Facebook Prophet'],
+      models: ['Prophet (Optuna-optimized)'],
       dataset: 'Daily Minimum Temperatures',
-      details: 'Prophet excelente para capturar sazonalidades de forma automatica e robusta a feriados.'
+      details: 'Evolucao para a versao V2 usando Optuna com 10 trials avaliando metricas em tempo cruzado (Time Series CV). Modelo logado nativamente usando os flavors do MLflow. Melhor hiperparametro de sazonalidade: multiplicative.'
     },
     {
       id: 21,

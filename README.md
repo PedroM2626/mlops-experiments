@@ -113,9 +113,9 @@ Explorei diferentes abordagens para predição de dados temporais, desde modelos
 
 ### 🧠 Principais Aprendizados e Descobertas (Time Series)
 
-#### 1. Prophet vs Gradient Boosting
-- No experimento [exp2_time_series.py](experiments/exp2_time_series.py), utilizei o **Prophet** (Meta) para prever temperaturas diárias. O Prophet é excelente para capturar sazonalidades (diária, semanal, anual) de forma automática e robusta a feriados.
-- Já no projeto [Sales Forecast](experiments/sales-forecast), o foco foi no **LightGBM** com **Optuna**. Aprendi que para séries temporais com muitas features externas, o Gradient Boosting com lags manuais e janelas móveis tende a ser mais preciso que modelos puramente estatísticos.
+#### 1. Evolução do Prophet e Optuna
+- No experimento [exp2_time_series.py](experiments/exp2_time_series.py), o modelo **Prophet** (Meta) evoluiu para uma arquitetura V2. Introduzimos a **Busca Bayesiana (Optuna)** para sintonizar a flexibilidade da tendência (`changepoint_prior_scale`) e a força da sazonalidade (`seasonality_prior_scale`), guiado pela métrica de erro (MAE) extraída via **Time Series Cross-Validation**.
+- O Prophet validado e otimizado via Optuna demonstra agora uma forte reprodutibilidade. Além de prever sazonalidades de forma automática, a busca do melhor hiperparâmetro (como `multiplicative` para o seasonality mode) garantiu um MAE Cross-Validated próximo a ~2.19, superior às configurações default do modelo em casos complexos de ruído diário.
 
 #### 2. Evolução de Performance no Sales Forecast (V2 -> V2.1 -> V2.2)
 A solução de previsão de vendas semanais por ponto de venda (PDV) evoluiu significativamente através de um pipeline robusto de MLOps:
