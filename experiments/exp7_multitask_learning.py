@@ -124,7 +124,7 @@ def run_experiment():
         
         print("[2] Extraindo Features com TF-IDF (CPU)...")
         # Usaremos TF-IDF para simplificar a etapa de extracao de features (Reversao Arquitetural)
-        vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+        vectorizer = TfidfVectorizer(max_features=15000, stop_words='english')
         X_tr = vectorizer.fit_transform(df['text']).toarray()
         X_te = vectorizer.transform(df_test['text']).toarray()
         
