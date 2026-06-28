@@ -254,14 +254,14 @@ const App = (() => {
       title: 'Multi-Task Learning',
       category: 'nlp-classification',
       categoryLabel: 'NLP - Classificacao e Extracao',
-      status: 'blocked',
-      description: 'Aprendizado multi-tarefa combinando classificacao de sentimento, predicao de intensidade e classificacao de topicos em uma unica rede.',
-      techniques: ['Multi-Task', 'Sentiment', 'Intensity Prediction', 'Topic Classification'],
-      metric: null,
-      script: 'experiments/exp7_multitask_learning.py',
-      models: ['Multi-Task Neural Network'],
+      status: 'success',
+      description: 'Aprendizado multi-tarefa combinando classificacao de sentimento, predicao de intensidade e classificacao de topicos em uma unica rede MMoE. Inclui benchmark Clássico vs Deep Learning.',
+      techniques: ['Multi-Task', 'Sentiment', 'Extra Trees', 'LightGBM', 'LinearSVC'],
+      metric: '0.9643 F1',
+      script: 'experiments/nlp-multi-task-classification.ipynb',
+      models: ['MMoE Neural Network', 'Extra Trees Classifier'],
       dataset: 'Multi-label Dataset',
-      details: 'Bloqueado por erros de sintaxe (escape sequences). 3 tarefas simultaneas.'
+      details: 'Superou a baseline de Single-Task quebrando a barreira de 0.95 com TF-IDF de 15.000 features. Extra Trees (Machine Learning Classico) bateu todas as redes neurais atingindo F1=0.9643.'
     },
     {
       id: 19,
