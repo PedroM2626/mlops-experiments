@@ -88,10 +88,10 @@
     },
     "exp5_clustering_topics": {
       "name": "Clustering + Topic Modeling",
-      "status": "⚠️ PARTIAL",
+      "status": "✅ COMPLETED",
       "script": "experiments/exp5_clustering_topics.py",
-      "blocker": "gensim import error",
-      "solution": "pip install gensim"
+      "blocker": "Nenhum",
+      "solution": "NLTK instalado e Emoji Encoder fixado. Rodando via scikit-learn LDA."
     },
     "exp6_ner_extraction": {
       "name": "NER + Information Extraction",

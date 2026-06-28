@@ -121,7 +121,7 @@ def run_clustering_topic_pipeline():
     """Executa pipeline de clustering + análise de tópicos."""
     
     print("\n" + "="*80)
-    print("🔍 EXPERIMENTO 5: CLUSTERING + ANÁLISE DE TÓPICOS (SENTI-PRED)")
+    print(" EXPERIMENTO 5: CLUSTERING + ANÁLISE DE TÓPICOS (SENTI-PRED)")
     print("="*80 + "\n")
     
     mlflow.set_experiment("Clustering_Topic_Analysis")
@@ -173,83 +173,82 @@ def run_clustering_topic_pipeline():
         # ====================================================================
         # CLUSTERING COM K-MEANS
         # ====================================================================
-        print("3️⃣  Clustering com K-Means...")
+        # ====================================================================
+        # CLUSTERING COM UMAP E HDBSCAN (SOTA)
+        # ====================================================================
+        print("3️⃣  Clustering com UMAP + HDBSCAN...")
         
-        # TF-IDF Vectorization
-        vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
-        X_tfidf = vectorizer.fit_transform(df['text_cleaned'])
+        from sentence_transformers import SentenceTransformer
+        import umap
+        import hdbscan
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.metrics import silhouette_score
         
-        # Determina número ótimo de clusters (Elbow Method)
-        inertias = []
-        silhouette_scores = []
-        K_range = range(2, 7)
+        print("   Gerando Embeddings Densos com all-MiniLM-L6-v2...")
+        model_sbert = SentenceTransformer('all-MiniLM-L6-v2')
+        X_dense = model_sbert.encode(df['text_cleaned'].tolist())
         
-        for k in K_range:
-            kmeans = KMeans(n_clusters=k, random_state=SEED, n_init=10)
-            kmeans.fit(X_tfidf)
-            inertias.append(kmeans.inertia_)
-            silhouette_scores.append(
-                silhouette_score(
-                    X_tfidf,
-                    kmeans.labels_,
-                    sample_size=min(250, X_tfidf.shape[0]),
-                    random_state=SEED
-                )
-            )
-            print(f"   K={k}: Inertia={kmeans.inertia_:.2f}, Silhouette={silhouette_scores[-1]:.3f}")
+        print("   Reduzindo dimensionalidade com UMAP...")
+        umap_model = umap.UMAP(n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine', random_state=SEED)
+        X_umap = umap_model.fit_transform(X_dense)
         
-        # Seleciona K com melhor silhouette
-        best_k = K_range[np.argmax(silhouette_scores)]
-        print(f"\n   ✅ K ótimo: {best_k} (Silhouette={max(silhouette_scores):.3f})\n")
+        print("   Clusterizando com HDBSCAN...")
+        hdbscan_model = hdbscan.HDBSCAN(min_cluster_size=10, min_samples=5, metric='euclidean', cluster_selection_method='eom')
+        df['cluster'] = hdbscan_model.fit_predict(X_umap)
         
-        kmeans_final = KMeans(n_clusters=best_k, random_state=SEED, n_init=10)
-        df['cluster'] = kmeans_final.fit_predict(X_tfidf)
+        n_clusters = len(set(df['cluster'])) - (1 if -1 in df['cluster'] else 0)
+        n_noise = list(df['cluster']).count(-1)
         
-        results['clustering']['optimal_k'] = int(best_k)
-        results['clustering']['silhouette_score'] = float(max(silhouette_scores))
-        results['clustering']['davies_bouldin_index'] = float(davies_bouldin_score(X_tfidf.toarray(), df['cluster']))
+        print(f"   ✅ Clusters encontrados: {n_clusters}")
+        print(f"   ⚠️  Tweets classificados como ruído (-1): {n_noise} de {len(df)}")
+        
+        try:
+            sil_score = silhouette_score(X_umap[df['cluster'] != -1], df['cluster'][df['cluster'] != -1], random_state=SEED)
+        except ValueError:
+            sil_score = 0.0
+            
+        print(f"   Silhouette Score (sem ruído): {sil_score:.3f}\n")
+        
+        results['clustering']['optimal_k'] = n_clusters
+        results['clustering']['silhouette_score'] = float(sil_score)
+        results['clustering']['noise_points'] = n_noise
         results['clustering']['cluster_distribution'] = df['cluster'].value_counts().to_dict()
         
         # ====================================================================
-        # TOPIC MODELING COM LDA
+        # EXTRAÇÃO DE TÓPICOS (c-TF-IDF simplificado)
         # ====================================================================
-        print("4️⃣  Topic Modeling com LDA...")
+        print("4️⃣  Extraindo Tópicos dos Clusters...")
         
-        # LDA com scikit-learn para evitar dependência externa
-        n_topics = 5
-        count_vectorizer = CountVectorizer(max_features=5000)
-        X_counts = count_vectorizer.fit_transform(df['tokens'].apply(lambda tokens: ' '.join(tokens)))
-        lda_model = LatentDirichletAllocation(
-            n_components=n_topics,
-            random_state=SEED,
-            learning_method='batch'
-        )
-        doc_topic_matrix = lda_model.fit_transform(X_counts)
-        perplexity_score = lda_model.perplexity(X_counts)
-
-        print(f"   Perplexidade: {perplexity_score:.3f}")
-        print(f"   Tópicos identificados: {n_topics}\n")
-        
-        # Extrai tópicos principais
         topics_info = {}
-        feature_names = count_vectorizer.get_feature_names_out()
-        for idx, topic_weights in enumerate(lda_model.components_):
-            top_indices = topic_weights.argsort()[-10:][::-1]
-            topic_terms = [feature_names[i] for i in top_indices]
-            topic_text = ', '.join(topic_terms)
-            topics_info[f"topic_{idx}"] = topic_text
-            print(f"   Tópico {idx}: {topic_text[:100]}...")
+        for cluster_id in sorted(df['cluster'].unique()):
+            if cluster_id == -1:
+                continue
+            
+            cluster_texts = df[df['cluster'] == cluster_id]['text_cleaned']
+            
+            if len(cluster_texts) > 0:
+                vectorizer = TfidfVectorizer(max_features=10, stop_words='english')
+                try:
+                    tfidf_matrix = vectorizer.fit_transform(cluster_texts)
+                    feature_names = vectorizer.get_feature_names_out()
+                    word_scores = tfidf_matrix.sum(axis=0).A1
+                    top_indices = word_scores.argsort()[-10:][::-1]
+                    topic_terms = [feature_names[i] for i in top_indices]
+                    topic_text = ', '.join(topic_terms)
+                except ValueError:
+                    topic_text = "Sem palavras suficientes"
+            else:
+                topic_text = "Cluster Vazio"
+                
+            topics_info[f"topic_{cluster_id}"] = topic_text
+            print(f"   Cluster {cluster_id}: {topic_text[:100]}...")
+            
+        df['topic_lda'] = df['cluster']
         
-        df['topic_lda'] = doc_topic_matrix.argmax(axis=1)
-        
-        results['topic_modeling']['num_topics'] = n_topics
-        results['topic_modeling']['perplexity_score'] = float(perplexity_score)
+        results['topic_modeling']['num_topics'] = n_clusters
         results['topic_modeling']['topics'] = topics_info
         results['topic_modeling']['topics_distribution'] = df['topic_lda'].value_counts().to_dict()
         
-        # ====================================================================
-        # ANÁLISE DE SENTIMENTO POR TÓPICO/CLUSTER
-        # ====================================================================
         print("5️⃣  Análise de Sentimento por Tópico...")
         
         # Prepara labels
@@ -310,12 +309,6 @@ def run_clustering_topic_pipeline():
         
         print(f"✅ Resultados salvos: {results_file}")
         
-        # Salva modelo LDA
-        lda_file = output_dir / f"lda_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl"
-        with open(lda_file, 'wb') as f:
-            pickle.dump(lda_model, f)
-        print(f"✅ Modelo LDA salvo: {lda_file}")
-        
         # Salva dataframe anotado
         df_output = output_dir / f"tweets_annotated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         df[['text', 'sentiment', 'cluster', 'topic_lda', 'sentiment_pred_str']].to_csv(df_output, index=False)
@@ -323,14 +316,11 @@ def run_clustering_topic_pipeline():
         
         # MLflow logging
         mlflow.log_param("seed", SEED)
-        mlflow.log_param("num_topics", n_topics)
-        mlflow.log_param("optimal_clusters", best_k)
-        mlflow.log_metric("perplexity_score", perplexity_score)
-        mlflow.log_metric("silhouette_score", max(silhouette_scores))
-        mlflow.log_metric("davies_bouldin_index", davies_bouldin_score(X_tfidf.toarray(), df['cluster']))
+        mlflow.log_param("num_topics", n_clusters)
+        mlflow.log_param("optimal_clusters", n_clusters)
+        mlflow.log_metric("silhouette_score", float(sil_score))
+        mlflow.log_metric("noise_points", n_noise)
         mlflow.log_artifact(str(results_file))
-        mlflow.log_artifact(str(lda_file))
-        
         print("="*80)
         print("✅ EXPERIMENTO 5 CONCLUÍDO - Clustering + Tópicos")
         print("="*80 + "\n")
