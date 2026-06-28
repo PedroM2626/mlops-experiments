@@ -1,0 +1,121 @@
+{
+  "dataset_info": {
+    "total_tweets": 500,
+    "unique_topics": 32,
+    "topics": [
+      "Fortnite",
+      "CS-GO",
+      "HomeDepot",
+      "Overwatch",
+      "Borderlands",
+      "TomClancysRainbowSix",
+      "Battlefield",
+      "RedDeadRedemption(RDR)",
+      "Google",
+      "GrandTheftAuto(GTA)",
+      "CallOfDutyBlackopsColdWar",
+      "Verizon",
+      "NBA2K",
+      "CallOfDuty",
+      "AssassinsCreed",
+      "LeagueOfLegends",
+      "Amazon",
+      "johnson&johnson",
+      "Cyberpunk2077",
+      "PlayStation5(PS5)",
+      "WorldOfCraft",
+      "Hearthstone",
+      "PlayerUnknownsBattlegrounds(PUBG)",
+      "Nvidia",
+      "FIFA",
+      "Microsoft",
+      "Xbox(Xseries)",
+      "Dota2",
+      "ApexLegends",
+      "MaddenNFL",
+      "TomClancysGhostRecon",
+      "Facebook"
+    ],
+    "unique_sentiments": 4,
+    "sentiments": [
+      "Irrelevant",
+      "Positive",
+      "Negative",
+      "Neutral"
+    ]
+  },
+  "preprocessing": {
+    "tweets_after_cleaning": 478,
+    "avg_tokens": 10.232217573221757
+  },
+  "clustering": {
+    "optimal_k": 2,
+    "silhouette_score": 0.47395265102386475,
+    "noise_points": 0,
+    "cluster_distribution": {
+      "1": 468,
+      "0": 10
+    }
+  },
+  "topic_modeling": {
+    "num_topics": 2,
+    "topics": {
+      "topic_0": "unk, yasss, snarly, shot, meters, annoying, tho, morning, looking, lit",
+      "topic_1": "game, just, im, good, like, play, great, love, playing, rhandlerr"
+    },
+    "topics_distribution": {
+      "1": 468,
+      "0": 10
+    }
+  },
+  "sentiment_analysis": {
+    "by_cluster": [
+      {
+        "cluster_id": 0,
+        "size": 10,
+        "sentiments": {
+          "Positive": 6,
+          "Negative": 2,
+          "Irrelevant": 1,
+          "Neutral": 1
+        },
+        "top_words": "ezio forever heart morning looking kinda lit tho unk unk yasss excellent snarly behavior unk unk unk unk unk shot"
+      },
+      {
+        "cluster_id": 1,
+        "size": 468,
+        "sentiments": {
+          "Negative": 149,
+          "Positive": 140,
+          "Neutral": 98,
+          "Irrelevant": 81
+        },
+        "top_words": "said told getting box brain dead controller player look lit overwatch combo attention executive administrator ever store getting big delivery"
+      }
+    ],
+    "by_topic": [
+      {
+        "topic_id": 0,
+        "size": 10,
+        "sentiments": {
+          "Positive": 6,
+          "Negative": 2,
+          "Irrelevant": 1,
+          "Neutral": 1
+        },
+        "top_words": "ezio forever heart morning looking kinda lit tho unk unk yasss excellent snarly behavior unk unk unk unk unk shot"
+      },
+      {
+        "topic_id": 1,
+        "size": 468,
+        "sentiments": {
+          "Negative": 149,
+          "Positive": 140,
+          "Neutral": 98,
+          "Irrelevant": 81
+        },
+        "top_words": "said told getting box brain dead controller player look lit overwatch combo attention executive administrator ever store getting big delivery"
+      }
+    ]
+  }
+}
