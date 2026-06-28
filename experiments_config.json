@@ -107,11 +107,11 @@
         "PERCENT"
       ]
     },
-    "exp7_multitask_learning": {
+    "mmoe_emotion_classifier": {
       "name": "Multi-Task Learning",
-      "status": "❌ BLOCKED",
-      "script": "experiments/exp7_multitask_learning.py",
-      "blocker": "Syntax errors - escape sequences",
+      "status": "✅ SUCESSO",
+      "script": "experiments/nlp-multi-task-classification.ipynb",
+      "blocker": "Nenhum",
       "tasks": [
         "Sentiment Classification",
         "Intensity Prediction",
