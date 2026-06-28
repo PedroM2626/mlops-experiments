@@ -34,6 +34,11 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 
+# Advanced Clustering (UMAP + HDBSCAN)
+from sentence_transformers import SentenceTransformer
+import umap
+import hdbscan
+
 # Sentiment Analysis
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -178,11 +183,7 @@ def run_clustering_topic_pipeline():
         # ====================================================================
         print("3️⃣  Clustering com UMAP + HDBSCAN...")
         
-        from sentence_transformers import SentenceTransformer
-        import umap
-        import hdbscan
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        from sklearn.metrics import silhouette_score
+
         
         print("   Gerando Embeddings Densos com all-MiniLM-L6-v2...")
         model_sbert = SentenceTransformer('all-MiniLM-L6-v2')
