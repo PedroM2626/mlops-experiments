@@ -596,6 +596,149 @@ Após atingir R²=0.9489 na v2, investigou-se se técnicas mais avançadas poder
 
 ---
 
+## 🖥️ Experimentos Locais — Equivalentes Open-Source (Watsonx & Databricks)
+
+Esta seção documenta os notebooks equivalentes que replicam a funcionalidade do IBM Watsonx AutoAI e Databricks AutoML utilizando ferramentas 100% open-source que rodam localmente, sem necessidade de credenciais cloud.
+
+### Motivação
+
+Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databricks (`experiments/databricks-forecast/`) dependem de plataformas cloud pagas. Para viabilizar o aprendizado e a experimentação local, criamos equivalentes funcionais:
+
+| Plataforma Original | Limitação | Equivalente Local |
+|---|---|---|
+| IBM Watsonx AutoAI | Requer API key IBM Cloud | FLAML + TPOT + scikit-learn |
+| IBM autoai-ts-libs | Requer Watsonx.ai Runtime | Prophet + LightGBM + Optuna |
+| Databricks AutoML | Requer workspace Databricks | Prophet + GluonTS (DeepAR) |
+| Hyperopt + SparkTrials | Requer cluster Spark | Optuna (single-machine) |
+| MLflow Databricks | Requer workspace cloud | MLflow local |
+
+### Notebooks Criados
+
+#### 1. [ibm-watsonx-local-automl.ipynb](experiments/ibm-watsonx-local-automl.ipynb)
+
+**Equivalente ao:** `Boston Housing Price Prediction.ipynb` do Watsonx
+
+**Objetivo:** Reproduzir o pipeline AutoAI de regressão utilizando frameworks open-source.
+
+**Métodos comparados:**
+- Baselines individuais (Ridge, Lasso, ElasticNet, Random Forest, Extra Trees, Gradient Boosting, AdaBoost, SVR)
+- FLAML AutoML (Microsoft) — Cost-Aware Bayesian Optimization
+- TPOT — Algoritmos Genéticos para pipeline optimization
+
+**Resultados (Boston Housing, holdout 10%):**
+
+| Método | Tipo | RMSE | MAE | R² | Tempo (s) |
+|---|---|---|---|---|---|
+| Gradient Boosting | Modelo Individual | 2.2521 | 1.7832 | 0.9188 | 2.40 |
+| Extra Trees | Modelo Individual | 2.3333 | 1.7463 | 0.9128 | 2.89 |
+| FLAML (LGBM) | AutoML (Bayesian) | 2.5616 | 1.8586 | 0.8949 | 120.33 |
+| TPOT (DecisionTree) | AutoML (Genético) | 4.6700 | 2.2737 | 0.6507 | 71.18 |
+
+**Conclusão:** O Gradient Boosting simples superou ambos os AutoML frameworks neste dataset pequeno (506 amostras). Isso demonstra que, para datasets pequenos, modelos individuais bem tunados podem ser superiores ao AutoML.
+
+#### 2. [ibm-watsonx-local-timeseries.ipynb](experiments/ibm-watsonx-local-timeseries.ipynb)
+
+**Equivalente ao:** `Electric_Production.ipynb` do Watsonx
+
+**Objetivo:** Reproduzir o pipeline AutoAI de séries temporais utilizando Prophet e LightGBM.
+
+**Métodos comparados:**
+- Prophet (Meta) baseline
+- Prophet + Optuna (tuning bayesiano)
+- LightGBM com features temporais (lags, rolling windows, features cíclicas)
+
+**Resultados (Produção Elétrica, holdout 20 meses):**
+
+| Método | RMSE | MAE | MAPE | Tempo (s) |
+|---|---|---|---|---|
+| Prophet + Optuna | 3.6083 | 3.2324 | 4.03% | 27.74 |
+| Prophet (baseline) | 3.6134 | 3.2375 | 4.04% | 0.48 |
+| LightGBM (features temporais) | 4.3032 | 3.5180 | 4.30% | 0.16 |
+
+**Conclusão:** O Prophet (com ou sem tuning) superou o LightGBM para esta série temporal com sazonalidade clara. O tuning com Optuna trouxe melhoria marginal (+0.03% MAPE), indicando que o Prophet com configurações padrão já é robusto para séries com sazonalidade bem definida.
+
+#### 3. [databricks-forecast-local-equivalent.ipynb](experiments/databricks-forecast-local-equivalent.ipynb)
+
+**Equivalente ao:** `26-01-30-12_17-Prophet-*.ipynb` e `26-01-30-12_17-DeepAR-*.ipynb` do Databricks
+
+**Objetivo:** Reproduzir o pipeline de forecasting do Databricks AutoML utilizando Prophet e GluonTS (DeepAR).
+
+**Métodos comparados:**
+- Prophet (Meta) baseline
+- Prophet + Optuna (equivalente ao ProphetHyperoptEstimator do Databricks)
+- DeepAR via GluonTS + PyTorch (equivalente ao DeepAREstimator do Databricks)
+
+**Resultados (Vendas Sintéticas, holdout 14 dias):**
+
+| Método | RMSE | MAE | sMAPE | Tempo (s) |
+|---|---|---|---|---|
+| Prophet + Optuna | 7.6929 | 6.5698 | 5.89% | 14.84 |
+| Prophet (baseline) | 8.0511 | 7.2206 | 6.39% | 0.17 |
+
+**Conclusão:** O Prophet com tuning via Optuna reduziu o sMAPE em 7.8% (de 6.39% para 5.89%). O DeepAR não foi executado nesta versão devido a limitações de compatibilidade do GluonTS com Python 3.8, mas o notebook está preparado para executá-lo em ambientes com Python 3.10+.
+
+### Como Executar
+
+```bash
+# Navegar até a pasta de experimentos
+cd D:\mlops-experiments\experiments
+
+# Executar notebook Watsonx AutoML Local
+jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb --output ibm-watsonx-local-automl-executed.ipynb
+
+# Executar notebook Watsonx Time Series Local
+jupyter nbconvert --to notebook --execute ibm-watsonx-local-timeseries.ipynb --output ibm-watsonx-local-timeseries-executed.ipynb
+
+# Executar notebook Databricks Forecast Local
+jupyter nbconvert --to notebook --execute databricks-forecast-local-equivalent.ipynb --output databricks-forecast-local-equivalent-executed.ipynb
+
+# Visualizar resultados no MLflow
+mlflow ui
+```
+
+### Dependências
+
+Os notebooks utilizam as seguintes bibliotecas (todas open-source):
+
+```
+# AutoML
+flaml>=2.3.0
+tpot>=0.12.0
+
+# Time Series
+prophet>=1.3.0
+gluonts[torch]>=0.16.0
+lightgbm>=4.0.0
+
+# Otimização
+optuna>=4.5.0
+
+# Tracking
+mlflow>=2.17.0
+
+# Core
+scikit-learn>=1.3.0
+pandas>=1.5.0
+numpy>=1.25.0
+matplotlib>=3.6.0
+seaborn>=0.13.0
+```
+
+### Tabela de Equivalência Completa
+
+| Funcionalidade | Watsonx | Databricks | Equivalente Local |
+|---|---|---|---|
+| AutoML Regressão | AutoAI | AutoML | FLAML / TPOT |
+| AutoML Classificação | AutoAI | AutoML | FLAML / TPOT |
+| Forecast Estatístico | autoai-ts-libs | Prophet | Prophet (Meta) |
+| Forecast Deep Learning | autoai-ts-libs | DeepAR | GluonTS (DeepAR) |
+| Tuning Hiperparâmetros | AutoAI (interno) | Hyperopt | Optuna |
+| Tracking MLflow | Watsonx Studio | Databricks MLflow | MLflow local |
+| Deploy REST API | Watsonx Deployment | Databricks Serving | Flask / FastAPI |
+| Feature Engineering | AutoAI (automático) | AutoML (automático) | Manual (scikit-learn) |
+
+---
+
 ## 🚀 Conclusão Final: A Performance é Sistêmica
 
 Após dezenas de experimentos, a maior lição é que a métrica final não é um mérito exclusivo do algoritmo escolhido.
