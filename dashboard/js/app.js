@@ -12,90 +12,6 @@ const App = (() => {
     // --- NLP - Analise de Sentimento (Senti-Pred) ---
     {
       id: 1,
-      title: 'Senti-Pred Baseline (RoBERTa)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Primeiro experimento usando Transformer pre-treinado (RoBERTa) para classificacao de sentimentos em tweets. Amostragem de apenas 1k linhas demonstrou as limitacoes de modelos grandes com poucos dados.',
-      techniques: ['RoBERTa', 'Transformer', 'Fine-tuning', 'Transfer Learning'],
-      metric: { label: 'F1-Macro', value: '~60%', percent: 60 },
-      script: 'experiments/senti-pred-variations/senti-pred-exp1/',
-      models: ['RoBERTa (Pre-trained)'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Lento e com pouco dado para o modelo. Demonstrou que Transformers exigem hardware e dados massivos.'
-    },
-    {
-      id: 2,
-      title: 'Senti-Pred Classic (Logistic Regression)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Salto enorme usando o dataset completo com TF-IDF e Logistic Regression. Primeiro modelo robusto com o dataset total.',
-      techniques: ['TF-IDF', 'Logistic Regression', 'N-grams'],
-      metric: { label: 'Accuracy', value: '87.2%', percent: 87.2 },
-      script: 'experiments/senti-pred-variations/Senti-Pred-Remake/tran_classic.py',
-      models: ['Logistic Regression'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'TF-IDF com 10k features. Primeiro modelo robusto treinado no dataset completo.'
-    },
-    {
-      id: 3,
-      title: 'Senti-Pred Optimized (LR + Regex)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'O poder da limpeza de texto (noise removal). Salto de 87% para 95% apenas com melhor pre-processamento usando Regex.',
-      techniques: ['TF-IDF', 'Logistic Regression', 'Regex Cleaning', 'Noise Removal'],
-      metric: { label: 'Accuracy', value: '95.3%', percent: 95.3 },
-      script: 'experiments/senti-pred-variations/Senti-Pred-Remake/train_optimized.py',
-      models: ['Logistic Regression'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'TF-IDF com 20k features + limpeza de texto com Regex (URLs, mencoes, caracteres repetidos).'
-    },
-    {
-      id: 4,
-      title: 'Senti-Pred Ultimate (Passive Aggressive)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Algoritmo mais agressivo para correcao de erros. Foco em correcao agressiva de erros de classificacao com Passive Aggressive Classifier.',
-      techniques: ['TF-IDF', 'Passive Aggressive', 'Char Repetition Fix'],
-      metric: { label: 'Accuracy', value: '97.0%', percent: 97.0 },
-      script: 'experiments/senti-pred-variations/Senti-Pred-Remake/train_ultimate.py',
-      models: ['Passive Aggressive Classifier'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'TF-IDF com 40k features + correcao de caracteres repetidos ("loooove" -> "love").'
-    },
-    {
-      id: 5,
-      title: 'Senti-Pred God Mode (Voting Ensemble)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Recorde do Remake 1. Voting Classifier combinando Passive Aggressive e Logistic Regression eliminou erros individuais com "democracia" entre modelos.',
-      techniques: ['TF-IDF', 'Voting Ensemble', 'Passive Aggressive', 'LogReg'],
-      metric: { label: 'Accuracy', value: '97.5%', percent: 97.5 },
-      script: 'experiments/senti-pred-variations/Senti-Pred-Remake/train_god_mode.py',
-      models: ['Voting Classifier (PA + LR)'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'TF-IDF com 50k features + preservacao de pontuacao emocional (!, ?). Recorde consolidado do Remake 1.'
-    },
-    {
-      id: 6,
-      title: 'Senti-Pred Insane (Stacking)',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Queda por overfitting. Stacking Classifier com Chi2 Feature Selection mostrou que excesso de complexidade reduz performance.',
-      techniques: ['TF-IDF', 'Stacking Classifier', 'Chi2', 'Feature Selection'],
-      metric: { label: 'Accuracy', value: '96.2%', percent: 96.2 },
-      script: 'experiments/senti-pred-variations/Senti-Pred-Remake/train_insane_mode.py',
-      models: ['Stacking Classifier'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Overfitting leve. Demonstrou que a complexidade nem sempre significa melhora.'
-    },
-    {
-      id: 7,
       title: 'Senti-Pred Remake2 (Recorde Absoluto)',
       category: 'nlp-sentiment',
       categoryLabel: 'NLP - Analise de Sentimento',
@@ -109,77 +25,7 @@ const App = (() => {
       details: 'Recorde absoluto do projeto inteiro. 100k features com 4-grams para capturar nuances.'
     },
     {
-      id: 8,
-      title: 'MultinomialNB Senti-Pred',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Naive Bayes otimizado via busca logaritmica de Alpha. Trigramas com sublinear TF para classificacao de sentimentos.',
-      techniques: ['TF-IDF', 'MultinomialNB', 'Trigrams', 'Sublinear TF'],
-      metric: { label: 'Accuracy', value: '92.06%', percent: 92.06 },
-      script: 'experiments/senti-pred-variations/multinomialnb-Senti-Pred/',
-      models: ['Multinomial Naive Bayes'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Otimizado via busca logaritmica de Alpha para encontrar o melhor suavizamento.'
-    },
-    {
-      id: 9,
-      title: 'Random Forest Senti-Pred',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Salto dramatico de 71% para 91% apos otimizacao de hiperparametros com Optuna (busca profunda).',
-      techniques: ['TF-IDF', 'Random Forest', 'Optuna', 'HPO'],
-      metric: { label: 'Accuracy', value: '91.0%', percent: 91.0 },
-      script: 'experiments/senti-pred-variations/random_forest-Senti-Pred/',
-      models: ['Random Forest Classifier'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Salto de 71% -> 91% apos HPO com Optuna. Demonstrou o impacto da otimizacao.'
-    },
-    {
-      id: 10,
-      title: 'Logistic Regression Senti-Pred',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Baseline linear extremamente estavel. TF-IDF com 20k features e limpeza Regex para classificacao robusta.',
-      techniques: ['TF-IDF', 'Logistic Regression', 'Regex'],
-      metric: { label: 'Accuracy', value: '96.0%', percent: 96.0 },
-      script: 'experiments/senti-pred-variations/logistic-senti-pred/',
-      models: ['Logistic Regression'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Baseline linear extremamente estavel com TF-IDF 20k features.'
-    },
-    {
-      id: 11,
-      title: 'FLAML AutoML Senti-Pred',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Melhor resultado AutoML. FLAML selecionou automaticamente RandomForest como vencedor em apenas 5 minutos de busca.',
-      techniques: ['FLAML', 'AutoML', 'TF-IDF', 'Auto Feature Selection'],
-      metric: { label: 'Accuracy', value: '96.73%', percent: 96.73 },
-      script: 'experiments/senti-pred-variations/flaml-Senti-Pred/',
-      models: ['FLAML -> RandomForest (auto-selected)'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'TF-IDF 30k + 1-2 n-grams. RandomForest selecionado como vencedor em 300s.'
-    },
-    {
-      id: 12,
-      title: 'AutoGluon Senti-Pred',
-      category: 'nlp-sentiment',
-      categoryLabel: 'NLP - Analise de Sentimento',
-      status: 'completed',
-      description: 'Experimentacao com framework AutoGluon da Amazon para AutoML. Requer Python 3.11 dedicado.',
-      techniques: ['AutoGluon', 'AutoML', 'Ensemble'],
-      metric: null,
-      script: 'experiments/senti-pred-variations/autogluon_senti_pred.py',
-      models: ['AutoGluon Auto-selected Models'],
-      dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Framework AutoGluon nao possui wheel para Python 3.14. Usa .venv311.'
-    },
-    {
-      id: 13,
+      id: 2,
       title: 'Ensemble Pyramid (6 Camadas)',
       category: 'nlp-sentiment',
       categoryLabel: 'NLP - Analise de Sentimento',
@@ -190,7 +36,7 @@ const App = (() => {
       script: 'experiments/ensemble_pyramid.py',
       models: ['LR', 'LinearSVC', 'NB', 'CNB', 'Ridge', 'RF', 'ExtraTrees', 'Meta-Stacking', 'Meta-Voting'],
       dataset: 'Twitter Sentiment (4 classes)',
-      details: 'Motor AutoML com RL que decide quantos e quais modelos usar por camada. Skip connections, jitter de hiperparametros, early stopping. CLI customizavel: --layers, --epsilon, --strategy (dense/residual/simple).'
+      details: 'Arquitetura com 6 camadas de ensembles hierarquicos combinando Bagging, Voting e Stacking.'
     },
     // --- NLP - Classificacao e Extracao ---
     {
@@ -568,17 +414,7 @@ const App = (() => {
      Senti-Pred Evolution data (for timeline chart)
      ------------------------------------------------------- */
   const sentipredEvolution = [
-    { label: 'RoBERTa', value: 60 },
-    { label: 'Classic', value: 87.2 },
-    { label: 'RF', value: 91 },
-    { label: 'MNB', value: 92.06 },
-    { label: 'Optimized', value: 95.3 },
-    { label: 'Logistic', value: 96 },
-    { label: 'Insane', value: 96.2 },
-    { label: 'FLAML', value: 96.73 },
-    { label: 'Ultimate', value: 97 },
-    { label: 'God Mode', value: 97.5 },
-    { label: 'Remake2', value: 97.8, best: true },
+    { label: 'Remake2', value: 97.8 },
     { label: 'Pyramid', value: 98, best: true },
   ];
 
