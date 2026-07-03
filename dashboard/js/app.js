@@ -48,7 +48,7 @@ const App = (() => {
       description: 'Classificacao de noticias em 4 categorias usando Transfer Learning com DistilBERT. Demonstrou que Transformers pre-treinados superam TF-IDF para tarefas semanticas complexas.',
       techniques: ['DistilBERT', 'Fine-tuning', 'Transfer Learning', 'Transformers'],
       metric: { label: 'Accuracy', value: 'Alta', percent: 92 },
-      script: 'experiments/exp1_ag_news.py',
+      script: 'experiments/ag-news-classification.ipynb',
       models: ['DistilBERT (Fine-tuned)'],
       dataset: 'AG News (4 categorias)',
       details: 'GPU recomendada. Transformer fine-tuning com classificacao de World, Sports, Business, Sci/Tech.'

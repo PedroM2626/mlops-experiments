@@ -103,7 +103,7 @@ A diferença entre um modelo medíocre e um estado-da-arte muitas vezes reside n
 - **Tamanho do Vocabulário**: Limitar excessivamente as features (`max_features`) pode cegar o modelo, enquanto um vocabulário muito vasto pode introduzir ruído. O equilíbrio em **15.000 features** mostrou-se ideal para este dataset.
 
 #### 3. Deep Learning vs Modelos Clássicos
-- **Fine-tuning de Transformers**: No experimento [exp1_ag_news.ipynb](experiments/exp1_ag_news.ipynb), utilizei **DistilBERT** em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam transformers fine-tuned.
+- **Fine-tuning de Transformers**: No experimento [ag-news-classification.ipynb](experiments/ag-news-classification.ipynb), utilizei **DistilBERT** em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam transformers fine-tuned.
 
 #### 4. O Paradoxo do Multi-Task Learning (MMoE) e Rollback Tático para TF-IDF
 No experimento [mmoe_emotion_classifier.py](experiments/mmoe_emotion_classifier.py) com o dataset Google `go_emotions`, testamos a arquitetura neural **MMoE (Multi-gate Mixture of Experts)**. A hipótese era que tarefas correlacionadas (Alegria, Tristeza, Raiva) se ajudariam mutuamente. Tivemos duas grandes lições:
@@ -257,11 +257,11 @@ Para manter os experimentos reproduzíveis e fáceis de executar em qualquer má
 
 | Experimento | Hardware recomendado | Expectativa prática |
 |---|---|---|
-| `exp1_ag_news.ipynb` | GPU recomendada | Transformer fine-tuning fica bem mais rápido em GPU; em CPU pode levar bem mais tempo. |
+| `ag-news-classification.ipynb` | GPU recomendada | Transformer fine-tuning fica bem mais rápido em GPU; em CPU pode levar bem mais tempo. |
 | `exp3_fake_news.py` | CPU suficiente | Classificação tradicional em texto, normalmente roda bem em CPU. |
 | `ensemble_pyramid.py` | CPU recomendada com memória sobrando | O ensemble piramidal é pesado em treinamento, mas não depende de GPU. |
 | `twitter-sentiment-analysis.ipynb` | CPU suficiente | Modelos clássicos com TF-IDF rodam bem em CPU. |
-| `price-prediction-multiple-linear-regression.ipynb` | CPU suficiente | Regressão linear e EDA são leves. |
+| `price-prediction-multiple-linear-regression.ipynb` | CPU suficiente | Regressão linear, modelos regularizados, Random Forest e XGBoost com GridSearchCV (v2). |
 | `property-sales-time-series.ipynb` | CPU suficiente | SARIMA/EDA rodam em CPU; `auto_arima` pode ser o trecho mais demorado. |
 | `animal-classifier.ipynb` | GPU recomendada | PyTorch + TensorFlow com modelos pré-treinados fica mais ágil em GPU. |
 | `face_recognition_app.ipynb` | CPU suficiente (GPU opcional) | LBPH roda em CPU; `transfer_yunet` acelera com GPU, mas funciona em CPU. |
@@ -332,7 +332,7 @@ Exemplos comuns:
 
 ## 🧪 Exp1: AG News Classification
 
-**Notebook:** [experiments/exp1_ag_news.ipynb](experiments/exp1_ag_news.ipynb)
+**Notebook:** [experiments/ag-news-classification.ipynb](experiments/ag-news-classification.ipynb)
 
 ### Fundamentação Teórica
 
@@ -457,6 +457,144 @@ Em classificacao de topicos de noticias, porem, o vocabulario e **compartilhado 
 ---
 
 
+
+## 🏎️ Price Prediction — Regressão Linear Múltipla: Evolução e Otimização
+
+**Notebook:** [experiments/price-prediction-multiple-linear-regression.ipynb](experiments/price-prediction-multiple-linear-regression.ipynb)
+
+### 1. Contexto e Objetivo
+
+Este experimento aborda a predição de preços de automóveis com base em características técnicas (engine size, horsepower, curb weight, dimensões, etc.) a partir do dataset `erolmasimov/price-prediction-multiple-linear-regression` (205 amostras, 26 colunas). O objetivo foi evoluir de uma Regressão Linear simples (v1) para uma pipeline robusta com múltiplos modelos, regularização, codificação de variáveis categóricas e validação cruzada (v2).
+
+### 2. Problemas Identificados na Versão Original (v1)
+
+| Problema | Impacto |
+|---|---|
+| **Coluna `ID` utilizada como feature** | Introduz ruído — IDs sequenciais não têm relação causal com preço |
+| **Coluna `name` descartada, mas sem encoding das demais categóricas** | Perde informação valiosa (tipo de carroceria, combustível, motor) |
+| **Sem transformação do target** | `price` apresenta assimetria de 1.78 (right-skewed) — viola premissa de normalidade dos resíduos |
+| **Sem tratamento de outliers** | 7.3% das observações são outliers |
+| **Apenas Regressão Linear simples** | Sem regularização, sem models ensemble, sem hyperparameter tuning |
+| **Train/test split único** | Sem validação cruzada — estimativa de erro pode ser instável |
+| **Sem análise de multicolinearidade** | Features altamente correlacionadas (ex: `enginesize` vs `horsepower`) degradam coeficientes |
+
+### 3. Metodologia Aplicada (v2)
+
+#### 3.1 Pré-processamento
+
+- **Remoção de `ID` e `name`**: eliminadas por não terem poder preditivo
+- **One-Hot Encoding**: 9 variáveis categóricas (`fueltypes`, `carbody`, `enginetype`, `cylindernumber`, etc.) codificadas — expansão de 23 features brutas para 42 features finais
+- **Transformação logarítmica do target**: `price_log = log1p(price)` reduziu a assimetria de 1.22 → 0.46
+- **Winsorização**: outliers no target (7.3% das amostras) foram capados ao IQR (1.5x)
+
+#### 3.2 Modelos Comparados
+
+| Modelo | GridSearchCV (hiperparâmetros) |
+|---|---|
+| **Linear Regression** | (nenhum — baseline) |
+| **Ridge** | alpha: [0.01, 0.1, 1, 10, 50, 100, 200] |
+| **Lasso** | alpha: [0.001, 0.01, 0.1, 0.5, 1, 5, 10] |
+| **ElasticNet** | alpha: [0.001, 0.01, 0.1, 0.5, 1, 5]; l1_ratio: [0.1, 0.3, 0.5, 0.7, 0.9] |
+| **Random Forest** | n_estimators: [100, 300, 500]; max_depth: [10, 20, None]; min_samples_split: [2, 5, 10] |
+| **XGBoost** | n_estimators: [100, 300]; max_depth: [3, 5, 7]; learning_rate: [0.01, 0.05, 0.1] |
+
+#### 3.3 Validação
+
+- **Split**: 80/20 (164 treino / 41 teste) com `random_state=42`
+- **Cross-Validation**: 5-folds para estimativa robusta do R²
+- **Métricas**: R² (treino, teste, CV), MAE, RMSE, MAPE, Overfit (R²_treino - R²_teste)
+
+### 4. Resultados Comparativos
+
+```
+====================================================================================================
+                 TABELA COMPARATIVA DE MODELOS
+====================================================================================================
+                    R2 Treino  R2 Teste  CV R2 (media)  MAE (teste)  RMSE (teste)  MAPE (teste)  Overfit
+Random Forest (GS)     0.9861    0.9489         0.8897    1043.7043     1461.1883        0.0861   0.0372
+XGBoost (GS)           0.9966    0.9391         0.8931    1316.1505     1708.0873        0.1000   0.0576
+ElasticNet (GS)        0.9172    0.8978         0.8801    1424.3041     1832.7667        0.1192   0.0194
+Ridge (GS)             0.9156    0.8968         0.8823    1461.5633     1897.5114        0.1190   0.0188
+Lasso (GS)             0.9305    0.8914         0.8741    1479.6248     1846.1641        0.1233   0.0391
+Linear Regression      0.9378    0.8900         0.8423    1676.8104     2211.5211        0.1315   0.0478
+====================================================================================================
+```
+
+#### 4.1 Evolução: v1 (original) → v2 (otimizado)
+
+| Métrica | v1 (Linear Regression simples) | v2 (Random Forest tunado) | Ganho |
+|---|---|---|---|
+| **R² Teste** | 0.8517 | **0.9489** | **+11.4%** |
+| **MAE** | 2.411,09 | **1.043,70** | **-56.7%** |
+| **RMSE** | 3.422,00 | **1.461,19** | **-57.3%** |
+
+#### 4.2 Análise por Modelo
+
+**Random Forest (vencedor — R² = 0.9489):**
+- Melhor R² de teste e menor MAE (1.043,70) e MAPE (8.6%)
+- Overfit moderado (0.0372) — esperado para ensemble de 500 árvores
+- Hiperparâmetros ótimos: `max_depth=20`, `min_samples_split=2`, `n_estimators=500`
+- CV R² = 0.8897 com desvio padrão de 0.0480 (estabilidade razoável)
+
+**XGBoost (2º lugar — R² = 0.9391):**
+- Overfit mais pronunciado (0.0576) — R² treino de 0.9966 vs teste 0.9391
+- Melhor CV R² médio (0.8931), indicando boa generalização na validação cruzada
+- Hiperparâmetros ótimos: `lr=0.1`, `max_depth=3`, `n_estimators=300`
+
+**Modelos Regularizados Lineares (Ridge/ElasticNet/Lasso):**
+- Ridge e ElasticNet apresentaram o menor overfit (~0.019)
+- ElasticNet (R²=0.8978, MAE=1.424,30) foi o melhor entre os lineares — benefício da combinação L1+L2
+- Lasso zerou 14 de 42 features (seleção automática de features)
+
+**Linear Regression (baseline):**
+- Pior R² teste (0.8900), pior MAE (1.676,81) e pior MAPE (13.15%)
+- CV R² de 0.8423 — 10 pontos percentuais abaixo do Random Forest
+- Confirma a necessidade de regularização e modelos não-lineares
+
+### 5. Análise de Resíduos (Random Forest)
+
+- **Teste de Shapiro-Wilk**: estatística = 0.9540, **p-valor = 0.0968** (p > 0.05 → resíduos normais)
+- **Teste de Jarque-Bera**: estatística = 1.4558, **p-valor = 0.4829** (p > 0.05 → resíduos normais)
+- A normalidade dos resíduos indica que o modelo está bem calibrado e não há viés sistemático
+
+### 6. Multicolinearidade
+
+- 20 das 42 features apresentaram VIF > 10, indicando multicolinearidade severa
+- Features mais problemáticas: `compressionratio` (VIF=173), `cylindernumber_four` (VIF=61), `enginesize` (VIF=49), `citympg` (VIF=35), `horsepower` (VIF=35)
+- Modelos regularizados (Ridge, ElasticNet) lidam melhor com este problema — explicando seu menor overfit
+- Random Forest e XGBoost são inerentemente robustos a multicolinearidade por serem baseados em árvores
+
+### 7. Exploração v3 — Tentativa de Superar o Plateau
+
+**Notebook:** [experiments/price-prediction-v3-advanced.ipynb](experiments/price-prediction-v3-advanced.ipynb)
+
+Após atingir R²=0.9489 na v2, investigou-se se técnicas mais avançadas poderiam superar esse patamar:
+
+| Modelo v3 | R² Teste | Diferença vs v2 |
+|---|---|---|
+| ExtraTrees | 0.9119 | -3.70 pp |
+| RF 1000/d15/leaf2 | 0.9091 | -3.98 pp |
+| RF 500/d10/leaf4 | 0.9001 | -4.88 pp |
+| Ridge + Poly (741 feats) | 0.8966 | -5.23 pp |
+| GradientBoosting | 0.8953 | -5.36 pp |
+| Ridge (base) | 0.8688 | -8.01 pp |
+
+**Conclusão da v3:** Nenhum modelo superou a v2. As razões:
+- Polynomial Features geraram 741 features para apenas 152 amostras de treino — maldição da dimensionalidade
+- Modelos de árvore já capturam interações naturalmente, então features polinomiais agregam pouco
+- A remoção de outliers reduziu o dataset para 190 amostras, piorando a generalização
+- **R²=0.9489 é o plateau prático para este conjunto de dados** — mais dados seriam necessários para avançar
+
+### 8. Conclusões e Recomendações
+
+1. **Random Forest (v2) é o modelo final recomendado**: R²=0.9489, MAE=$1.043, MAPE=8.6%, resíduos normais (Shapiro p=0.097)
+2. **A transformação log do target e o encoding de variáveis categóricas foram cruciais**: apenas com essas mudanças, a Linear Regression subiu de 0.8517 para 0.8900
+3. **Modelos ensemble superam modelos lineares em ~5 pontos percentuais de R²**, demonstrando a presença de não-linearidades nos dados
+4. **A regularização reduz overfit em modelos lineares**: ElasticNet (overfit=0.0194) vs Linear Regression (overfit=0.0478)
+5. **Os resíduos normais do Random Forest (Shapiro p=0.097)** indicam que o modelo capturou adequadamente a estrutura dos dados sem viés sistemático
+6. **Plateau confirmado**: técnicas avançadas (poly features, ExtraTrees, GradientBoosting) não superaram o RF simples da v2 — o limitante é o tamanho do dataset (205 amostras), não a complexidade do modelo
+
+---
 
 ## 🚀 Conclusão Final: A Performance é Sistêmica
 
