@@ -54,14 +54,8 @@ def clean_tweet(text: str) -> str:
 # ─── 1. Dados ──────────────────────────────────────────────────────────────────
 print("\n📂 Carregando dados...")
 cols = ['tweet_id', 'entity', 'sentiment', 'text']
-train_path = first_existing_path([
-    BASE_DIR / "senti-pred-variations" / "logistic-senti-pred" / "data" / "raw" / "twitter_training.csv",
-    BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_training.csv",
-])
-val_path = first_existing_path([
-    BASE_DIR / "senti-pred-variations" / "logistic-senti-pred" / "data" / "raw" / "twitter_validation.csv",
-    BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_validation.csv",
-])
+train_path = BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_training.csv"
+val_path = BASE_DIR / "senti-pred-variations" / "senti-pred-exp1" / "data" / "raw" / "twitter_validation.csv"
 train_df = pd.read_csv(train_path, names=cols, header=None)
 val_df   = pd.read_csv(val_path, names=cols, header=None)
 
