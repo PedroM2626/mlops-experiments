@@ -618,64 +618,55 @@ Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databri
 
 **Equivalente ao:** `Boston Housing Price Prediction.ipynb` do Watsonx
 
-**Objetivo:** Reproduzir o pipeline AutoAI de regressão utilizando frameworks open-source.
+**Dataset:** California Housing (20.640 amostras) — maior e mais desafiador.
 
-**Métodos comparados:**
-- Baselines individuais (Ridge, Lasso, ElasticNet, Random Forest, Extra Trees, Gradient Boosting, AdaBoost, SVR)
-- FLAML AutoML (Microsoft) — Cost-Aware Bayesian Optimization
-- TPOT — Algoritmos Genéticos para pipeline optimization
+**Métodos:** Baselines (Ridge, Lasso, ElasticNet, RF, ExtraTrees, GB, AdaBoost, SVR, XGBoost) + FLAML (AutoML Bayesian) + TPOT (AutoML Genético)
 
-**Resultados (Boston Housing, holdout 10%):**
+**Resultados (holdout 10%):**
 
-| Método | Tipo | RMSE | MAE | R² | Tempo (s) |
-|---|---|---|---|---|---|
-| Gradient Boosting | Modelo Individual | 2.2521 | 1.7832 | 0.9188 | 2.40 |
-| Extra Trees | Modelo Individual | 2.3333 | 1.7463 | 0.9128 | 2.89 |
-| FLAML (LGBM) | AutoML (Bayesian) | 2.5616 | 1.8586 | 0.8949 | 120.33 |
-| TPOT (DecisionTree) | AutoML (Genético) | 4.6700 | 2.2737 | 0.6507 | 71.18 |
+| Método | RMSE | R² | Tempo |
+|---|---|---|---|
+| XGBoost | 0.4618 | 0.8401 | 1.58s |
+| FLAML (CatBoost) | 0.4780 | 0.8286 | 63.9s |
+| TPOT | 0.4817 | 0.8260 | 199.1s |
+| Extra Trees | 0.4997 | 0.8128 | 1.12s |
 
-**Conclusão:** O Gradient Boosting simples superou ambos os AutoML frameworks neste dataset pequeno (506 amostras). Isso demonstra que, para datasets pequenos, modelos individuais bem tunados podem ser superiores ao AutoML.
+**Conclusão:** XGBoost manual superou AutoML por margem pequena. TPOT competitivo (R²=0.8260) com dataset maior. FLAML encontrou CatBoost automaticamente.
 
 #### 2. [ibm-watsonx-local-timeseries.ipynb](experiments/ibm-watsonx-local-timeseries.ipynb)
 
 **Equivalente ao:** `Electric_Production.ipynb` do Watsonx
 
-**Objetivo:** Reproduzir o pipeline AutoAI de séries temporais utilizando Prophet e LightGBM.
-
-**Métodos comparados:**
-- Prophet (Meta) baseline
-- Prophet + Optuna (tuning bayesiano)
-- LightGBM com features temporais (lags, rolling windows, features cíclicas)
+**Métodos:** Naive Forecast + Prophet + Prophet+Optuna (100 trials) + SARIMA + ETS
 
 **Resultados (Produção Elétrica, holdout 20 meses):**
 
-| Método | RMSE | MAE | MAPE | Tempo (s) |
-|---|---|---|---|---|
-| Prophet + Optuna | 3.6083 | 3.2324 | 4.03% | 27.74 |
-| Prophet (baseline) | 3.6134 | 3.2375 | 4.04% | 0.48 |
-| LightGBM (features temporais) | 4.3032 | 3.5180 | 4.30% | 0.16 |
+| Método | RMSE | MAPE | Tempo |
+|---|---|---|---|
+| Prophet + Optuna | 3.5583 | 3.90% | 21.6s |
+| SARIMA | 3.5648 | 3.90% | 0.91s |
+| Prophet (baseline) | 3.6134 | 4.04% | 0.09s |
+| ETS | 3.6412 | 4.08% | 0.05s |
+| Naive | 19.0495 | 20.55% | 0.00s |
 
-**Conclusão:** O Prophet (com ou sem tuning) superou o LightGBM para esta série temporal com sazonalidade clara. O tuning com Optuna trouxe melhoria marginal (+0.03% MAPE), indicando que o Prophet com configurações padrão já é robusto para séries com sazonalidade bem definida.
+**Conclusão:** SARIMA é tão competitivo quanto Prophet+Optuna com tempo 24x menor. Tuning melhorou Prophet de 4.04% para 3.90% MAPE. Todos superam naive por 5x+.
 
 #### 3. [databricks-forecast-local-equivalent.ipynb](experiments/databricks-forecast-local-equivalent.ipynb)
 
-**Equivalente ao:** `26-01-30-12_17-Prophet-*.ipynb` e `26-01-30-12_17-DeepAR-*.ipynb` do Databricks
+**Equivalente ao:** Prophet e DeepAR do Databricks
 
-**Objetivo:** Reproduzir o pipeline de forecasting do Databricks AutoML utilizando Prophet e GluonTS (DeepAR).
-
-**Métodos comparados:**
-- Prophet (Meta) baseline
-- Prophet + Optuna (equivalente ao ProphetHyperoptEstimator do Databricks)
-- DeepAR via GluonTS + PyTorch (equivalente ao DeepAREstimator do Databricks)
+**Métodos:** Prophet + Prophet+Optuna (50 trials) + SARIMA + ETS
 
 **Resultados (Vendas Sintéticas, holdout 14 dias):**
 
-| Método | RMSE | MAE | sMAPE | Tempo (s) |
-|---|---|---|---|---|
-| Prophet + Optuna | 7.6929 | 6.5698 | 5.89% | 14.84 |
-| Prophet (baseline) | 8.0511 | 7.2206 | 6.39% | 0.17 |
+| Método | RMSE | sMAPE | Tempo |
+|---|---|---|---|
+| Prophet + Optuna | 7.7510 | 5.66% | 11.3s |
+| Prophet (baseline) | 8.0511 | 6.39% | 0.17s |
+| ETS | 9.6679 | 6.51% | 0.29s |
+| SARIMA | 9.9620 | 6.71% | 3.11s |
 
-**Conclusão:** O Prophet com tuning via Optuna reduziu o sMAPE em 7.8% (de 6.39% para 5.89%). O DeepAR não foi executado nesta versão devido a limitações de compatibilidade do GluonTS com Python 3.8, mas o notebook está preparado para executá-lo em ambientes com Python 3.10+.
+**Conclusão:** Prophet+Optuna é o vencedor (sMAPE=5.66%), melhorando 11.4% sobre o baseline. SARIMA e ETS menos eficazes com padrões semanais complexos. Prophet é a melhor escolha para sazonalidade clara.
 
 ### Como Executar
 
@@ -683,14 +674,11 @@ Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databri
 # Navegar até a pasta de experimentos
 cd D:\mlops-experiments\experiments
 
-# Executar notebook Watsonx AutoML Local
-jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb --output ibm-watsonx-local-automl-executed.ipynb
-
-# Executar notebook Watsonx Time Series Local
-jupyter nbconvert --to notebook --execute ibm-watsonx-local-timeseries.ipynb --output ibm-watsonx-local-timeseries-executed.ipynb
-
-# Executar notebook Databricks Forecast Local
-jupyter nbconvert --to notebook --execute databricks-forecast-local-equivalent.ipynb --output databricks-forecast-local-equivalent-executed.ipynb
+# Os notebooks já contêm os outputs embutidos (basta abrir no Jupyter)
+# Para re-executar:
+jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb --output ibm-watsonx-local-automl.ipynb
+jupyter nbconvert --to notebook --execute ibm-watsonx-local-timeseries.ipynb --output ibm-watsonx-local-timeseries.ipynb
+jupyter nbconvert --to notebook --execute databricks-forecast-local-equivalent.ipynb --output databricks-forecast-local-equivalent.ipynb
 
 # Visualizar resultados no MLflow
 mlflow ui
@@ -707,8 +695,7 @@ tpot>=0.12.0
 
 # Time Series
 prophet>=1.3.0
-gluonts[torch]>=0.16.0
-lightgbm>=4.0.0
+statsmodels>=0.14.0
 
 # Otimização
 optuna>=4.5.0
@@ -730,8 +717,8 @@ seaborn>=0.13.0
 |---|---|---|---|
 | AutoML Regressão | AutoAI | AutoML | FLAML / TPOT |
 | AutoML Classificação | AutoAI | AutoML | FLAML / TPOT |
-| Forecast Estatístico | autoai-ts-libs | Prophet | Prophet (Meta) |
-| Forecast Deep Learning | autoai-ts-libs | DeepAR | GluonTS (DeepAR) |
+| Forecast Estatístico | autoai-ts-libs | Prophet | Prophet + SARIMA + ETS |
+| Forecast Deep Learning | autoai-ts-libs | DeepAR | GluonTS (requer Python 3.10+) |
 | Tuning Hiperparâmetros | AutoAI (interno) | Hyperopt | Optuna |
 | Tracking MLflow | Watsonx Studio | Databricks MLflow | MLflow local |
 | Deploy REST API | Watsonx Deployment | Databricks Serving | Flask / FastAPI |
