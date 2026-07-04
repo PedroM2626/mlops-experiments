@@ -188,6 +188,158 @@ Mesmo usando o mesmo dataset e o mesmo Linear SVC com `C=19.0`, o **Pipeline B o
 
 ---
 
+### 📊 NLP Twitter Methods Comparison — Paradigmas de Representação Textual
+
+**Notebook:** [NLP-twitter-methods-comparasion.ipynb](NLP-twitter-methods-comparasion.ipynb)
+
+Este experimento confronta **cinco paradigmas distintos** de representação e modelagem para classificação de sentimento em tweets, desde a bag-of-words clássica até transformers modernos, no dataset *Twitter Entity Sentiment Analysis* (73.995 amostras de treino, 999 de validação, 4 classes: Irrelevant, Negative, Neutral, Positive). Todos os modelos foram treinados com o **dataset completo de 73.995 amostras**.
+
+#### Metodologia
+
+| Componente | Configuração |
+|---|---|
+| **Dataset** | Twitter Entity Sentiment Analysis (jp797498e) — 73.995 treino / 999 validação |
+| **Pré-processamento** | Lowercasing, remoção de URLs/menções/hashtags/pontuação, sem stopword removal |
+| **TF-IDF + LinearSVC** | max_features=70.000, ngram_range=(1,2), sublinear_tf=True, C=1.0 |
+| **Sentence-BERT** | all-MiniLM-L6-v2 (congelado) → embeddings 384-d → LinearSVC |
+| **DistilBERT** | distilbert-base-uncased, fine-tuning 2 épocas, batch=32 |
+| **BiLSTM** | Embedding 128-d treinável → BiLSTM 128-d bidirecional → Dropout 0.3 → Dense 4, vocabulário 20k |
+| **TextCNN** | Embedding 128-d treinável → Conv1D (filtros 3/4/5, 100 cada) → MaxPool → Dropout 0.3 → Dense 4, vocabulário 20k |
+| **Hardware** | NVIDIA GeForce RTX 4070 Laptop GPU (CUDA 12.1) + Intel i7 / Python 3.8.10 |
+| **Seeds** | 42 (numpy, torch) |
+
+#### Resultados Comparativos (Dataset Completo — 73.995 amostras)
+
+| Modelo | Acurácia | Tempo (s) | Paradigma | Parâmetros |
+|---|---|---|---|---|
+| **TF-IDF + LinearSVC** | **0,9800** | **4,35** | Bag-of-Words + SVM linear | ~70M features esparsas |
+| **DistilBERT** | **0,9710** | 2.421,08 | Transformer contextual fine-tuned | 66M densos |
+| TextCNN | 0,9530 | 13,00 | CNN 1D sobre embeddings treináveis | ~2,6M densos |
+| BiLSTM | 0,8809 | 13,26 | LSTM bidirecional sobre embeddings treináveis | ~1,1M densos |
+| Sentence-BERT | 0,6036 | 33,93 | Transformer frozen + classificador linear | 22M congelados |
+
+#### Análise Detalhada
+
+##### 1. TF-IDF + LinearSVC — Campeão Absoluto (0,9800 em 4,35s)
+
+**Desempenho por classe:**
+
+| Classe | Precisão | Recall | F1-Score | Suporte |
+|---|---|---|---|---|
+| Irrelevant | 0,98 | 0,98 | 0,98 | 171 |
+| Negative | 0,99 | 0,98 | 0,98 | 266 |
+| Neutral | 0,99 | 0,98 | 0,98 | 285 |
+| Positive | 0,97 | 0,98 | 0,97 | 277 |
+
+O modelo clássico manteve a liderança com **0,9800 de acurácia** em apenas **4,35 segundos** — treinando no dataset completo de 73.995 tweets. A matriz TF-IDF com 70.000 features (unigramas + bigramas, sublinear_tf) oferece representações esparsas de altíssima dimensionalidade onde o SVM linear encontra margens de separação quase perfeitas. A regularização L2 inerente ao LinearSVC (C=1.0) controla o overfitting mesmo com 70k dimensões. Consistente com o experimento original (twitter-sentiment-analysis.ipynb, que atingiu 0,986 com C=19).
+
+##### 2. DistilBERT — O Milagre do Dataset Completo (0,9710 em 2.421s)
+
+| Métrica | Subamostra 30k | Dataset Completo 74k | Ganho |
+|---|---|---|---|
+| Acurácia | 0,8529 | **0,9710** | **+11,81 pp** |
+| Tempo | 160,77s | 2.421,08s | 15x mais lento |
+
+**Evolução por época (74k):**
+- Época 1: Validation Loss = 0,1962 → Acurácia = **0,9409**
+- Época 2: Validation Loss = 0,1003 → Acurácia = **0,9710**
+
+O DistilBERT foi o maior beneficiado pelo dataset completo: saltou de **0,8529** (30k) para **0,9710** (74k) — um ganho expressivo de **+11,81 pontos percentuais**. Com apenas 2 épocas sobre 73.995 tweets, o transformer fine-tuned chegou a apenas **0,9 pontos percentuais** do campeão TF-IDF + LinearSVC, consumindo 2.421 segundos (~40 minutos) — 556x mais tempo.
+
+A época 1 já atingiu 0,9409, indicando que o DistilBERT converge rapidamente quando alimentado com dados suficientes. A perda de validação caiu de 0,196 para 0,100, sugerindo que o modelo ainda poderia melhorar com mais épocas.
+
+**Interpretação:** A diferença entre 30k e 74k não é meramente quantitativa — é qualitativa. Com 30k amostras (~40% do dataset), o fine-tuning do transformer sofre de subajuste (underfitting) relativo: o modelo de 66M parâmetros não vê diversidade suficiente de gírias, construções e contextos para ajustar seus pesos de forma robusta. Ao atingir 74k, a variedade de exemplos permite que o DistilBERT explore todo seu potencial representacional, aproximando-se do patamar de 0,98.
+
+##### 3. TextCNN — Eficiência Surpreendente (0,9530 em 13,00s)
+
+| Métrica | Subamostra 30k | Dataset Completo 74k | Ganho |
+|---|---|---|---|
+| Acurácia | 0,7838 | **0,9530** | **+16,92 pp** |
+| Tempo | 6,36s | 13,00s | 2x mais lento |
+
+**Evolução por época (74k):**
+- Época 1: Loss = 1,0789 → Acurácia = **0,7988**
+- Época 2: Loss = 0,7185 → Acurácia = **0,9530**
+
+O TextCNN foi a segunda maior surpresa: com apenas **13 segundos** de treino — **186x mais rápido que o DistilBERT** — atingiu **0,9530 de acurácia**. O ganho de **+16,92 pontos percentuais** em relação à subamostra de 30k comprova que a CNN 1D, com apenas ~2,6M parâmetros, se beneficia enormemente de mais dados.
+
+A eficiência do TextCNN reside em sua arquitetura paralela: as convoluções 1D com filtros de tamanhos 3, 4 e 5 processam todos os n-gramas simultaneamente, capturando padrões locais como "não gostei" (filtro 3), "muito bom mesmo" (filtro 4) e "o pior filme que" (filtro 5). Para textos curtos como tweets (~15-20 tokens), esse paralelismo é ideal.
+
+**Relação acurácia/tempo:** O TextCNN oferece a melhor relação custo-benefício entre os modelos neurais: entrega 98,2% da performance do DistilBERT (0,9530 vs 0,9710) em apenas 0,5% do tempo de treino (13s vs 2.421s).
+
+##### 4. BiLSTM — O Recordista de Ganho Marginal (0,8809 em 13,26s)
+
+| Métrica | Subamostra 30k | Dataset Completo 74k | Ganho |
+|---|---|---|---|
+| Acurácia | 0,7187 | **0,8809** | **+16,22 pp** |
+| Tempo | 6,34s | 13,26s | 2x mais lento |
+
+**Evolução por época (74k):**
+- Época 1: Loss = 1,0606 → Acurácia = **0,7718**
+- Época 2: Loss = 0,7008 → Acurácia = **0,8809**
+
+O BiLSTM quadruplicou de performance com o dataset completo, saltando de 0,7187 para **0,8809**. Contudo, ainda ficou **7,2 pontos percentuais abaixo do TextCNN** com o mesmo tempo de treino, confirmando que LSTMs bidirecionais são menos adequadas para tweets — o custo de processar dependências sequenciais sequenciais não compensa para textos tão curtos.
+
+##### 5. Sentence-BERT — Frozen Continua Inadequado (0,6036)
+
+| Métrica | Subamostra 30k | Dataset Completo 74k | Ganho |
+|---|---|---|---|
+| Acurácia | 0,5996 | **0,6036** | **+0,40 pp** |
+| Tempo | 16,36s | 33,93s | 2x mais lento |
+
+O Sentence-BERT frozen **não se beneficiou do dataset completo** — ganhou apenas 0,40 pontos percentuais (0,5996 → 0,6036). Isso confirma que o problema não é a quantidade de dados, mas a **qualidade das representações**: o embedding genérico de 384-d do all-MiniLM-L6-v2, treinado para similaridade semântica em texto formal, não captura polaridade afetiva em tweets. O classificador LinearSVC sobre esses embeddings não pode criar informação onde ela não existe — mais dados de treino não resolvem um limite de representação.
+
+#### Discussão Integrada
+
+##### O Efeito do Dataset Completo nos Modelos Neurais
+
+| Modelo | Acurácia 30k | Acurácia 74k | Ganho (pp) | Tempo 74k (s) |
+|---|---|---|---|---|
+| TF-IDF + LinearSVC | 0,9800 | 0,9800 | 0,00 | 4,35 |
+| DistilBERT | 0,8529 | **0,9710** | **+11,81** | 2.421,08 |
+| TextCNN | 0,7838 | **0,9530** | **+16,92** | 13,00 |
+| BiLSTM | 0,7187 | **0,8809** | **+16,22** | 13,26 |
+| Sentence-BERT | 0,5996 | 0,6036 | +0,40 | 33,93 |
+
+**Insight central:** O ganho dos modelos neurais com o dataset completo é diretamente proporcional ao número de parâmetros treináveis e inversamente proporcional à qualidade das representações de partida:
+- **Sentence-BERT (22M congelados, 0 treináveis):** ganho de 0,40 pp — sem parâmetros para ajustar, mais dados são irrelevantes
+- **DistilBERT (66M treináveis):** ganho de +11,81 pp — cada novo exemplo ajusta milhões de pesos
+- **TextCNN (~2,6M treináveis do zero):** ganho de +16,92 pp — treinado do zero, cada novo exemplo é crucial
+- **BiLSTM (~1,1M treináveis do zero):** ganho de +16,22 pp — mesma lógica do TextCNN
+
+##### A Hierarquia de Custo-Benefício (Dataset Completo)
+
+| Paradigma | Acurácia | Tempo (s) | Eficiência (Acc/s) | GPU? |
+|---|---|---|---|---|
+| **TF-IDF + LinearSVC** | 0,9800 | 4,35 | **0,2253** | Não |
+| **TextCNN** | 0,9530 | 13,00 | **0,0733** | Recomendada |
+| BiLSTM | 0,8809 | 13,26 | 0,0664 | Recomendada |
+| DistilBERT | 0,9710 | 2.421,08 | 0,0004 | Sim |
+| Sentence-BERT | 0,6036 | 33,93 | 0,0178 | Sim |
+
+O ranking de eficiência revela três clusters:
+1. **TF-IDF + LinearSVC** — eficiência 3x maior que qualquer outro método
+2. **TextCNN e BiLSTM** — eficiência intermediária, treinam em segundos
+3. **DistilBERT** — eficiência 560x menor que TF-IDF, mas acurácia próxima
+
+##### Conclusões
+
+1. **TF-IDF + LinearSVC é imbatível (0,9800 em 4,35s)** — lidera em acurácia e eficiência. Para qualquer cenário onde o custo computacional importa, é a escolha óbvia.
+
+2. **DistilBERT com dataset completo rivaliza (0,9710 em 2.421s)** — com dados suficientes, o transformer fine-tuned chega a apenas 0,9 pp do campeão. Ideal para produção com GPU disponível e onde 0,98 é requisito.
+
+3. **TextCNN é a surpresa (0,9530 em 13s)** — 98,2% da performance do DistilBERT com 0,5% do tempo de treino. A melhor escolha neural para orçamento computacional moderado.
+
+4. **Dataset completo é obrigatório para modelos neurais treinados do zero** — TextCNN e BiLSTM ganharam +16-17 pp ao saltar de 30k para 74k amostras. Subamostragem inviabiliza a comparação justa.
+
+5. **Sentence-BERT frozen é inadequado (0,6036)** — e aumentar os dados de treino não resolve. Apenas fine-tuning do SBERT poderia torná-lo competitivo.
+
+6. **Recomendação final:** Comece com TF-IDF + LinearSVC (baseline em 4s). Se a acurácia precisar superar 0,98, migre para DistilBERT com dataset completo (40 min de GPU). Para cenários sem GPU, TextCNN oferece o melhor equilíbrio (13s, 0,9530).
+
+---
+
+## 📈 Séries Temporais e Previsão (Forecast)
+
 ## 📈 Séries Temporais e Previsão (Forecast)
 
 Explorei diferentes abordagens para predição de dados temporais, desde modelos estatísticos clássicos até algoritmos de Gradient Boosting otimizados.
@@ -257,6 +409,7 @@ Para manter os experimentos reproduzíveis e fáceis de executar em qualquer má
 
 | Experimento | Hardware recomendado | Expectativa prática |
 |---|---|---|
+| `NLP-twitter-methods-comparasion.ipynb` | GPU recomendada | DistilBERT ~40min GPU, TextCNN/BiLSTM ~13s GPU, TF-IDF+SVC ~4s CPU. Dataset completo (74k). |
 | `ag-news-classification.ipynb` | GPU recomendada | Transformer fine-tuning fica bem mais rápido em GPU; em CPU pode levar bem mais tempo. |
 | `exp3_fake_news.py` | CPU suficiente | Classificação tradicional em texto, normalmente roda bem em CPU. |
 | `ensemble_pyramid.py` | CPU recomendada com memória sobrando | O ensemble piramidal é pesado em treinamento, mas não depende de GPU. |
@@ -723,6 +876,57 @@ seaborn>=0.13.0
 | Tracking MLflow | Watsonx Studio | Databricks MLflow | MLflow local |
 | Deploy REST API | Watsonx Deployment | Databricks Serving | Flask / FastAPI |
 | Feature Engineering | AutoAI (automático) | AutoML (automático) | Manual (scikit-learn) |
+
+---
+
+## 🐱 Classificação Multi-label de Pets: 4 Abordagens em Computer Vision
+
+O notebook `experiments/animal-classifier.ipynb` compara **quatro abordagens** para classificação multi-label de duas gatas (Dime e Frida), onde uma mesma imagem pode conter ambos os animais simultaneamente.
+
+### Dataset
+
+O conjunto de dados é composto por 44 imagens rotuladas (22 por classe), organizadas em pastas por indivíduo. A natureza multi-label decorre do fato de que Dime e Frida aparecem juntas em algumas fotografias, exigindo que o modelo seja capaz de ativar múltiplos rótulos para uma mesma entrada. A partição dos dados segue uma proporção de 60% treino (30 imagens), 15% validação (7) e 25% teste (7), estratificada por classe dominante.
+
+### Arquiteturas Comparadas
+
+| Fluxo | Backbone | Estratégia | Treinamento |
+|-------|----------|-----------|-------------|
+| **ResNet18 + Aug** | ResNet18 (ImageNet) | Fine-tuning layer4 + FC + **Data Augmentation (flip, rotação, cor, affine)** | 10 épocas, Adam lr=1e-4 |
+| **VGG16** | VGG16 (ImageNet) | Feature extractor congelado + cabeça densa (128 + Dropout 0.2) sigmoid | 6 épocas, Adam lr=1e-4 |
+| **CLIP zero-shot** | ViT-B/32 (CLIP) | Protótipos por classe (embedding médio) + similaridade de cosseno (threshold 0.75) | Nenhum |
+| **EfficientNet + Aug** | EfficientNet-B0 (ImageNet) | Fine-tuning blocks 4-5 + FC + **Data Augmentation** | 10 épocas, Adam lr=1e-4 |
+
+### Métricas de Avaliação
+
+As métricas foram calculadas sobre o conjunto de teste (7 imagens). Devido ao tamanho reduzido do dataset, os resultados devem ser interpretados com cautela, especialmente os valores perfeitos do PyTorch.
+
+| Métrica | ResNet18 + Aug | VGG16 | CLIP zero-shot | EfficientNet + Aug |
+|---------|:--------------:|:-----:|:--------------:|:------------------:|
+| **Exact Match** | **1.000** | 0.429 | 0.000 | 0.714 |
+| **Hamming Loss** | 0.000 | 0.286 | 0.500 | 0.143 |
+| **F1-micro** | **1.000** | 0.714 | 0.667 | 0.833 |
+| **F1-macro** | **1.000** | 0.714 | 0.664 | 0.829 |
+| Precisão micro | 1.000 | 0.714 | 0.500 | 1.000 |
+| Recall micro | 1.000 | 0.714 | 1.000 | 0.714 |
+
+### Análise dos Resultados
+
+**PyTorch (ResNet18)** alcançou desempenho perfeito em todas as métricas. Este resultado, embora impressionante, precisa ser contextualizado: com apenas 7 imagens de teste e 30 de treino, o modelo teve baixa complexidade de generalização para demonstrar. O fine-tuning seletivo (apenas layer4 e camada fully-connected) provou-se suficiente para o problema, e a BCEWithLogitsLoss mostrou-se adequada para a natureza multi-label da tarefa.
+
+**Keras (VGG16)** obteve F1-macro de 0.714, com desempenho superior para a classe Frida (F1=0.86) em comparação com Dime (F1=0.57). A estratégia de manter o backbone VGG16 completamente congelado (feature extractor puro) limitou a capacidade de adaptação do modelo às especificidades do domínio, resultando em uma lacuna de desempenho de 28.6 pontos percentuais em relação ao PyTorch.
+
+**CLIP (zero-shot)** apresentou F1-macro de 0.664, com recall perfeito (1.000) mas precisão baixa (0.500). O threshold de 0.75 adotado para a similaridade de cosseno mostrou-se excessivamente permissivo, gerando muitos falsos positivos e resultando em exact match de 0.000 — nenhuma imagem teve todos os rótulos previstos corretamente simultaneamente. O recall máximo indica que os protótipos capturam adequadamente as classes, mas a calibração do threshold é crítica para o equilíbrio precisão-recall. Como abordagem zero-shot, o CLIP oferece a vantagem de não requerer treinamento adicional, sendo particularmente útil em cenários com dados rotulados escassos ou classes emergentes.
+
+**EfficientNet-B0 + Aug** alcançou F1-macro de 0.829, ocupando o segundo lugar geral com vantagem de 11.5 pontos percentuais sobre o VGG16. A precisão micro perfeita (1.000) combinada com recall micro de 0.714 revela um comportamento conservador: quando o modelo prevê uma classe, está sempre correto, mas falha em ativar rótulos em 28.6% das amostras (omitindo predições positivas). Este perfil de alta precisão/baixo recall é consistente com a arquitetura EfficientNet, que emprega escalonamento compound (profundidade × largura × resolução) e pode exigir mais iterações de fine-tuning para calibrar a confiança das ativações sigmoid. Comparativamente, o EfficientNet perdeu para o ResNet18 (1.000) mas superou significativamente o VGG16 congelado (0.714), confirmando que o fine-tuning seletivo de blocos intermediários (blocks 4-5) oferece melhor adaptação ao domínio do que feature extraction pura.
+
+### Conclusões
+
+1. **Fine-tuning supervisionado** (ResNet18 e EfficientNet) dominou as abordagens concorrentes, mas o tamanho reduzido do dataset (7 amostras de teste) impede generalizações robustas para além deste experimento.
+2. **Backbones congelados** (VGG16) limitam a adaptabilidade; o fine-tuning seletivo foi crucial para o resultado superior dos modelos PyTorch.
+3. **CLIP zero-shot** oferece uma alternativa viável quando não há dados de treino, mas exige calibração cuidadosa do threshold para equilibrar precisão e recall.
+4. **EfficientNet-B0** apresentou perfil conservador (precisão 1.000, recall 0.714), sugerindo que fine-tuning mais longo ou descongelamento adicional de blocos poderia elevar o recall sem sacrificar a precisão.
+5. O **exact match** é uma métrica particularmente exigente para problemas multi-label: mesmo o EfficientNet, com F1-macro de 0.829, obteve apenas 0.714 de exact match, evidenciando a dificuldade de acertar todos os rótulos simultaneamente.
+6. A **Data Augmentation** (flip horizontal, rotação ±15°, jitter de cor, affine) foi aplicada uniformemente aos dois fluxos PyTorch (ResNet18 e EfficientNet). Embora seu impacto não possa ser isolado neste design experimental, o conjunto de transformações contribuiu para a regularização dos modelos, especialmente relevante dado o tamanho reduzido do dataset de treino (30 imagens).
 
 ---
 
