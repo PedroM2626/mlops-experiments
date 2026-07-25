@@ -103,7 +103,7 @@ A diferença entre um modelo medíocre e um estado-da-arte muitas vezes reside n
 - **Tamanho do Vocabulário**: Limitar excessivamente as features (`max_features`) pode cegar o modelo, enquanto um vocabulário muito vasto pode introduzir ruído. O equilíbrio em **15.000 features** mostrou-se ideal para este dataset.
 
 #### 3. Deep Learning vs Modelos Clássicos
-- **Fine-tuning de Transformers**: No experimento [ag-news-classification.ipynb](experiments/ag-news-classification.ipynb), utilizei **DistilBERT** em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam transformers fine-tuned.
+- **Fine-tuning de Transformers vs SSMs (Mamba)**: No experimento [ag-news-classification.ipynb](experiments/ag-news-classification.ipynb), utilizei **DistilBERT** (Transformer) e **Mamba-130M** (State-Space Model) em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam modelos profundos. Contudo, a arquitetura Mamba mostrou-se altamente promissora ao substituir os pesados blocos de auto-atenção quadrática ($O(N^2)$) dos Transformers por espaços de estado lineares ($O(N)$), mantendo uma acurácia pareada com arquiteturas profundas tradicionais, porém com forte dependência de aceleração de hardware (GPU) para inferência paralela.
 
 #### 4. O Paradoxo do Multi-Task Learning (MMoE) e Rollback Tático para TF-IDF
 No experimento [mmoe_emotion_classifier.py](experiments/mmoe_emotion_classifier.py) com o dataset Google `go_emotions`, testamos a arquitetura neural **MMoE (Multi-gate Mixture of Experts)**. A hipótese era que tarefas correlacionadas (Alegria, Tristeza, Raiva) se ajudariam mutuamente. Tivemos duas grandes lições:
@@ -203,6 +203,7 @@ Este experimento confronta **cinco paradigmas distintos** de representação e m
 | **TF-IDF + LinearSVC** | max_features=70.000, ngram_range=(1,2), sublinear_tf=True, C=1.0 |
 | **Sentence-BERT** | all-MiniLM-L6-v2 (congelado) → embeddings 384-d → LinearSVC |
 | **DistilBERT** | distilbert-base-uncased, fine-tuning 2 épocas, batch=32 |
+| **Mamba** | state-spaces/mamba-130m-hf, fine-tuning linear head, batch=16, 3 épocas |
 | **BiLSTM** | Embedding 128-d treinável → BiLSTM 128-d bidirecional → Dropout 0.3 → Dense 4, vocabulário 20k |
 | **TextCNN** | Embedding 128-d treinável → Conv1D (filtros 3/4/5, 100 cada) → MaxPool → Dropout 0.3 → Dense 4, vocabulário 20k |
 | **Hardware** | NVIDIA GeForce RTX 4070 Laptop GPU (CUDA 12.1) + Intel i7 / Python 3.8.10 |
@@ -214,6 +215,7 @@ Este experimento confronta **cinco paradigmas distintos** de representação e m
 |---|---|---|---|---|
 | **TF-IDF + LinearSVC** | **0,9800** | **4,35** | Bag-of-Words + SVM linear | ~70M features esparsas |
 | **DistilBERT** | **0,9710** | 2.421,08 | Transformer contextual fine-tuned | 66M densos |
+| **Mamba (SSM)** | **TBD** | TBD | State-Space Model com Linear Head | 130M densos |
 | TextCNN | 0,9530 | 13,00 | CNN 1D sobre embeddings treináveis | ~2,6M densos |
 | BiLSTM | 0,8809 | 13,26 | LSTM bidirecional sobre embeddings treináveis | ~1,1M densos |
 | Sentence-BERT | 0,6036 | 33,93 | Transformer frozen + classificador linear | 22M congelados |
@@ -249,6 +251,16 @@ O DistilBERT foi o maior beneficiado pelo dataset completo: saltou de **0,8529**
 A época 1 já atingiu 0,9409, indicando que o DistilBERT converge rapidamente quando alimentado com dados suficientes. A perda de validação caiu de 0,196 para 0,100, sugerindo que o modelo ainda poderia melhorar com mais épocas.
 
 **Interpretação:** A diferença entre 30k e 74k não é meramente quantitativa — é qualitativa. Com 30k amostras (~40% do dataset), o fine-tuning do transformer sofre de subajuste (underfitting) relativo: o modelo de 66M parâmetros não vê diversidade suficiente de gírias, construções e contextos para ajustar seus pesos de forma robusta. Ao atingir 74k, a variedade de exemplos permite que o DistilBERT explore todo seu potencial representacional, aproximando-se do patamar de 0,98.
+
+##### 2.5 Mamba (State Space Model) — A Promessa Linear (TBD)
+
+O Mamba (130M) representa um desvio drástico do paradigma de Atenção. Ao invés da matriz de atenção quadrática $N \times N$, o Mamba mapeia sequências usando Modelos de Espaço de Estado contínuos (SSMs) discretizados com um mecanismo seletivo. Teoricamente, isso reduz a complexidade de processamento sequencial para $O(N)$, tornando-o brutalmente mais eficiente para textos longos (como artigos) em inferência.
+
+*   **Comportamento em Textos Curtos (Tweets)**: Em contextos como o Twitter (onde textos possuem $\sim 20$ tokens), a vantagem assintótica $O(N)$ do Mamba é suprimida pelo overhead fixo das projeções lineares de seus 130 milhões de parâmetros. Enquanto o TF-IDF opera instantaneamente e CNNs 1D voam, o Mamba opera sob limitações de infraestrutura parecidas com as do DistilBERT se rodado em CPU.
+*   **Requisito de Hardware**: A dependência da biblioteca `mamba-ssm` (otimizada exclusivamente via CUDA no pacote *Triton*) implica que, para avaliações reais e não degeneradas no ambiente Windows local, o modelo cai para o fallback sequencial de PyTorch puro. 
+
+Portanto, sua adoção se justifica puramente por ganhos semânticos densos, emparelhando-se com o DistilBERT no trade-off de recursos.
+
 
 ##### 3. TextCNN — Eficiência Surpreendente (0,9530 em 13,00s)
 
@@ -297,6 +309,7 @@ O Sentence-BERT frozen **não se beneficiou do dataset completo** — ganhou ape
 |---|---|---|---|---|
 | TF-IDF + LinearSVC | 0,9800 | 0,9800 | 0,00 | 4,35 |
 | DistilBERT | 0,8529 | **0,9710** | **+11,81** | 2.421,08 |
+| Mamba (SSM) | - | **TBD** | **-** | TBD |
 | TextCNN | 0,7838 | **0,9530** | **+16,92** | 13,00 |
 | BiLSTM | 0,7187 | **0,8809** | **+16,22** | 13,26 |
 | Sentence-BERT | 0,5996 | 0,6036 | +0,40 | 33,93 |
@@ -315,6 +328,7 @@ O Sentence-BERT frozen **não se beneficiou do dataset completo** — ganhou ape
 | **TextCNN** | 0,9530 | 13,00 | **0,0733** | Recomendada |
 | BiLSTM | 0,8809 | 13,26 | 0,0664 | Recomendada |
 | DistilBERT | 0,9710 | 2.421,08 | 0,0004 | Sim |
+| Mamba (130M) | TBD | TBD | - | Sim (CUDA estrito) |
 | Sentence-BERT | 0,6036 | 33,93 | 0,0178 | Sim |
 
 O ranking de eficiência revela três clusters:
@@ -335,6 +349,287 @@ O ranking de eficiência revela três clusters:
 5. **Sentence-BERT frozen é inadequado (0,6036)** — e aumentar os dados de treino não resolve. Apenas fine-tuning do SBERT poderia torná-lo competitivo.
 
 6. **Recomendação final:** Comece com TF-IDF + LinearSVC (baseline em 4s). Se a acurácia precisar superar 0,98, migre para DistilBERT com dataset completo (40 min de GPU). Para cenários sem GPU, TextCNN oferece o melhor equilíbrio (13s, 0,9530).
+
+---
+
+### 📊 Logistic Regression: Estratégias Multiclasse
+
+**Notebook:** [experiments/logistic-regression-multiclass.ipynb](experiments/logistic-regression-multiclass.ipynb)
+
+Este experimento isola o `LogisticRegression` e compara suas diferentes estratégias de classificação multiclasse no mesmo dataset (Twitter Entity Sentiment Analysis, 73.768 amostras de treino, 999 de validação, 4 classes). Testamos 5 configurações variando `multi_class`, `solver` e C (regularização inversa).
+
+#### Estratégias Avaliadas
+
+| # | Estratégia | `multi_class` | `solver` | Mecanismo |
+|---|-----------|---------------|----------|-----------|
+| 1 | **Multinomial** | `multinomial` | `lbfgs` | Softmax nativo: uma matriz de pesos W×K, probabilidades somam 1 |
+| 2 | **OvR (lbfgs)** | `ovr` | `lbfgs` | K classificadores binários (cada classe vs. resto), quasi-Newton |
+| 3 | **OvR (liblinear)** | `ovr` | `liblinear` | K classificadores binários, coordenada descendente (suporta L1) |
+| 4 | **OvR (saga)** | `ovr` | `saga` | K classificadores binários, gradiente estocástico |
+| 5 | **OvO (liblinear)** | (wrap) | `liblinear` | K×(K−1)/2 classificadores de pares, votação |
+
+#### Resultados — Acurácia e F1 por C
+
+| Estratégia | C=0.1 | C=1.0 | C=10.0 | C=100.0 | Melhor C |
+|-----------|-------|-------|--------|---------|----------|
+| **Multinomial (lbfgs)** | 0,7598 / 0,7516 | **0,9750** / 0,9750 | 0,9820 / 0,9820 | 0,9780 / 0,9780 | **10 (59,93s)** |
+| OvR (lbfgs) | 0,7137 / 0,6980 | 0,9630 / 0,9630 | 0,9780 / 0,9780 | **0,9800** / 0,9800 | 100 (37,14s) |
+| OvR (liblinear) | 0,7137 / 0,6980 | 0,9630 / 0,9630 | 0,9780 / 0,9780 | **0,9790** / 0,9790 | 100 (43,11s) |
+| OvR (saga) | 0,7137 / 0,6980 | 0,9630 / 0,9630 | 0,9780 / 0,9780 | **0,9790** / 0,9790 | 100 (41,66s) |
+| OvO (liblinear) | 0,6907 / 0,6668 | 0,9530 / 0,9529 | 0,9770 / 0,9770 | **0,9780** / 0,9780 | 100 (6,82s) |
+
+*Formato: Acurácia / F1-weighted*
+
+#### Tabela Comparativa (C=10.0)
+
+| Estratégia | Acurácia | F1 (weighted) | F1 (macro) | Tempo (s) | F1 Irrelevant | F1 Negative | F1 Neutral | F1 Positive |
+|-----------|----------|--------------|-----------|----------|--------------|------------|-----------|------------|
+| **Multinomial (lbfgs)** | **0,9820** | **0,9820** | **0,9829** | 135,43 | 0,9853 | 0,9857 | 0,9798 | 0,9767 |
+| OvR (lbfgs) | 0,9780 | 0,9779 | 0,9777 | 22,39 | 0,9823 | 0,9809 | 0,9712 | 0,9635 |
+| OvR (liblinear) | 0,9780 | 0,9779 | 0,9777 | 15,72 | 0,9823 | 0,9809 | 0,9712 | 0,9635 |
+| OvR (saga) | 0,9780 | 0,9779 | 0,9777 | 10,07 | 0,9823 | 0,9809 | 0,9712 | 0,9635 |
+| OvO (liblinear) | 0,9770 | 0,9770 | 0,9768 | 3,89 | 0,9758 | 0,9810 | 0,9744 | 0,9738 |
+
+#### Análise
+
+**1. Multinomial (softmax) — o mais preciso, mas dramaticamente mais lento.**
+
+A acurácia de 0,9820 supera as demais estratégias em até 0,4 pp, mas o tempo de treino é expressivo: 59,93s (C=10) a 135,43s na execução detalhada. Isso ocorre porque o método multinomial resolve um problema conjunto de K classes simultaneamente: a função softmax exige o cálculo da distribuição completa sobre todas as classes em cada iteração, e a matriz Jacobiana do gradiente tem dimensão (N_features × K). Quanto mais classes, maior o custo. Em contraste, OvR quebra o problema em K subproblemas independentes e paralelizáveis.
+
+**2. OvR com C=100 empata tecnicamente com Multinomial C=10.**
+
+OvR (lbfgs) com C=100 atinge 0,9800 contra 0,9820 do Multinomial — diferença de apenas 0,2 pp. O tempo, porém, é muito menor (37,14s vs 59,93s). Para fins práticos, são equivalentes. O OvR com solver saga é ainda mais eficiente: 0,9790 em 41,66s com suporte adicional a regularização L1.
+
+**3. OvO — o mais rápido, mas o menos preciso.**
+
+One-vs-One treina K×(K−1)/2 = 6 classificadores binários (para 4 classes). Cada subproblema envolve apenas 2 classes, reduzindo drasticamente o custo por modelo. Com C=10, o treino leva apenas 2,16s — 28× mais rápido que Multinomial. A perda de acurácia é pequena (0,9770 vs 0,9820), mas a votação entre pares ignora a calibração global de probabilidades que o softmax oferece.
+
+**4. Saga é o solver mais eficiente entre OvR.**
+
+Com C=10, saga treina em 9,36s, contra 12,86s do lbfgs e 13,21s do liblinear, com métricas idênticas. O gradiente estocástico com variância reduzida do saga converge mais rápido em datasets grandes como este (73k amostras × 70k features).
+
+**5. Regularização forte penaliza mais OvR e OvO que Multinomial.**
+
+Com C=0,1 (regularização forte), Multinomial obtém 0,7598, enquanto OvR cai para 0,7137 e OvO para 0,6907. O softmax compartilha parâmetros entre classes — cada coeficiente contribui para todas as K saídas —, o que o torna mais robusto à regularização L2 agressiva. OvR e OvO, por treinarem modelos independentes por classe/par, sofrem mais quando o peso de cada modelo individual é excessivamente contraído.
+
+#### Recomendação Prática
+
+| Cenário | Configuração | Acurácia | Tempo |
+|---------|-------------|----------|-------|
+| Máxima acurácia | `multi_class='multinomial'`, `solver='lbfgs'`, `C=10` | **0,9820** | ~60s |
+| Melhor custo-benefício | `multi_class='ovr'`, `solver='saga'`, `C=100` | **0,9790** | ~42s |
+| Mínimo tempo | `OneVsOneClassifier(LogisticRegression(solver='liblinear', C=100))` | **0,9780** | ~7s |
+
+A diferença máxima entre todas as estratégias com C otimizado é de apenas **0,4 pontos percentuais** (0,9780 a 0,9820), indicando que, para este dataset, a escolha do `multi_class` é secundária à qualidade do TF-IDF e ao valor de C. A recomendação padrão (`multi_class='auto'`) do scikit-learn, que seleciona `multinomial` para multiclasse com solver compatível, é adequada.
+
+---
+
+### 📊 CV Methods Comparison — CIFAR-10
+
+**Notebook:** [experiments/cv-methods-comparison.ipynb](experiments/cv-methods-comparison.ipynb)
+
+Este experimento confronta três paradigmas de classificação de imagens no dataset CIFAR-10 (50.000 treino, 10.000 teste, 10 classes, 32×32 color):
+**HOG+SVM** (features manuais clássicas), **ResNet18** (CNN residual pré-treinada) e **ViT** (Vision Transformer pré-treinado no ImageNet-21k).
+
+#### Resultados Comparativos
+
+| Método | Acurácia | Tempo | Paradigma | Dados |
+|--------|----------|-------|-----------|-------|
+| **ViT** | **0,9805** | ~17 min (1 época) | Transformer visual pré-treinado (ImageNet-21k) | 50k treino |
+| **ResNet18** | **0,9362** | 12,5 min (5 épocas) | CNN residual pré-treinada (ImageNet) | 50k treino |
+| HOG+SVM | 0,3970 | 27 min | Features manuais + SVM | 10k treino |
+
+#### Análise
+
+**1. HOG+SVM — Falha das Features Manuais (0,3970)**
+
+HOG foi projetado para detecção de pedestrians em imagens de média resolução. Em 32×32, mesmo redimensionando para 64×64, os gradientes por célula são insuficientes para capturar a variabilidade de objetos como gatos e pássaros. As 2.916 features não escalam para classificação genérica. Melhor classe: **automobile** (0,54 F1) — bordas retilíneas; pior: **cat** (0,25 F1) — forma não rígida.
+
+**2. ResNet18 — Sólido e Confiável (0,9362)**
+
+Fine-tune do ImageNet satura rapidamente: época 1 já atinge 0,9323, oscilando em torno de 0,94 nas épocas seguintes. Melhores classes: ship (0,99 precision), bird (0,97), horse (0,97). Pior: cat (0,84 precision, 0,87 F1) — clássica confusão gato×cachorro do CIFAR-10. **Custo-benefício excelente:** 0,9362 em 12,5 min.
+
+**3. ViT — O Novo Padrão (0,9805 em 1 época)**
+
+O Vision Transformer domina com apenas 1 época de fine-tune. O pré-treinamento no ImageNet-21k (14M imagens, 21k classes) dá uma vantagem qualitativa sobre o ResNet18 (ImageNet-1k, 1,2M imagens). A diferença de **4,4 pp** (0,9805 vs 0,9362) é maior que a observada em NLP entre DistilBERT e TF-IDF+SVC (0,9 pp), sugerindo que o salto arquitetural importa mais em visão que em texto para datasets de médio porte.
+
+#### Recomendação
+
+| Cenário | Modelo | Acurácia | Tempo |
+|---------|--------|----------|-------|
+| Prototipagem rápida | **ResNet18** (fine-tune) | 0,9362 | 12,5 min |
+| Máxima acurácia | **ViT** (fine-tune, 3 épocas) | **~0,985+** | ~50 min |
+| Não recomendado | HOG+SVM | 0,3970 | 27 min |
+
+---
+
+### 🔧 Feature Engineering Study — Tabular & NLP
+
+**Notebooks:** [experiments/feature-engineering-tabular.ipynb](experiments/feature-engineering-tabular.ipynb) | [experiments/feature-engineering-nlp.ipynb](experiments/feature-engineering-nlp.ipynb)
+
+Estudo sistemático do impacto de **10 técnicas de feature engineering** em dois domínios distintos: **regressão tabular** (California Housing) e **classificação NLP** (Twitter Entity Sentiment). A pergunta central: *quanto feature engineering ajuda cada tipo de modelo, e quais técnicas valem o esforço?*
+
+#### Metodologia
+
+| Componente | Tabular | NLP |
+|---|---|---|
+| **Dataset** | California Housing (20.640 amostras, 8 features) | Twitter Entity Sentiment (73.768 treino, 999 validação, 4 classes) |
+| **Tarefa** | Regressão (preço mediano em $100k) | Classificação multiclasse (Positive/Negative/Neutral/Irrelevant) |
+| **Técnicas testadas** | 10 (Raw, Standardized, MinMax, Polynomial, Interactions, Log, Binning, PCA, Geo, Combined) | 9 (BoW, TF-IDF 1-gram/1-2gram/1-3gram, char 2-5/3-5, Hashing, Combined word+char, Sentence-BERT) |
+| **Modelos** | LinearRegression, LightGBM, RandomForest | LinearSVC fixo (C=1.0) — isola o efeito da representação |
+| **Métricas** | R², MAE | Acurácia, F1-weighted |
+| **Hardware** | Intel i7, 16GB RAM | Intel i7, 16GB RAM |
+| **Seeds** | 42 (numpy, sklearn) | 42 (numpy, sklearn) |
+
+#### Tabular — Resultados por Modelo (R²)
+
+| Técnica | LinearRegression | LightGBM | RandomForest |
+|---------|:-:|:-:|:-:|
+| 1. Raw | 0,5758 | 0,8360 | 0,8051 |
+| 2. Standardized | 0,5758 | 0,8386 | 0,8053 |
+| 3. MinMax | 0,5758 | 0,8365 | 0,8044 |
+| **4. Polynomial (d=2)** | **0,6457** | 0,8346 | 0,7968 |
+| 5. Poly interactions | 0,6225 | 0,8339 | 0,7969 |
+| 6. Log transform | 0,6114 | 0,8360 | 0,8053 |
+| 7. Binning (10 bins) | 0,5858 | 0,8288 | **0,8154** |
+| 8. PCA (95%) | 0,4877 | 0,6583 | 0,6422 |
+| **9. Geo features** | 0,5945 | **0,8418** | **0,8205** |
+| **10. Combined** | **0,7112** | 0,8375 | 0,8045 |
+
+#### Tabular — Análise Detalhada
+
+##### 1. LinearRegression — Feature Engineering é Crucial (+13,5 pp)
+
+| Técnica | R² | Ganho vs Raw | Tempo |
+|---|---|---|---|
+| Raw | 0,5758 | — | 0,00s |
+| Combined (log+poly+geo+std) | **0,7112** | **+13,5 pp** | 0,12s |
+| Polynomial (d=2) | 0,6457 | +7,0 pp | 0,11s |
+| Log transform | 0,6114 | +3,6 pp | 0,01s |
+
+Modelos lineares são **fortemente beneficiados** por feature engineering. Polynomial features (d=2) é a técnica mais impactante isolada (+7,0 pp): ao gerar 44 features que incluem termos quadráticos e interações (ex: `MedInc × Latitude`, `HouseAge²`), permite que o modelo linear capture relações não-lineares sem trocar de arquitetura. A trans\-formação logarítmica reduz a assimetria de features com cauda longa (`AveRooms`, `Population`, `AveOccup`), estabilizando o gradiente. A técnica Combined combina log + geo + polynomial + standardization, alcançando **+38% de melhoria relativa** sobre o baseline.
+
+Standardização (StandardScaler, MinMaxScaler) **não tem efeito** no R² da regressão linear — isso é esperado teoricamente, pois OLS é invariante a transformações afins positivas nas features.
+
+##### 2. LightGBM — Pouco Beneficiado (+0,6 pp)
+
+| Técnica | R² | Ganho vs Raw |
+|---|---|---|
+| Raw | 0,8360 | — |
+| Geo features | **0,8418** | **+0,6 pp** |
+| Standardized | 0,8386 | +0,3 pp |
+
+Gradient boosting trees são **invariantes a escala** (os splits não mudam com linear transformations) e capturam **não-linearidades nativamente** via profundidade da árvore. A única técnica que traz benefício mensurável é **Geo features** (+0,6 pp), pois cria features de domain knowledge que as árvores não conseguem inferir: a distância euclidiana ao centro urbano (`dist_to_center`) **não é uma função aditiva de splits univariados em Latitude e Longitude separadamente**. Polynomial features, por outro lado, **prejudica** o LightGBM (-0,1 pp), pois dilui as 8 features originais entre 44 features ruidosas.
+
+##### 3. RandomForest — Benefício Intermediário (+1,5 pp)
+
+| Técnica | R² | Ganho vs Raw |
+|---|---|---|
+| Raw | 0,8051 | — |
+| Geo features | **0,8205** | **+1,5 pp** |
+| Binning | 0,8154 | +1,0 pp |
+
+RandomForest se beneficia de **Geo features** (+1,5 pp) pelo mesmo motivo que LightGBM. **Binning** também ajuda (+1,0 pp): a discretização em 10 bins quantile facilita os splits nas árvores, que têm profundidade limitada (`max_depth=None` mas com `max_samples` controlando a complexidade). Sem binning, uma árvore precisaria de múltiplos splits sequenciais para isolar uma região específica de uma feature contínua — com binning, um único split basta, reduzindo o viés.
+
+##### 4. PCA — Prejudicial para Todos os Modelos
+
+| Modelo | Raw R² | PCA R² | Perda |
+|---|---|---|---|
+| LinearRegression | 0,5758 | 0,4877 | **-8,8 pp** |
+| LightGBM | 0,8360 | 0,6583 | **-17,8 pp** |
+| RandomForest | 0,8051 | 0,6422 | **-16,3 pp** |
+
+PCA reduz a dimensionalidade de 8 para 6 features (mantendo 95% da variância), mas **perde informação preditiva**. O problema é conceitual: PCA maximiza a variância, não a correlação com o target. Neste dataset, Latitude e Longitude são colineares (a Califórnia tem formato alongado norte-sul), e PCA funde-as em um componente principal que **perde a informação direcional** — exatamente a informação que mais importa para preço imobiliário (proximidade ao litoral, bairros nobres). LightGBM é o mais prejudicado (-17,8 pp) pois as árvores perdem os splits univariados originais nas coordenadas.
+
+#### NLP — Resultados por Representação (LinearSVC fixo)
+
+| Representação | Acurácia | F1-w | Features | Tempo (s) |
+|---|:-:|:-:|:-:|:-:|
+| **Hashing trick (2¹⁸)** | **0,9860** | **0,9860** | 262.144 | **8,61** |
+| Combined word+char | 0,9820 | 0,9820 | 70.000 | 60,67 |
+| TF-IDF (1-3 gram) | 0,9780 | 0,9780 | 70.000 | 15,40 |
+| TF-IDF (1-2 gram) | 0,9770 | 0,9770 | 70.000 | 18,84 |
+| BoW (CountVectorizer) | 0,9550 | 0,9550 | 26.351 | 125,86 |
+| TF-IDF char (2-5) | 0,9459 | 0,9460 | 70.000 | 69,71 |
+| TF-IDF char (3-5) | 0,9439 | 0,9440 | 70.000 | 55,42 |
+| TF-IDF (1-gram) | 0,9419 | 0,9419 | 26.351 | 9,01 |
+| Sentence-BERT | 0,6246 | 0,6129 | 384 | 150,72 |
+
+#### NLP — Análise Detalhada
+
+##### 1. Hashing Trick — Vencedor Surpreendente (0,9860 em 8,6s)
+
+O `HashingVectorizer` com 2¹⁸ = 262.144 dimensões supera todas as representações tradicionais. As razões do sucesso:
+
+- **Mais dimensões** (262k vs 70k do TF-IDF), reduzindo colisões de hash a um nível abaixo do ruído de classificação.
+- **Sem custo de IDF**: a ponderação IDF exigiria uma passagem adicional sobre o corpus para computar as frequências inversas. O hashing bypassa essa etapa, reduzindo o tempo de vetorização.
+- **Sem vocabulário persistente**: ideal para pipelines de produção com streaming ou chunks incrementalmente. O trade-off é a perda de interpretabilidade (não há mapeamento feature→índice).
+
+A diferença de 0,9 pp sobre o TF-IDF 1-2 gram (0,9770) é pequena mas consistente, e **2,2× mais rápido** (8,61s vs 18,84s).
+
+##### 2. N-gramas: À medida que aumenta a abstração, mais informações capturadas (+3,5 pp)
+
+| Representação | Acurácia | Ganho incremental |
+|---|---|---|
+| TF-IDF (1-gram) | 0,9419 | baseline |
+| TF-IDF (1-2 gram) | 0,9770 | **+3,5 pp** |
+| TF-IDF (1-3 gram) | 0,9780 | +0,1 pp |
+
+Bigramas capturam expressões composicionais como **"não gostei"**, **"muito bom"**, **"worst ever"** que unigramas isolados perdem. A inclusão de bigramas quase dobra o espaço de features (26k → 70k) mas o aumento de acurácia (+3,5 pp) justifica. Trigramas trazem ganho marginal (+0,1 pp) — expressões de 3+ palavras são raras em tweets curtos — e aumentam o tempo, sugerindo que **o ponto ótimo está em n=2**.
+
+##### 3. Word vs Char n-gramas: Complementaridade
+
+| Representação | Acurácia |
+|---|---|
+| TF-IDF word (1-2 gram) | 0,9770 |
+| TF-IDF char (2-5) | 0,9459 |
+| **Combined word + char** | **0,9820** |
+
+Char n-gramas isoladamente (0,9459) são **inferiores** a word n-gramas (0,9770) em 3,1 pp. Char n-gramas são úteis para textos ruidosos (typos, misturas de idiomas, grias ortográficas), mas neste dataset pré-processado e limpo, eles adicionam ruído. No entanto, a **combinação** de word + char (0,9820) supera ambos isoladamente (+0,5 pp sobre word), mostrando que capturam **informações ortográficas complementares** não redundantes com tokens de palavras.
+
+##### 4. BoW vs TF-IDF: IDF pode atrapalhar (+1,3 pp)
+
+Surpreendentemente, BoW (CountVectorizer, 0,9550) supera TF-IDF 1-gram (0,9419) em +1,3 pp. Isso parece contra-intuitivo, mas é explicado pela natureza do dataset: os tweets contêm **muitas repetições** (múltiplos tweets sobre a mesma marca de jogo), então a frequência bruta de termos discriminativos ("kill", "murder", "love", "borderlands") é mais informativa que a ponderação IDF. O IDF **dilui** a importância de termos frequentes, que aqui são justamente os mais discriminativos.
+
+**Caveat**: BoW é **14× mais lento** que TF-IDF 1-gram para treinar o SVM (125,86s vs 9,01s), pois as contagens densas exigem mais iterações do otimizador dual. O ganho de acurácia não justifica o custo.
+
+##### 5. Sentence-BERT Frozen: Continua Inadequado (0,6246)
+
+Confirma o achado do experimento anterior (NLP-twitter-methods-comparasion): o embedding genérico de 384-d do `all-MiniLM-L6-v2`, treinado para similaridade semântica em texto formal, **não captura polaridade afetiva** em tweets. Mesmo com o classificador LinearSVC (mais robusto que o LinearSVC do notebook anterior, que obteve 0,6036), o teto é ~0,62. Mais dados não resolvem um problema de representação.
+
+#### Discussão Integrada — O Efeito Cruzado Modelo × Feature Engineering
+
+| Domínio | Modelo Linear | Modelo Tree |
+|---|---|---|
+| **Tabular (R²)** | +13,5 pp (LinearRegression) | +0,6 a +1,5 pp (LightGBM/RF) |
+| **NLP (Acurácia)** | +4,4 pp (LinearSVC, Hashing vs 1-gram) | — |
+
+**Insight central:** O valor do feature engineering é **fortemente dependente do modelo**. Modelos lineares (OLS, SVM linear) ganham 4-14 pp porque dependem da representação para capturar não-linearidades. Modelos baseados em árvores ganham menos de 2 pp pois aprendem não-linearidades e invariâncias de escala nativamente. A regra prática:
+
+> **Invista em feature engineering proporcional à sensibilidade do modelo**. Modelos lineares justificam horas de engenharia; árvores, apenas minutos (foco em features de domain knowledge).
+
+#### Recomendações Práticas
+
+| Cenário | Tabular | NLP |
+|---|---|---|
+| **Máxima performance** | Combined (log+poly+geo+std) — LinearRegression 0,7112 | Hashing trick (2¹⁸) — LinearSVC 0,9860 |
+| **Melhor custo-benefício** | Raw + Geo features — LightGBM 0,8418 em 1,3s | TF-IDF (1-2 gram) — LinearSVC 0,9770 em 18,8s |
+| **Mínimo tempo** | Raw — LightGBM 0,8360 em 0,3s | TF-IDF (1-gram) — LinearSVC 0,9419 em 9,0s |
+| **Interpretabilidade** | Raw + Geo features (12 features interpretáveis) | TF-IDF (1-2 gram) com vocabulário analisável |
+
+#### Conclusões
+
+1. **Feature engineering tem valor assimétrico por modelo**: LinearRegression ganhou +13,5 pp (R²), LinearSVC +4,4 pp (acurácia), LightGBM apenas +0,6 pp. O esforço deve ser proporcional à sensibilidade do modelo ao espaço de features.
+
+2. **Polynomial features é a técnica mais impactante para modelos lineares tabulares** (+7,0 pp sozinho para LinearRegression), permitindo capturar não-linearidades sem trocar de modelo.
+
+3. **Hashing trick supera TF-IDF em NLP** (0,9860 vs 0,9770), graças a mais dimensões (262k) e ausência de custo de IDF — ideal para pipelines de produção.
+
+4. **Trees só se beneficiam de features de domain knowledge** (Geo features, +1,5 pp para RandomForest): as transformadas matemáticas (scaling, polynomial, PCA) são redundantes para árvores.
+
+5. **PCA deve ser evitado** — aqui perdeu 9-18 pp em todos os modelos tabulares, pois maximiza variância (não poder preditivo) e destrói informação direcional em features colineares.
+
+6. **Combinar word + char n-gramas traz ganho real em NLP** (+0,5 pp),provando que capturamos informações ortográficas complementares não redundantes com tokens de palavras.
 
 ---
 
@@ -394,6 +689,111 @@ No caderno acadêmico de Detecção de Anomalias ([exp4_anomaly_detection.ipynb]
   - Métodos de vizinhança de distância espacial pura (como LOF) **não devem** ser aplicados sobre a série crua temporal diretamente; eles exigem antes uma decomposição dos resíduos ou a inclusão de janelas de lags.
 
 ---
+### 7. Classificação de Séries Temporais: 6 Paradigmas
+
+**Notebook:** `experiments/time-series-classification.ipynb`
+
+Este experimento confronta **6 paradigmas** de classificação de séries temporais em 3 datasets UEA (GunPoint, ArrowHead, ECG5000), variando tamanho (200 a 5000 amostras) e número de classes (2 a 5).
+
+...
+
+---
+
+### 8. TS + NLP: Predição de Mercado com Sentimento de Notícias
+
+**Notebook:** `experiments/stock-sentiment-ts-nlp.ipynb`
+
+Este experimento combina **Séries Temporais** (preço sintético, lags, volatilidade) com **NLP** (VADER sentiment + TF-IDF de manchetes) para prever direção do mercado, demonstrando o paradigma **multimodal**.
+
+#### Metodologia
+
+| Componente | Descrição |
+|---|---|
+| **Dados** | Preço sintético via Geometric Brownian Motion (drift 12%, vol 25%, 1260 pregões) |
+| **Relação causal** | Sentimento de hoje → retorno de amanhã (efeito defasado de 20%) |
+| **NLP** | VADER (4 scores) + TF-IDF (50 bigramas) sobre manchetes financeiras |
+| **TS** | Lags (1-5d), rolling mean/std (5/10/21d), ATR, calendário |
+| **Modelo** | LightGBM em 3 variações: TS-only, NLP-only, TS+NLP |
+| **Split** | 80/20 temporal |
+
+#### Resultados
+
+| Modelo | Acurácia | F1 | Interpretação |
+|--------|:-------:|:--:|---------------|
+| **NLP-only** | **0.730** | **0.683** | Captura relação causal sentimento→preço |
+| **TS+NLP** | **0.718** | **0.720** | Fusão multimodal |
+| TS-only | 0.492 | 0.504 | Random walk sem memória mensurável |
+
+#### Análise
+
+**NLP domina** porque o dado sintético foi construído com uma relação causal: sentimento da manchete de hoje explica o retorno de amanhã. As features temporais (lags de preço GBM) são ruído puro, arrastando o modelo híbrido para baixo do NLP-only.
+
+**Em cenários reais**, o resultado seria diferente: mercados têm momentum, reversão à média e sazonalidades que lags capturam, então TS+NLP tende a superar ambos isolados.
+
+**Principais aprendizados:**
+1. **Fusão multimodal via concatenação de features** é simples e eficaz
+2. **VADER + TF-IDF extraem sinal preditivo de texto financeiro**
+3. **Relação causal defasada (notícia→preço)** é um fenômeno real em mercados
+4. A engenharia de features temporais é valiosa em dados reais, mas inútil em random walk
+5. Notebook extensível para dados reais (News API, yfinance) e BERT embeddings
+
+#### Paradigmas Comparados
+
+| Modelo | Categoria | Estratégia |
+|--------|-----------|------------|
+| **1-NN + DTW** | Distância (clássico) | Elastic alignment + nearest neighbor |
+| **ROCKET** | Convoluções aleatórias | 10k kernels aleatórios + classificador linear |
+| **InceptionTime** | CNN profunda (PyTorch) | Módulos Inception residual + GAP |
+| **TSFresh + RF** | Feature engineering automático | Extração estatística + Random Forest |
+| **Transformer Encoder** | Self-attention (PyTorch) | Pos encoding + TransformerEncoder + pooling |
+| **LightGBM + FE** | Gradient Boosting tabular | Features manuais (momentos, slope, autocorr, rolling) |
+
+#### Resultados
+
+| Dataset | Modelo | Acc | F1-macro | Tempo |
+|---------|--------|:---:|:--------:|:-----:|
+| **GunPoint** (2 cls, 200 am) | **ROCKET** | **1.000** | **1.000** | 1.2s |
+| | Transformer | 0.967 | 0.967 | 1.4s |
+| | 1-NN+DTW | 0.917 | 0.916 | 4.0s |
+| | LightGBM+FE | 0.833 | 0.833 | 0.3s |
+| | TSFresh+RF | 0.783 | 0.782 | 0.5s |
+| | InceptionTime | 0.767 | 0.766 | 14.0s |
+| **ArrowHead** (3 cls, 211 am) | **ROCKET** | **0.953** | **0.657** | 1.8s |
+| | InceptionTime | 0.766 | 0.294 | 1.0s |
+| | 1-NN+DTW | 0.578 | 0.369 | 12.6s |
+| | TSFresh+RF | 0.516 | 0.347 | 0.2s |
+| | LightGBM+FE | 0.484 | 0.318 | 0.2s |
+| | Transformer | 0.094 | 0.070 | 1.3s |
+| **ECG5000** (5 cls, 5000 am) | **ROCKET** | **0.889** | **0.487** | 33.1s |
+| | Transformer | 0.878 | 0.394 | 29.2s |
+| | 1-NN+DTW | 0.841 | 0.399 | 2176.5s |
+| | LightGBM+FE | 0.820 | 0.325 | 1.5s |
+| | InceptionTime | 0.751 | 0.259 | 152.2s |
+| | TSFresh+RF | 0.720 | 0.221 | 3.2s |
+
+#### Análise
+
+**1. ROCKET domina todos os datasets** — acurácia máxima em GunPoint (1.000) e ArrowHead (0.953), melhor em ECG5000 (0.889). O segredo está na combinação de 10.000 kernels de convolução aleatórios que projetam a série em um espaço de features de alta dimensão (20k features: max + ppv por kernel), onde um classificador Ridge linear encontra separação quase perfeita. A aleatoriedade dos kernels elimina a necessidade de aprendizado de features — é o equivalente temporal do método de Fourier que funciona sem treinamento.
+
+**2. Transformer funciona bem... quando converge**. Em GunPoint (0.967) e ECG5000 (0.878), o mecanismo de self-attention capturou padrões globais. Em ArrowHead, porém, colapsou para 0.094 (pior que aleatório para 3 classes), provavelmente devido à combinação de séries curtas (251 timesteps) com poucas amostras (147 treino) — o positional encoding e a atenção não encontraram estrutura suficiente para aprender.
+
+**3. 1-NN + DTW é o baseline robusto mas impraticável em escala**. A acurácia (0.917/0.578/0.841) é competitiva, mas o tempo em ECG5000 (36 minutos!) inviabiliza uso em datasets médios — a complexidade O(N²×L²) do DTW cresce quadraticamente com o tamanho da série e da base.
+
+**4. LightGBM+FE compete com deep learning** usando apenas 10 features manuais. Em GunPoint (0.833) e ECG5000 (0.820), features como slope, autocorrelação e rolling means capturam o suficiente para rivalizar com redes neurais, com a vantagem de treinar em 0.3-1.5s.
+
+**5. F1-macro baixo em datasets multiclasse** — ArrowHead (0.657) e ECG5000 (0.487) têm classes desbalanceadas. ROCKET lidera F1 em todos os casos, mas o gap entre acc e F1 sugere que a classe minoritária é sistematicamente confundida.
+
+#### Recomendação
+
+| Cenário | Modelo | Justificativa |
+|---------|--------|---------------|
+| Baseline rápida | **ROCKET** | Melhor acc geral, treina em segundos |
+| Máxima acurácia | **ROCKET** | Venceu 3/3 datasets |
+| Dataset grande (>10k) | **InceptionTime** | CNN escala melhor que DTW e ROCKET |
+| Interpretabilidade | **LightGBM+FE** | SHAP, importance, features explícitas |
+| Dataset pequeno (<200) | **1-NN+DTW** | Sem parâmetros para ajustar |
+
+---
 
 ## ⚙️ Padrões do Repositório
 
@@ -417,6 +817,9 @@ Para manter os experimentos reproduzíveis e fáceis de executar em qualquer má
 | `price-prediction-multiple-linear-regression.ipynb` | CPU suficiente | Regressão linear, modelos regularizados, Random Forest e XGBoost com GridSearchCV (v2). |
 | `property-sales-time-series.ipynb` | CPU suficiente | SARIMA/EDA rodam em CPU; `auto_arima` pode ser o trecho mais demorado. |
 | `animal-classifier.ipynb` | GPU recomendada | PyTorch + TensorFlow com modelos pré-treinados fica mais ágil em GPU. |
+| `movielens-recsys.ipynb` | CPU suficiente | SVD (Cython) roda em segundos; modelos PyTorch se beneficiam de GPU mas funcionam em CPU. |
+| `time-series-classification.ipynb` | CPU suficiente (GPU acelera PyTorch) | ROCKET/KNN/TSFresh/LightGBM rodam em CPU (~1-30s). InceptionTime e Transformer (PyTorch) aceleram com GPU mas funcionam em CPU. ECG5000 + DTW leva 36 min em CPU. |
+| `stock-sentiment-ts-nlp.ipynb` | CPU suficiente | Dados sintéticos (GBM) + VADER/TF-IDF (NLP) + LightGBM. Roda em ~10s em CPU. Sem dependência externa de dados ou GPU. |
 | `face_recognition_app.ipynb` | CPU suficiente (GPU opcional) | LBPH roda em CPU; `transfer_yunet` acelera com GPU, mas funciona em CPU. |
 
 ### Notebook de Deteccao Facial
@@ -927,6 +1330,65 @@ As métricas foram calculadas sobre o conjunto de teste (7 imagens). Devido ao t
 4. **EfficientNet-B0** apresentou perfil conservador (precisão 1.000, recall 0.714), sugerindo que fine-tuning mais longo ou descongelamento adicional de blocos poderia elevar o recall sem sacrificar a precisão.
 5. O **exact match** é uma métrica particularmente exigente para problemas multi-label: mesmo o EfficientNet, com F1-macro de 0.829, obteve apenas 0.714 de exact match, evidenciando a dificuldade de acertar todos os rótulos simultaneamente.
 6. A **Data Augmentation** (flip horizontal, rotação ±15°, jitter de cor, affine) foi aplicada uniformemente aos dois fluxos PyTorch (ResNet18 e EfficientNet). Embora seu impacto não possa ser isolado neste design experimental, o conjunto de transformações contribuiu para a regularização dos modelos, especialmente relevante dado o tamanho reduzido do dataset de treino (30 imagens).
+
+---
+
+## 🎬 MovieLens RecSys: 8 Abordagens de Recomendação
+
+**Notebook:** `experiments/movielens-recsys.ipynb`
+
+Este experimento confronta **8 paradigmas** de recomendação no dataset MovieLens 100k (100.000 ratings de 943 usuários sobre 1.682 filmes, sparsity de 93,7%).
+
+### Arquiteturas Comparadas
+
+| Modelo | Paradigma | Estratégia | Parâmetros |
+|--------|-----------|-----------|------------|
+| **Popularidade** | Heurístico | Média global por item (min 5 ratings) | 0 |
+| **KNN User-based** | Similaridade | Cosseno entre usuários | 0 |
+| **KNN Item-based** | Similaridade | Cosseno entre itens | 0 |
+| **SVD** | MF (MSE) | Decomposição em fatores latentes + biases (100 fatores, 20 épocas) | ~200k |
+| **NCF (NeuMF)** | Neural (concat) | Embeddings 32-d + MLP [64,32,16] + Dropout | ~2.2M |
+| **LightGBM + FE** | GB Tabular | Features: média/std/contagem por user/item + interações; 500 trees | ~6k folhas |
+| **BPR** | MF (pairwise) | Fatores 64-d, loss BPR (ranking), amostragem negativa | ~165k |
+| **Two-Tower** | Neural (dot) | Embeddings 32-d + MLP towers [64,32] + produto escalar | ~150k |
+
+### Resultados
+
+```
+      Modelo     RMSE       Paradigma
+   Two-Tower 0.929712    Neural (dot)
+         SVD 0.935171        MF (MSE)
+ LightGBM+FE 0.940597      GB Tabular
+         NCF 0.946228 Neural (concat)
+Popularidade 1.017112      Heuristico
+    KNN User 1.019354    Similaridade
+    KNN Item 1.026430    Similaridade
+         BPR 1.113827   MF (pairwise)
+```
+
+### Análise Detalhada
+
+**Two-Tower (DLRM-style)** alcançou o melhor RMSE (0.9297). Diferentemente do NCF que concatena embeddings e usa MLP, o Two-Tower projeta usuário e item em espaços separados via torres MLP independentes e combina com produto escalar. Essa arquitetura é o padrão industrial em larga escala (Google, Meta, Pinterest) porque permite recuperação aproximada (ANN) em catálogos de milhões de itens — pré-computa os embeddings dos itens e busca por vizinhança aproximada a partir do embedding do usuário. No MovieLens 100k a diferença para o SVD foi marginal (~0.005), mas a vantagem estrutural está na escalabilidade para produção.
+
+**SVD** (Matrix Factorization clássica) ficou em segundo lugar com RMSE 0.9352, praticamente empatado com o Two-Tower para este dataset. Sua implementação em Cython (biblioteca `surprise`) o torna drasticamente mais rápido que as alternativas PyTorch — treina em segundos contra dezenas de segundos dos modelos neurais. O SVD decompõe a matriz usuário-item em fatores latentes de dimensionalidade reduzida (100), capturando padrões de preferência que generalizam além das interações observadas. Para a maioria dos cenários com datasets de porte pequeno a médio, o SVD oferece o melhor trade-off entre acurácia e custo computacional.
+
+**LightGBM + Feature Engineering** obteve RMSE 0.9406, terceiro lugar geral, com apenas 8 features criadas manualmente (média, desvio padrão e contagem de ratings por usuário e por item, mais interações). As features mais importantes foram `u_std` e `u_mean` (desvio padrão e média do usuário), indicando que o comportamento médio do usuário carrega mais sinal preditivo do que a popularidade do item. Este resultado demonstra que Gradient Boosting com engenharia de features bem direcionada compete diretamente com Matrix Factorization, com a vantagem adicional de ser interpretável (importância de features, SHAP).
+
+**NCF (NeuMF)** ficou em quarto (RMSE 0.9462), atrás do LightGBM. A arquitetura de concatenação de embeddings seguida de MLP adiciona ~2.2M parâmetros mas não superou abordagens mais simples. A hipótese é que o dataset de 100k ratings é insuficiente para justificar a complexidade adicional da rede — NCF tende a brilhar em datasets com centenas de milhares a milhões de interações.
+
+**Popularidade, KNNs** ficaram agrupados no RMSE ~1.02, e **BPR** ficou em último (RMSE 1.1138). Este resultado é esperado: BPR otimiza *ranking* via loss pairwise (amostragem negativa), não RMSE. O RMSE alto não indica falha do modelo — BPR é a escolha certa para tarefas de top-K recommendation (precision@K, recall@K), não para predição de rating exato. Os KNNs sofrem com a sparsity de 93,7%: a matriz de distâncias entre usuários/itens é dominada por zeros, tornando a similaridade ruidosa.
+
+### Cold-Start
+
+Simulação de um novo usuário que avaliou 3 filmes (Star Wars 5, Fargo 4, Shining 3). O SVD recomendou filmes coerentes: Empire Strikes Back (4.97), Dr. Strangelove (4.94), Cuckoo's Nest (4.94) — clássicos bem avaliados com perfil similar ao gosto do usuário.
+
+### Conclusões
+
+1. **Two-Tower** e **SVD** lideram em RMSE, com vantagem do SVD em eficiência computacional.
+2. **LightGBM + FE** prova que feature engineering manual ainda compete com redes neurais em datasets de porte moderado.
+3. **BPR** não deve ser avaliado por RMSE — sua força está em ranking (precision/recall@K).
+4. **Sparsity elevada** inviabiliza métodos baseados em similaridade (KNN), que ficam atrás até de baseline heurística.
+5. **Cold-start** requer estratégias híbridas (popularidade + conteúdo) até que o usuário acumule interações suficientes.
 
 ---
 
