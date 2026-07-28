@@ -977,7 +977,7 @@ python scripts/validate_notebooks.py
 O laboratório principal agora está categorizado modularmente para rápida navegação:
 1. **`experiments/nlp/`**: Análise de sentimentos (Twitter/AG News), pipeline `senti-pred_pipeline.ipynb`, extração MMoE e Ensembles Piramidais.
 2. **`experiments/computer_vision/`**: Reconhecimento facial (YuNet), detecção YOLO e ViT/ResNet comparativos.
-3. **`experiments/time_series/`**: Forecasting com Prophet/SARIMA, destilação de conhecimento, análise temporal multivariada, anomalias e Feature Engineering de 5 fases.
+3. **`experiments/time_series/`**: Forecasting com Prophet/SARIMA, destilação de conhecimento, análise temporal multivariada, anomalias e Feature Engineering de 6 fases (incluindo benchmark com `sktime`).
 4. **`experiments/tabular_regression/`**: Previsão de preços (Múltipla Regressão Linear), AutoML e Transformações Matemáticas Clássicas.
 5. **`experiments/recommender_systems/`**: Sistemas baseados em similaridade para Imagens e MovieLens.
 

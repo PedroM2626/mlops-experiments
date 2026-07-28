@@ -394,6 +394,20 @@ const App = (() => {
       dataset: 'Price Dataset',
       details: 'CPU suficiente. Regressao linear e EDA sao leves.'
     },
+    {
+      id: 39,
+      title: 'Sktime vs The World (Automated FE)',
+      category: 'timeseries',
+      categoryLabel: 'Series Temporais e Forecast',
+      status: 'completed',
+      description: 'Duelo final de Feature Engineering. Sktime (WindowSummarizer) extraindo lags e estatisticas moveis de forma paralelizada contra o modelo Hibrido com Wavelets.',
+      techniques: ['sktime', 'WindowSummarizer', 'Feature Engineering', 'Random Forest'],
+      metric: { label: 'MAE', value: '52.79', percent: 99 },
+      script: 'experiments/time_series/sktime_vs_hybrid_ts.ipynb',
+      models: ['Random Forest'],
+      dataset: 'Beijing PM2.5 (Multivariate)',
+      details: 'O sktime quebrou o recorde absoluto do projeto com um MAE de 52.79 (superando a barreira dos 54 do modelo hibrido com Wavelets) em menos de 1 segundo de execucao.'
+    }
   ];
 
   /* -------------------------------------------------------
