@@ -48,7 +48,7 @@ const App = (() => {
       description: 'Classificacao de noticias em 4 categorias usando Transfer Learning com DistilBERT. Demonstrou que Transformers pre-treinados superam TF-IDF para tarefas semanticas complexas.',
       techniques: ['DistilBERT', 'Fine-tuning', 'Transfer Learning', 'Transformers'],
       metric: { label: 'Accuracy', value: 'Alta', percent: 92 },
-      script: 'experiments/ag-news-classification.ipynb',
+      script: 'experiments/nlp/ag-news-classification.ipynb',
       models: ['DistilBERT (Fine-tuned)'],
       dataset: 'AG News (4 categorias)',
       details: 'GPU recomendada. Transformer fine-tuning com classificacao de World, Sports, Business, Sci/Tech.'
@@ -104,7 +104,7 @@ const App = (() => {
       description: 'Aprendizado multi-tarefa combinando classificacao de sentimento, predicao de intensidade e classificacao de topicos em uma unica rede MMoE. Inclui benchmark Clássico vs Deep Learning.',
       techniques: ['Multi-Task', 'Sentiment', 'Extra Trees', 'LightGBM', 'LinearSVC'],
       metric: '0.9643 F1',
-      script: 'experiments/nlp-multi-task-classification.ipynb',
+      script: 'experiments/nlp/nlp-multi-task-classification.ipynb',
       models: ['MMoE Neural Network', 'Extra Trees Classifier'],
       dataset: 'Multi-label Dataset',
       details: 'Superou a baseline de Single-Task quebrando a barreira de 0.95 com TF-IDF de 15.000 features. Extra Trees (Machine Learning Classico) bateu todas as redes neurais atingindo F1=0.9643.'
@@ -118,7 +118,7 @@ const App = (() => {
       description: 'Analise de sentimento em tweets usando modelos classicos com TF-IDF. Notebook exploratoria com EDA e modelagem.',
       techniques: ['TF-IDF', 'Classical ML', 'EDA'],
       metric: null,
-      script: 'experiments/twitter-sentiment-analysis.ipynb',
+      script: 'experiments/nlp/twitter-sentiment-analysis.ipynb',
       models: ['Classical ML Models'],
       dataset: 'Twitter Dataset',
       details: 'Notebook com analise exploratoria e modelos classicos. CPU suficiente.'
@@ -161,7 +161,7 @@ const App = (() => {
       description: 'Analise de series temporais de vendas imobiliarias usando SARIMA e auto_arima. Notebook exploratoria com EDA e previsoes.',
       techniques: ['SARIMA', 'auto_arima', 'EDA', 'Decomposition'],
       metric: null,
-      script: 'experiments/property-sales-time-series.ipynb',
+      script: 'experiments/time_series/property-sales-time-series.ipynb',
       models: ['SARIMA', 'auto_arima'],
       dataset: 'Property Sales',
       details: 'CPU suficiente. auto_arima pode ser o trecho mais demorado.'
@@ -175,7 +175,7 @@ const App = (() => {
       description: 'Destilacao de conhecimento aplicada a series temporais. Transferencia de conhecimento de modelo grande (teacher) para modelo menor (student).',
       techniques: ['Knowledge Distillation', 'Teacher-Student', 'Time Series'],
       metric: null,
-      script: 'experiments/knowledge_distillation-time_series.ipynb',
+      script: 'experiments/time_series/knowledge_distillation-time_series.ipynb',
       models: ['Teacher Model', 'Student Model (Distilled)'],
       dataset: 'Time Series Dataset',
       details: 'Tecnica de compressao de modelos para deploy eficiente.'
@@ -218,7 +218,7 @@ const App = (() => {
       description: 'Classificador de animais usando Transfer Learning com modelos pre-treinados em PyTorch e TensorFlow.',
       techniques: ['PyTorch', 'TensorFlow', 'Transfer Learning', 'CNN', 'Image Classification'],
       metric: null,
-      script: 'experiments/animal-classifier.ipynb',
+      script: 'experiments/computer_vision/animal-classifier.ipynb',
       models: ['Pre-trained CNNs (PyTorch)', 'Pre-trained CNNs (TensorFlow)'],
       dataset: 'Animal Images',
       details: 'GPU recomendada. Usa modelos pre-treinados de ambos frameworks.'
@@ -232,7 +232,7 @@ const App = (() => {
       description: 'Aplicacao de deteccao e reconhecimento facial com 3 modos de treinamento: LBPH, CNN e Transfer Learning com YuNet.',
       techniques: ['LBPH', 'CNN', 'YuNet', 'Face Detection', 'Face Recognition'],
       metric: null,
-      script: 'experiments/face_recognition_app.ipynb',
+      script: 'experiments/computer_vision/face_recognition_app.ipynb',
       models: ['LBPH Recognizer', 'CNN', 'YuNet Transfer Learning'],
       dataset: 'Face Images',
       details: 'Detectores: yunet, haar. Configs via env: FACE_DETECTOR, FACE_TL_EPOCHS, YUNET_SCORE_THRESHOLD.'
@@ -246,7 +246,7 @@ const App = (() => {
       description: 'Sistema de recomendacao de imagens baseado em similaridade visual. Usa embeddings de CNNs pre-treinadas.',
       techniques: ['Image Similarity', 'Embeddings', 'CNN Features', 'Recommendation'],
       metric: null,
-      script: 'experiments/image_recommender.ipynb',
+      script: 'experiments/recommender_systems/image_recommender.ipynb',
       models: ['CNN Feature Extractor'],
       dataset: 'Image Dataset',
       details: 'Recomendacao baseada em distancia entre feature vectors de CNNs pre-treinadas.'
@@ -260,7 +260,7 @@ const App = (() => {
       description: 'Deteccao de objetos em tempo real usando YOLO (You Only Look Once). Notebook exploratoria.',
       techniques: ['YOLO', 'Object Detection', 'Real-time'],
       metric: null,
-      script: 'experiments/yolo_notebook.ipynb',
+      script: 'experiments/computer_vision/yolo_notebook.ipynb',
       models: ['YOLO'],
       dataset: 'Object Detection Dataset',
       details: 'Deteccao de objetos em tempo real com bounding boxes.'
@@ -389,7 +389,7 @@ const App = (() => {
       description: 'Predicao de precos usando Regressao Linear Multipla. Notebook com EDA completa e modelagem.',
       techniques: ['Multiple Linear Regression', 'EDA', 'Feature Analysis'],
       metric: null,
-      script: 'experiments/price-prediction-multiple-linear-regression.ipynb',
+      script: 'experiments/tabular_regression/price-prediction-multiple-linear-regression.ipynb',
       models: ['Multiple Linear Regression'],
       dataset: 'Price Dataset',
       details: 'CPU suficiente. Regressao linear e EDA sao leves.'
