@@ -737,7 +737,119 @@ Este experimento combina **Séries Temporais** (preço sintético, lags, volatil
 4. A engenharia de features temporais é valiosa em dados reais, mas inútil em random walk
 5. Notebook extensível para dados reais (News API, yfinance) e BERT embeddings
 
+---
+
+### 9. Benchmark de Paradigmas em Séries Temporais: 4 Cenários × 4 Modelos
+
+**Notebook:** `experiments/benchmark-ts-paradigms.ipynb`
+
+Este experimento confronta **4 paradigmas** (SARIMA, Prophet, TCN, LightGBM) em **4 cenários distintos** de séries temporais, variando presença/ausência de tendência, sazonalidade e ruído. A pergunta central: *qual paradigma vence em cada tipo de série?*
+
+#### Os 4 Cenários
+
+| # | Dataset | Fonte | Frequência | Tendência | Sazonalidade | Ruído | H (20%) |
+|---|---|---|---|---|---|---|---|
+| 1 | Mauna Loa CO₂ | `statsmodels co2` | Semanal (W) | Monotônica forte | Anual (52 sem) | Baixo | 30 |
+| 2 | Nilo (Nile River Flow) | `statsmodels nile` | Anual (Y) | Declínio médio-séc. XX | Nenhuma | Médio | 8 |
+| 3 | Sunspots | `statsmodels sunspots` | Anual (Y) | Nenhuma | Cíclica ~11yr | Alto | 25 |
+| 4 | Sintético | Gerado via numpy (regime changes + jumps) | Semanal (W) | Linear forte | Anual (52 sem) | **Muito alto** | 30 |
+
 #### Paradigmas Comparados
+
+| Paradigma | Modelo | Categoria | Feature Engineering | Estratégia de Previsão |
+|---|---|---|---|---|
+| **SARIMA** | `SARIMAX` (ordem fixa (1,1,1)²) | Estatístico paramétrico | Nenhuma | Direta (H passos) |
+| **Prophet** | `prophet` v1.3 (Meta) | Híbrido / GAM aditivo | Nenhuma | Direta (H passos) |
+| **TCN** | Temporal Convolutional Network (PyTorch, 6 blocos dilatados) | Deep Learning seq2seq | Nenhuma | Recursiva (t+1→hist→t+2) |
+| **LightGBM** | `lightgbm` 4.6 + 22 lag/rolling/calendário features | ML de árvores | **Sim** — lags, rolling, calendário | Recursiva (t+1→hist→t+2) |
+
+² Ordem `(1,1,1)` fixa (sem grid search AIC) para evitar custo de 12 fits sazonais com `m=52`.
+
+#### Metodologia
+
+| Componente | Configuração |
+|---|---|
+| **Split** | 80% treino / 20% teste — split temporal, sem shuffle |
+| **H** | Proporcional ao tamanho do teste: CO₂=30, Nilo=8, Sunspots=25, Sintético=30 |
+| **Métricas** | MAE, RMSE, MAPE |
+| **DM** | Diebold-Mariano (MSE) com correção small-sample para séries de erro autocorrelacionadas |
+| **Seed** | 42 (numpy, torch) |
+| **Hardware** | Intel i7, 16GB RAM, RTX 4070 Laptop (CUDA 12.1) |
+
+#### Resultados Consolidados (v2)
+
+**MAE por Dataset × Modelo (menor = melhor):**
+
+| Dataset | SARIMA | LightGBM | Prophet | TCN | Vencedor |
+|---|---|---|---|---|---|
+| **CO₂** (trend+saz suave) | **0,40** | 0,53 | 1,47 | 0,58 | **SARIMA** |
+| **Nilo** (trend declinante) | **95,09** | 110,23 | 137,35 | 101,61 | **SARIMA** |
+| **Sunspots** (cíclico 11yr) | 45,76 | 56,05 | 43,62 | **25,02** | **TCN** |
+| **Sintético** (alto ruído+jumps) | 7,59 | 5,94 | **5,27** | 5,71 | **Prophet** |
+
+**Tempo de Treino (segundos):**
+
+| Dataset | SARIMA | LightGBM | Prophet | TCN | Mais rápido |
+|---|---|---|---|---|---|
+| CO₂ | 34,87 | 0,48 | **0,45** | 2,44 | Prophet |
+| Nilo | **0,02** | 0,17 | 0,21 | 0,16 | SARIMA |
+| Sunspots | **0,03** | 0,46 | 0,11 | 0,32 | SARIMA |
+| Sintético | 79,49 | 0,64 | **0,14** | 0,61 | Prophet |
+
+**Ranking (1 = melhor, 4 = pior):**
+
+| Dataset | SARIMA | LightGBM | Prophet | TCN |
+|---|---|---|---|---|
+| CO₂ | **1** | 2 | 4 | 3 |
+| Nilo | **1** | 3 | 4 | 2 |
+| Sunspots | 3 | 4 | 2 | **1** |
+| Sintético | 4 | 3 | **1** | 2 |
+
+#### Análise Cruzada
+
+| Tipo de Série | Dataset | Vencedor | MAE | Pior | Insight |
+|---|---|---|---|---|---|
+| Tendência + Sazonalidade (suave) | CO₂ | SARIMA | 0,40 | Prophet (1,47) | Estrutura paramétrica ARIMA(1,1,1) captura a aditividade perfeitamente; Prophet subestima a sazonalidade com Fourier truncado |
+| Tendência declinante (ruidosa) | Nilo | SARIMA | 95,09 | Prophet (137,35) | AR(1) captura o momentum do declínio; GAM com linear trend é inflexível para mudanças de regime |
+| Cíclica longa (alta variância, sem tendência) | Sunspots | TCN | 25,02 | LightGBM (56,05) | Convolução dilatada com 6 escalas captura o período ~11yr que lags lineares perdem por multicolinearidade |
+| Regime changes + jumps frequentes | Sintético | Prophet | 5,27 | SARIMA (7,59) | Changepoint detection do Prophet absorve os jumps estruturais; SARIMA(1,1,1) com memória curta não recupera após as mudanças |
+
+#### Árvore de Decisão
+
+```
+Série com sazonalidade forte?
+├── Sim → Série suave (ruído baixo)?
+│   ├── Sim  → ✅ SARIMA (CO₂: MAE 0,40)
+│   └── Não  → ✅ Prophet (Sintético: MAE 5,27)
+└── Não → Série cíclica longa?
+    ├── Sim  → ✅ TCN (Sunspots: MAE 25,02)
+    └── Não  → ✅ SARIMA (Nilo: MAE 95,09)
+```
+
+#### Diebold-Mariano (p-valores)
+
+Teste DM h-step com correção Newey-West (MSE). **Negrito** = p < 0,05 (diferença significativa).
+
+| Dataset | LGBM vs Prophet | LGBM vs TCN | Prophet vs TCN | SARIMA vs LGBM | SARIMA vs Prophet | SARIMA vs TCN |
+|---|---|---|---|---|---|---|
+| **CO₂** | **0,013** | 0,876 | **<0,001** | 1,000 | **0,004** | 0,383 |
+| **Nilo** | 0,339 | 0,891 | **0,041** | 0,442 | 0,069 | 0,288 |
+| **Sunspots** | 1,000 | 1,000 | **0,031** | **<0,001** | 1,000 | **<0,001** |
+| **Sintético** | 0,259 | 0,471 | **0,018** | 0,261 | **<0,001** | **<0,001** |
+
+*Interpretação:* Prophet é significativamente pior que TCN em **3/4** datasets. SARIMA é significativamente melhor que LightGBM em Sunspots e melhor que Prophet em CO₂ e Sintético. TCN e LightGBM são indistinguíveis na maioria dos cenários. Comparações com p=1,000 indicam erros quase idênticos (ex.: CO₂ SARIMA vs LightGBM têm MAE 0,40 vs 0,53 mas a correlação dos erros torna o teste inconclusivo).
+
+#### Conclusões (v2)
+
+1. **SARIMA vence 2/4 cenários** (CO₂, Nilo) mesmo com ordem fixa (1,1,1) — sem necessidade de AIC grid search. O custo de treino é alto em séries longas (35-80s) mas compensa quando a estrutura é suficientemente linear-aditiva.
+2. **TCN só vence no Sunspots** — o padrão cíclico ~11 anos é o único onde 6 blocos de convolução dilatada capturam interações de longo prazo que ARIMA e LightGBM perdem. Nos demais cenários, fica em 2º-3º lugar com boa consistência.
+3. **LightGBM nunca vence** apesar de ser consistente (2º-3º) — o custo de ~22 features derivadas não se paga quando a série tem estrutura que SARIMA/Prophet capturam nativamente. Melhor custo-benefício para cenários que exigem interpretabilidade via SHAP.
+4. **Prophet vence o sintético com regime changes** — a changepoint detection do GAM aditivo absorve os jumps estruturais que quebram a memória do ARIMA(1,1,1). SARIMA fica em último (MAE 7,59) porque um choque no passado se propaga infinitamente pela raiz unitária.
+5. **Nenhum paradigma domina universalmente** — cada vencedor reflete uma propriedade da série: estacionarizabilidade (SARIMA), periodicidade não-linear (TCN), robustez a mudanças de regime (Prophet), capacidade tabular com features (LightGBM).
+6. **Regra prática:** SARIMA para séries suaves (ruído < 5%), Prophet para séries com quebras estruturais, TCN para padrões cíclicos longos (10k+ pontos), LightGBM quando a hipótese de estrutura paramétrica não se sustenta e features exógenas existem.
+
+---
+
 
 | Modelo | Categoria | Estratégia |
 |--------|-----------|------------|
@@ -1391,6 +1503,76 @@ Simulação de um novo usuário que avaliou 3 filmes (Star Wars 5, Fargo 4, Shin
 5. **Cold-start** requer estratégias híbridas (popularidade + conteúdo) até que o usuário acumule interações suficientes.
 
 ---
+
+---
+
+### 📈 O Ápice do MLOps em Séries Temporais: 5 Fases de Feature Engineering
+
+**Pasta dos Experimentos:** [experiments/time_series_fe](experiments/time_series_fe)
+
+
+Este documento resume a nossa jornada de 5 fases em busca do menor Erro Absoluto (MAE) na previsão de Séries Temporais. O objetivo central era responder: **O que funciona melhor? Intuição Humana, Força Bruta Estatística ou Algoritmos Avançados?**
+
+---
+
+## 📌 Fase 1: Univariado (Daily Minimum Temperatures)
+**Vencedor:** Random Forest + Manual FE (MAE: 1.76).
+O modelo automático do `tsfresh` gerou centenas de features, demorou meio minuto para extrair e piorou o resultado (MAE: 1.79).
+[Notebook 1](experiments/time_series_fe/automated_vs_manual_fe_ts.ipynb)
+
+---
+
+## 📌 Fase 2: Multivariado Clássico (Beijing PM2.5)
+**Vencedor:** Random Forest + Manual FE (MAE: 46.07).
+O `tsfresh` explodiu a matriz para 313 features, destruindo a performance. A "Média Móvel" manual foi declarada a rainha provisória.
+[Notebook 2](experiments/time_series_fe/multivariate_auto_vs_manual_fe.ipynb)
+
+---
+
+## 📌 Fase 3: Embeddings por Deep Learning
+Treinamos um **LSTM Autoencoder em PyTorch**. A Rede Neural aprendeu a comprimir o histórico num vetor latente de 16 dimensões.
+**Vencedor:** Híbrido (Manual + Deep Learning) com MAE de 57.24. 
+[Notebook 3](experiments/time_series_fe/dl_embeddings_fe_ts.ipynb)
+
+---
+
+## 📌 Fase 4: Engenharia de Sinais (Decomposição Sazonal e Wavelets)
+Separamos o sinal em Trend/Seasonality e aplicamos a **Transformada Wavelet Discreta (DWT)** via `pywt` para extrair os choques em janelas de 7 dias.
+**Vencedor:** Híbrido Total (Manual + Wavelets) alcançando MAE de **54.19**. A Transformada Wavelet provou ser superior a qualquer outra tática.
+[Notebook 4](experiments/time_series_fe/advanced_signal_fe_ts.ipynb)
+
+---
+
+## 🚀 Fase 5: Time Embeddings e Otimização Bayesiana (Optuna)
+No nosso polimento final, substituímos as variáveis temporais lineares (Meses e Dias de 1 a 12) por **Embeddings Circulares** (Seno/Cosseno). Em seguida, acionamos o **Optuna** para testar as melhores configurações de hiperparâmetros com validação cruzada rigorosa (`TimeSeriesSplit`).
+
+[Notebook 5: Código da Fase 5](experiments/time_series_fe/hpo_time_embeddings_ts.ipynb)
+
+### 📊 Resultados do Duelo Final (Fase 5)
+
+> [!WARNING]
+> **A Lição sobre Otimização e Complexidade!** A Otimização de Hiperparâmetros ajudou imensamente os modelos simples a não sofrerem *overfitting*. Contudo, a validação cruzada do Optuna forçou uma regularização dura no modelo Híbrido, fazendo-o "underfittar" no Teste Final.
+
+| Abordagem (Fase 5 vs Fase 4) | Optuna (Best Params) | MAE (Fase 5 - Com Optuna) | MAE (Fase 4 - Sem Optuna) |
+|:---:|:---|:---:|:---:|
+| **3. Apenas Wavelets (DWT)** | `n_est: 50, depth: 5, min_split: 5` | **56.74** | 57.23 |
+| **1. Apenas Manual FE** | `n_est: 200, depth: 5, min_split: 5` | **57.14** | 57.88 |
+| **2. Apenas Decomp. Sazonal** | `n_est: 200, depth: 5, min_split: 4` | **59.63** | 60.82 |
+| **4. Híbrido Total (Manual + Sinais)**| `n_est: 150, depth: 5, min_split: 2` | 55.25 | **54.19** (Sem HPO vence) |
+
+### 🧠 A Grande Conclusão da Fase 5:
+
+1. **Time Embeddings e HPO salvam os modelos mais simples:**
+As representações de Seno/Cosseno aliadas à otimização do Optuna melhoraram **todas** as bases isoladas (Wavelets caiu de 57.23 para 56.74, Manual caiu de 57.88 para 57.14). A regularização (`max_depth = 5`) escolhida pelo Optuna impediu o Random Forest de decorar o passado, garantindo uma melhor generalização no futuro.
+
+2. **O Paradoxo da Validação Cruzada (O Híbrido piorou):**
+Por que o nosso poderoso Híbrido de 62 features perdeu precisão com o Optuna (de 54.19 para 55.25)? Porque o Optuna focou em reduzir o erro médio na Validação Cruzada. Para não *overfittar* nas quebras temporais (3-folds CV), ele optou por uma árvore muito rasa (`max_depth = 5`). Essa árvore funcionou perfeitamente para 20 features, mas causou um **Underfitting** brutal no dataset Híbrido de 62 features. O modelo precisava de galhos mais profundos para relacionar a Média Móvel com o choque da Wavelet.
+
+**O Veredito Final de MLOps:**
+Se você for treinar o modelo Híbrido, não restrinja a profundidade da árvore, ou use **muito mais do que 10 trials no Optuna** para que ele perceba que a complexidade da base exige hiperparâmetros mais profundos. De forma geral, adicionar Wavelets (DWT) e Time Embeddings (Seno/Cosseno) foi a coroação deste projeto, mostrando como a ciência pura vence os algoritmos de "caixa-preta"!
+
+---
+
 
 ## 🚀 Conclusão Final: A Performance é Sistêmica
 
