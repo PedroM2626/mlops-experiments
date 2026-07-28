@@ -103,7 +103,7 @@ A diferença entre um modelo medíocre e um estado-da-arte muitas vezes reside n
 - **Tamanho do Vocabulário**: Limitar excessivamente as features (`max_features`) pode cegar o modelo, enquanto um vocabulário muito vasto pode introduzir ruído. O equilíbrio em **15.000 features** mostrou-se ideal para este dataset.
 
 #### 3. Deep Learning vs Modelos Clássicos
-- **Fine-tuning de Transformers vs SSMs (Mamba)**: No experimento [ag-news-classification.ipynb](experiments/ag-news-classification.ipynb), utilizei **DistilBERT** (Transformer) e **Mamba-130M** (State-Space Model) em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam modelos profundos. Contudo, a arquitetura Mamba mostrou-se altamente promissora ao substituir os pesados blocos de auto-atenção quadrática ($O(N^2)$) dos Transformers por espaços de estado lineares ($O(N)$), mantendo uma acurácia pareada com arquiteturas profundas tradicionais, porém com forte dependência de aceleração de hardware (GPU) para inferência paralela.
+- **Fine-tuning de Transformers vs SSMs (Mamba)**: No experimento [ag-news-classification.ipynb](experiments/nlp/ag-news-classification.ipynb), utilizei **DistilBERT** (Transformer) e **Mamba-130M** (State-Space Model) em paralelo com TF-IDF + ExtraTrees + LinearSVC para comparar representações contextuais vs. esparsas. Os resultados demonstraram que, em regime de baixa amostragem, modelos clássicos baseados em TF-IDF superam modelos profundos. Contudo, a arquitetura Mamba mostrou-se altamente promissora ao substituir os pesados blocos de auto-atenção quadrática ($O(N^2)$) dos Transformers por espaços de estado lineares ($O(N)$), mantendo uma acurácia pareada com arquiteturas profundas tradicionais, porém com forte dependência de aceleração de hardware (GPU) para inferência paralela.
 
 #### 4. O Paradoxo do Multi-Task Learning (MMoE) e Rollback Tático para TF-IDF
 No experimento [mmoe_emotion_classifier.py](experiments/mmoe_emotion_classifier.py) com o dataset Google `go_emotions`, testamos a arquitetura neural **MMoE (Multi-gate Mixture of Experts)**. A hipótese era que tarefas correlacionadas (Alegria, Tristeza, Raiva) se ajudariam mutuamente. Tivemos duas grandes lições:
@@ -117,7 +117,7 @@ No experimento [mmoe_emotion_classifier.py](experiments/mmoe_emotion_classifier.
 - **O Duelo Final: Deep Learning vs Machine Learning Clássico**: No último estágio, colocamos nossa super-rede MMoE contra os algoritmos clássicos de Machine Learning (LinearSVC, LightGBM, Extra Trees). Os clássicos receberam a matriz de features diretamente em formato **esparso**, o que otimizou brutalmente a memória RAM. O resultado provou um velho ditado: *árvores randômicas amam features esparsas*. Como as matrizes de TF-IDF com 15.000 colunas (bigramas) são formadas por quase 99% de zeros em cada linha (textos curtos), algoritmos baseados em árvores randomizadas ignoram esse "oceano de vazios" sorteando e explorando apenas as colunas que realmente possuem sinal, diferentemente das redes neurais que gastam muito processamento multiplicando as matrizes por zero. Enquanto o LightGBM (0.9473) sofreu com a altíssima dimensionalidade, o **LinearSVC (0.9572)** bateu de frente com o MMoE. Mas o verdadeiro vencedor foi o **Extra Trees Classifier**, que destroçou a barreira atingindo um F1-Weighted histórico de **0.9643**. Isso demonstra que, para representações de N-grams em extrema dimensionalidade esparsa, métodos de ensemble randomizados superam redes neurais profundas, além de não exigirem processamento massivo de GPU.
 
 #### 5. Trajetória Histórica e Otimização do Pipeline A (Senti-Pred) vs. Pipeline B
-Realizamos uma série de iterações sobre o **Pipeline A** ([senti-pred_pipeline.ipynb](experiments/senti-pred_pipeline.ipynb)), confrontando-o com o **Pipeline B** ([twitter-sentiment-analysis.ipynb](experiments/twitter-sentiment-analysis.ipynb)) no mesmo dataset de tweets (*Twitter Entity Sentiment Analysis*). A trajetória demonstra como a seleção de features, a limpeza do texto e o ajuste fino de hiperparâmetros determinam os limites de acurácia de modelos clássicos.
+Realizamos uma série de iterações sobre o **Pipeline A** ([senti-pred_pipeline.ipynb](experiments/nlp/senti-pred_pipeline.ipynb)), confrontando-o com o **Pipeline B** ([twitter-sentiment-analysis.ipynb](experiments/nlp/twitter-sentiment-analysis.ipynb)) no mesmo dataset de tweets (*Twitter Entity Sentiment Analysis*). A trajetória demonstra como a seleção de features, a limpeza do texto e o ajuste fino de hiperparâmetros determinam os limites de acurácia de modelos clássicos.
 
 ---
 
@@ -354,7 +354,7 @@ O ranking de eficiência revela três clusters:
 
 ### 📊 Logistic Regression: Estratégias Multiclasse
 
-**Notebook:** [experiments/logistic-regression-multiclass.ipynb](experiments/logistic-regression-multiclass.ipynb)
+**Notebook:** [experiments/logistic-regression-multiclass.ipynb](experiments/nlp/logistic-regression-multiclass.ipynb)
 
 Este experimento isola o `LogisticRegression` e compara suas diferentes estratégias de classificação multiclasse no mesmo dataset (Twitter Entity Sentiment Analysis, 73.768 amostras de treino, 999 de validação, 4 classes). Testamos 5 configurações variando `multi_class`, `solver` e C (regularização inversa).
 
@@ -426,7 +426,7 @@ A diferença máxima entre todas as estratégias com C otimizado é de apenas **
 
 ### 📊 CV Methods Comparison — CIFAR-10
 
-**Notebook:** [experiments/cv-methods-comparison.ipynb](experiments/cv-methods-comparison.ipynb)
+**Notebook:** [experiments/cv-methods-comparison.ipynb](experiments/computer_vision/cv-methods-comparison.ipynb)
 
 Este experimento confronta três paradigmas de classificação de imagens no dataset CIFAR-10 (50.000 treino, 10.000 teste, 10 classes, 32×32 color):
 **HOG+SVM** (features manuais clássicas), **ResNet18** (CNN residual pré-treinada) e **ViT** (Vision Transformer pré-treinado no ImageNet-21k).
@@ -465,7 +465,7 @@ O Vision Transformer domina com apenas 1 época de fine-tune. O pré-treinamento
 
 ### 🔧 Feature Engineering Study — Tabular & NLP
 
-**Notebooks:** [experiments/feature-engineering-tabular.ipynb](experiments/feature-engineering-tabular.ipynb) | [experiments/feature-engineering-nlp.ipynb](experiments/feature-engineering-nlp.ipynb)
+**Notebooks:** [experiments/feature-engineering-tabular.ipynb](experiments/tabular_regression/feature-engineering-tabular.ipynb) | [experiments/feature-engineering-nlp.ipynb](experiments/nlp/feature-engineering-nlp.ipynb)
 
 Estudo sistemático do impacto de **10 técnicas de feature engineering** em dois domínios distintos: **regressão tabular** (California Housing) e **classificação NLP** (Twitter Entity Sentiment). A pergunta central: *quanto feature engineering ajuda cada tipo de modelo, e quais técnicas valem o esforço?*
 
@@ -642,7 +642,7 @@ Explorei diferentes abordagens para predição de dados temporais, desde modelos
 ### 🧠 Principais Aprendizados e Descobertas (Time Series)
 
 #### 1. Evolução do Prophet e Optuna
-- Nos cadernos interativos de Forecast ([temperature_forecasting_prophet.ipynb](experiments/temperature_forecasting_prophet.ipynb) e [property-sales-time-series.ipynb](experiments/property-sales-time-series.ipynb)), o modelo **Prophet** (Meta) evoluiu para uma arquitetura V2. Introduzimos a **Busca Bayesiana (Optuna)** para sintonizar a flexibilidade da tendência (`changepoint_prior_scale`) e a força da sazonalidade (`seasonality_prior_scale`), guiado pela métrica de erro (MAE) extraída via **Time Series Cross-Validation**.
+- Nos cadernos interativos de Forecast ([temperature_forecasting_prophet.ipynb](experiments/time_series/temperature_forecasting_prophet.ipynb) e [property-sales-time-series.ipynb](experiments/time_series/property-sales-time-series.ipynb)), o modelo **Prophet** (Meta) evoluiu para uma arquitetura V2. Introduzimos a **Busca Bayesiana (Optuna)** para sintonizar a flexibilidade da tendência (`changepoint_prior_scale`) e a força da sazonalidade (`seasonality_prior_scale`), guiado pela métrica de erro (MAE) extraída via **Time Series Cross-Validation**.
 - O Prophet validado e otimizado via Optuna demonstra agora uma forte reprodutibilidade. Além de prever sazonalidades de forma automática, a busca do melhor hiperparâmetro (como `multiplicative` para o seasonality mode) garantiu um MAE Cross-Validated próximo a ~2.19, superior às configurações default do modelo em casos complexos de ruído diário.
 - **O Desafio Prophet vs LightGBM:** Para provar o teto de performance do algoritmo estatístico, confrontamos o Prophet com o LightGBM no dataset univariado de Temperaturas. Injetamos forte Engenharia de Features no LightGBM (Lags temporais e Rolling Windows) para que ele capturasse a "memória do tempo". O resultado foi uma vitória contundente do **Machine Learning Clássico (LightGBM)** com um MAE final de **1.7344**, superando o Prophet que estagnou em **1.96** no Hold-out. Isso prova que algoritmos de árvore (capazes de ler os Lags imediatamente anteriores) reagem melhor a choques abruptos de variação diária do que equações aditivas baseadas apenas no calendário estático.
 
@@ -663,7 +663,7 @@ A "inteligência" do modelo de vendas veio da criação de features que capturam
 - **Features Cíclicas**: Transformar semanas em coordenadas de seno/cosseno permitiu ao modelo entender que a semana 52 está próxima da semana 1.
 
 #### 5. Estudo de Compressão e Destilação de Conhecimento (Knowledge Distillation)
-No notebook oficial de destilação ([knowledge_distillation-time_series.ipynb](experiments/knowledge_distillation-time_series.ipynb)), investigamos duas abordagens de compressão de modelos (redes neurais vs. árvores de decisão) para predição de consumo elétrico por hora:
+No notebook oficial de destilação ([knowledge_distillation-time_series.ipynb](experiments/time_series/knowledge_distillation-time_series.ipynb)), investigamos duas abordagens de compressão de modelos (redes neurais vs. árvores de decisão) para predição de consumo elétrico por hora:
 
 - **Abordagem Neural (Parte I):** Treinamos um Teacher complexo de **LSTM com Atenção** (1.44M parâmetros) e comprimimos seu conhecimento para um Student leve de **CNN Temporal (TCN)** (228k parâmetros, 6.3x menor).
   - O **Student-KD** (TCN com Destilação) superou o **Student-NoKD** (TCN sem ajuda), retendo **103.9%** da performance do Teacher (MAE: 858.72 MW vs. 893.20 MW do Teacher e 939.31 MW do Student sem KD).
@@ -674,7 +674,7 @@ No notebook oficial de destilação ([knowledge_distillation-time_series.ipynb](
   - **A Vitória do Machine Learning Clássico:** O modelo mais simples do LightGBM (50 estimadores, treinado em segundos) obteve um MAE de **146.13 MW**, batendo a rede profunda LSTM (893.20 MW) por uma margem de **6 vezes** com consumo computacional quase nulo.
 
 #### 6. Estudo Comparativo de Detecção de Anomalias (Experimento 4)
-No caderno acadêmico de Detecção de Anomalias ([exp4_anomaly_detection.ipynb](experiments/exp4_anomaly_detection.ipynb)), comparamos cinco técnicas em dados reais de temperatura climática diária de Melbourne (3.650 dias com contaminação simulada de 3% = 109 anomalias reais):
+No caderno acadêmico de Detecção de Anomalias ([exp4_anomaly_detection.ipynb](experiments/time_series/exp4_anomaly_detection.ipynb)), comparamos cinco técnicas em dados reais de temperatura climática diária de Melbourne (3.650 dias com contaminação simulada de 3% = 109 anomalias reais):
 
 - **Métricas Obtidas (Temperatura Melbourne):**
   - **Z-Score Estatístico (no Resíduo):** Obteve o melhor desempenho absoluto, alcançando **F1-Score de 0.9954**, **Precision de 100.0%** (zero alarmes falsos) e **Recall de 99.1%** (identificou 108 de 109 anomalias reais).
@@ -972,14 +972,16 @@ python scripts/validate_notebooks.py
 
 ## 🛠️ Estrutura de Experimentos
 
-### Projetos Analisados:
-1. **[senti-pred_pipeline.ipynb](experiments/senti-pred_pipeline.ipynb)**: Pipeline orquestrador principal com EDA, pré-processamento e modelagem.
-2. **[senti-pred-exp1](experiments/senti-pred-variations/senti-pred-exp1)**: Benchmark comparativo com 6 modelos clássicos + 7 frameworks AutoML.
-3. **[Senti-Pred-Remake2](experiments/senti-pred-variations/Senti-Pred-remake2)**: Recordista absoluto (97.80%) — Voting Ensemble (LinearSVC + LR) com TF-IDF 100k.
-4. **[Ensemble Pyramid](experiments/ensemble_pyramid.py)**: Melhor resultado geral (~98% F1) — 6 camadas de ensembles hierárquicos.
-4. **[Sales Forecast](experiments/sales-forecast)**: Foco em Séries Temporais, LightGBM, Otimização Bayesiana com Pruning (Optuna), tracking MLOps completo (MLflow), Pytest e Docker (V2.2).
-5. **[ibm-experiments](experiments/ibm-experiments)**: Notebooks exploratórios de Boston Housing e produções elétricas usando Snap ML da IBM.
-6. **[databricks forecast](experiments/databricks-forecast)**: Script de download de artefatos para integração com Databricks.
+### Pastas e Projetos Analisados:
+
+O laboratório principal agora está categorizado modularmente para rápida navegação:
+1. **`experiments/nlp/`**: Análise de sentimentos (Twitter/AG News), pipeline `senti-pred_pipeline.ipynb`, extração MMoE e Ensembles Piramidais.
+2. **`experiments/computer_vision/`**: Reconhecimento facial (YuNet), detecção YOLO e ViT/ResNet comparativos.
+3. **`experiments/time_series/`**: Forecasting com Prophet/SARIMA, destilação de conhecimento, análise temporal multivariada, anomalias e Feature Engineering de 5 fases.
+4. **`experiments/tabular_regression/`**: Previsão de preços (Múltipla Regressão Linear), AutoML e Transformações Matemáticas Clássicas.
+5. **`experiments/recommender_systems/`**: Sistemas baseados em similaridade para Imagens e MovieLens.
+
+*(Outras estruturas independentes como `sales-forecast` e `databricks-forecast` continuam encapsuladas em seus módulos MLOps).*
 
 ### Formato de Saída dos Experimentos
 
@@ -1000,7 +1002,7 @@ Exemplos comuns:
 
 ## 🧪 Exp1: AG News Classification
 
-**Notebook:** [experiments/ag-news-classification.ipynb](experiments/ag-news-classification.ipynb)
+**Notebook:** [experiments/ag-news-classification.ipynb](experiments/nlp/ag-news-classification.ipynb)
 
 ### Fundamentação Teórica
 
@@ -1128,7 +1130,7 @@ Em classificacao de topicos de noticias, porem, o vocabulario e **compartilhado 
 
 ## 🏎️ Price Prediction — Regressão Linear Múltipla: Evolução e Otimização
 
-**Notebook:** [experiments/price-prediction-multiple-linear-regression.ipynb](experiments/price-prediction-multiple-linear-regression.ipynb)
+**Notebook:** [experiments/price-prediction-multiple-linear-regression.ipynb](experiments/tabular_regression/price-prediction-multiple-linear-regression.ipynb)
 
 ### 1. Contexto e Objetivo
 
@@ -1282,7 +1284,7 @@ Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databri
 
 ### Notebooks Criados
 
-#### 1. [ibm-watsonx-local-automl.ipynb](experiments/ibm-watsonx-local-automl.ipynb)
+#### 1. [ibm-watsonx-local-automl.ipynb](experiments/tabular_regression/ibm-watsonx-local-automl.ipynb)
 
 **Equivalente ao:** `Boston Housing Price Prediction.ipynb` do Watsonx
 
@@ -1301,7 +1303,7 @@ Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databri
 
 **Conclusão:** XGBoost manual superou AutoML por margem pequena. TPOT competitivo (R²=0.8260) com dataset maior. FLAML encontrou CatBoost automaticamente.
 
-#### 2. [ibm-watsonx-local-timeseries.ipynb](experiments/ibm-watsonx-local-timeseries.ipynb)
+#### 2. [ibm-watsonx-local-timeseries.ipynb](experiments/time_series/ibm-watsonx-local-timeseries.ipynb)
 
 **Equivalente ao:** `Electric_Production.ipynb` do Watsonx
 
@@ -1319,7 +1321,7 @@ Os notebooks originais de IBM Watsonx (`experiments/ibm-experiments/`) e Databri
 
 **Conclusão:** SARIMA é tão competitivo quanto Prophet+Optuna com tempo 24x menor. Tuning melhorou Prophet de 4.04% para 3.90% MAPE. Todos superam naive por 5x+.
 
-#### 3. [databricks-forecast-local-equivalent.ipynb](experiments/databricks-forecast-local-equivalent.ipynb)
+#### 3. [databricks-forecast-local-equivalent.ipynb](experiments/time_series/databricks-forecast-local-equivalent.ipynb)
 
 **Equivalente ao:** Prophet e DeepAR do Databricks
 
