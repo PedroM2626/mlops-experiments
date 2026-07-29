@@ -53,6 +53,24 @@ python experiments/flexible_ensemble_pyramid.py --layers 15 --min_models 3 --max
 
 *(As configurações são automaticamente registradas no MLflow para comparação entre diferentes estratégias de evolução).*
 
+### 🍷 NLP em Regressão: Previsão de Pontuação de Vinhos (Kaggle)
+
+Diferente da classificação clássica (ex: Sentimento Positivo/Negativo), este experimento explora a aplicação de **NLP para Regressão Contínua**, prevendo a nota exata de um vinho (escala de 80 a 100) baseando-se estritamente na descrição textual de especialistas.
+
+**Descoberta Arquitetural (Lineares vs Árvores em Alta Dimensionalidade):**
+O experimento forneceu uma prova empírica inquestionável sobre como algoritmos se comportam em espaços esparsos:
+- **Ridge Regression (Linear):** Atingiu a melhor performance (MAE: 1.33, R²: 0.69) treinando em poucos segundos. Modelos lineares prosperam em espaços altamente dimensionais e esparsos (como as 15.000 features geradas pelo TF-IDF).
+- **LightGBM Regressor (Árvores):** Apesar de ser o "estado da arte" em dados tabulares densos, o modelo sofreu drasticamente com a esparsidade do texto, entregando métricas piores (MAE: 1.47, R²: 0.63) e demandando muito mais processamento para tentar encontrar os *splits* otimizados.
+
+### 🤖 Reinforcement Learning (Q-Learning) para AutoML
+
+Uma ponte inédita entre **IA Autônoma** e **MLOps**. Este experimento abandonou os métodos tradicionais de otimização de hiperparâmetros (como Random Search ou Optuna Bayesiano) e construiu um **Agente de Q-Learning do zero**.
+- **O Ambiente:** Um modelo LightGBM real onde as "ações" do agente alteram as variáveis (Learning Rate, Max Depth, Num Leaves).
+- **A Recompensa:** O agente ganha pontos se o F1-Score do modelo melhorar, e é penalizado se piorar ou demorar muito.
+- **Resultado MLOps:** O agente aprende a "Equação de Bellman" e, após explorar aleatoriamente (Epsilon-Greedy), passa a navegar pelo espaço matemático encontrando a configuração perfeita quase instantaneamente. A Q-Table e as curvas de convergência são registradas perfeitamente no MLflow.
+
+**🔥 Teste de Fogo (Senti-Pred Full Scale)**: Também elevamos este agente ao limite absoluto executando-o contra o dataset total do projeto Senti-Pred (74.000 linhas) vetorizadas em 100.000 features. O agente otimizou as dimensões de `C`, `max_iter` e `tolerance` do LinearSVC rodando centenas de *Fits* de hiperplanos sob altíssimo estresse computacional. O resultado provou a escalabilidade absurda de aplicar IA para otimizar IA.
+
 ### Dashboard Unificado de Experimentos
 
 O repositorio inclui uma interface web unificada que apresenta **todos os 38 experimentos** em um dashboard interativo com tema escuro premium:
