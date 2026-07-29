@@ -9,6 +9,35 @@ const App = (() => {
      EXPERIMENT DATA - All 38 experiments
      ------------------------------------------------------- */
   const experiments = [
+    // --- Reinforcement Learning ---
+    {
+      id: 200,
+      title: 'RL-AutoML (Q-Learning Agent)',
+      category: 'rl',
+      categoryLabel: 'Reinforcement Learning',
+      status: 'completed',
+      description: 'Um Agente Autonomo treinado com Reinforcement Learning (Q-Learning) interagindo com um ambiente simulado para encontrar os hiperparametros perfeitos de um modelo LightGBM.',
+      techniques: ['Reinforcement Learning', 'Q-Learning', 'LightGBM', 'AutoML', 'Epsilon-Greedy', 'Bellman Equation'],
+      metric: { label: 'Max F1', value: '97.5%+', percent: 97.5 },
+      script: 'experiments/reinforcement_learning/rl_automl_qlearning.ipynb',
+      models: ['Q-Table Agent', 'LGBMClassifier'],
+      dataset: 'Breast Cancer (Sklearn)',
+      details: 'O Agente convergiu explorando 125 estados (LR, Leaves, Depth) atraves de acoes (Aumentar/Diminuir), provando que RL pode ser usado no lugar de Optuna para AutoML.'
+    },
+    {
+      id: 201,
+      title: 'RL-AutoML Senti-Pred (Full Scale)',
+      category: 'rl',
+      categoryLabel: 'Reinforcement Learning',
+      status: 'completed',
+      description: 'Aplicacao de RL-AutoML em escala massiva, treinando sobre o dataset completo do Senti-Pred (74 mil linhas) com 100.000 features de TF-IDF. Teste de stress brutal do Agente Q-Learning.',
+      techniques: ['Reinforcement Learning', 'Q-Learning', 'LinearSVC', 'NLP', '100k Features'],
+      metric: { label: 'Tuned F1', value: '43.05%', percent: 43.0 },
+      script: 'experiments/reinforcement_learning/rl_sentipred_automl.ipynb',
+      models: ['Q-Table Agent', 'LinearSVC'],
+      dataset: 'Twitter Sentiment (74k)',
+      details: 'Um teste hardcore onde o agente executa centenas de fits em uma matriz de 100k features iterativamente.'
+    },
     // --- NLP - Analise de Sentimento (Senti-Pred) ---
     {
       id: 1,
@@ -122,6 +151,20 @@ const App = (() => {
       models: ['Classical ML Models'],
       dataset: 'Twitter Dataset',
       details: 'Notebook com analise exploratoria e modelos classicos. CPU suficiente.'
+    },
+    {
+      id: 195,
+      title: 'NLP Regression (Wine Reviews)',
+      category: 'nlp-classification',
+      categoryLabel: 'NLP - Regressao',
+      status: 'completed',
+      description: 'Experimento prevendo a pontuacao de vinhos (80-100) baseada puramente no texto da review do sommelier. Prova cabal de que Modelos Lineares (Ridge) destroem Arvores (LightGBM) em espacos esparsos de altissima dimensionalidade.',
+      techniques: ['TF-IDF 15k', 'N-Grams', 'Ridge Regression', 'LightGBM Regressor', 'MLflow Tracking'],
+      metric: { label: 'MAE', value: '1.33', percent: 85 },
+      script: 'experiments/nlp-regression-wine/nlp_regression_wine.ipynb',
+      models: ['Ridge Regressor', 'LGBM Regressor'],
+      dataset: 'Wine Reviews (130k)',
+      details: 'O modelo Ridge Linear atingiu MAE de 1.33 e R2 de 0.69, superando o LightGBM (MAE 1.47, R2 0.63) e treinando muito mais rapido devido a esparsidade do TF-IDF.'
     },
     // --- Series Temporais e Forecast ---
     {
@@ -415,7 +458,8 @@ const App = (() => {
      ------------------------------------------------------- */
   const categories = {
     'all': { label: 'Todos', icon: '\u{1F3AF}', color: '#818cf8' },
-    'nlp-sentiment': { label: 'NLP - Sentimento', icon: '\u{1F4AC}', color: '#f472b6' },
+    'rl': { label: 'Reinforcement Learning', icon: '🦾', color: '#ef4444' },
+    'nlp-sentiment': { label: 'NLP - Analise de Sentimento', icon: '💬', color: '#a855f7' },
     'nlp-classification': { label: 'NLP - Classificacao', icon: '\u{1F4F0}', color: '#fb923c' },
     'timeseries': { label: 'Series Temporais', icon: '\u{1F4C8}', color: '#34d399' },
     'cv': { label: 'Computer Vision', icon: '\u{1F441}', color: '#38bdf8' },
