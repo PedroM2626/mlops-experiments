@@ -38,6 +38,20 @@ const App = (() => {
       dataset: 'Twitter Sentiment (74k)',
       details: 'Um teste hardcore onde o agente executa centenas de fits em uma matriz de 100k features iterativamente.'
     },
+    {
+      id: 202,
+      title: 'RL-AutoML Sales Forecast (Big Data)',
+      category: 'rl',
+      categoryLabel: 'Reinforcement Learning',
+      status: 'completed',
+      description: 'A prova de fogo final: Aplicando Q-Learning no abismo do Time Series Regression. O agente tunou hiperparametros de um LGBMRegressor usando Recompensa Inversa (Queda de Erro Absoluto - MAE).',
+      techniques: ['Reinforcement Learning', 'Time Series', 'Big Data', 'LightGBM', 'Inverse Reward'],
+      metric: { label: 'MAE', value: '1.5849', percent: 85.0 },
+      script: 'experiments/sales-forecast/rl_proxy_sales_full.ipynb',
+      models: ['Q-Table', 'LGBMRegressor'],
+      dataset: 'Retail Sales (Parquet)',
+      details: 'O Agente encontrou a configuração ideal (LR=0.05, Leaves=512) para lidar com features pesadas como Lags temporais e Rolling Means, superando o Baseline.'
+    },
     // --- NLP - Analise de Sentimento (Senti-Pred) ---
     {
       id: 1,
