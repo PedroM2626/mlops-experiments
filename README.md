@@ -71,6 +71,8 @@ Uma ponte inédita entre **IA Autônoma** e **MLOps**. Este experimento abandono
 
 **🔥 Teste de Fogo (Senti-Pred Full Scale)**: Também elevamos este agente ao limite absoluto executando-o contra o dataset total do projeto Senti-Pred (74.000 linhas) vetorizadas em 100.000 features. O agente otimizou as dimensões de `C`, `max_iter` e `tolerance` do LinearSVC rodando centenas de *Fits* de hiperplanos sob altíssimo estresse computacional. O resultado provou a escalabilidade absurda de aplicar IA para otimizar IA.
 
+**🔥 A Fronteira Final (Time Series & Big Data com Proxy RL)**: Na prova de conceito final, soltamos o Agente em uma base massiva de varejo com **5.6 milhões de transações** (Projeto Sales Forecast). Para evitar semanas de processamento, adotamos a arquitetura de **Proxy Training**: cegamos o modelo limitando-o a micro-árvores (`n_estimators=50`) e amostras rotativas (`bagging_fraction=0.15`). O Agente mapeou as 32 variáveis temporais complexas em poucos minutos usando a Recompensa Inversa (onde só ganhava pontos se o **MAE** caísse). O modelo final, construído com as coordenadas achadas pelo robô, cravou **1.4297** de MAE, empatando tecnicamente com a busca Bayesiana do Optuna (1.4218), mas fazendo isso em uma fração de tempo.
+
 ### Dashboard Unificado de Experimentos
 
 O repositorio inclui uma interface web unificada que apresenta **todos os 38 experimentos** em um dashboard interativo com tema escuro premium:
