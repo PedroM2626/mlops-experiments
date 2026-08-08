@@ -54,7 +54,11 @@ O projeto está organizado da seguinte forma para garantir modularidade e clarez
 ├── scripts/
 │   ├── forecaster_class.py     # Classe principal do pipeline (SalesForecasterV2)
 │   ├── train.py                # Script de treinamento com Optuna e MLflow
-│   └── predict.py              # Script de geração de previsões
+│   ├── predict.py              # Script de geração de previsões
+│   ├── ae_valid.py             # Exp. AE: baseline vs embeddings naive
+│   ├── ae_valid2.py            # Exp. AE: baseline vs naive vs causal
+│   └── ae_cluster.py           # Exp. AE: clustering de séries (k=3,5,8)
+├── ae_embedding_experiments.ipynb  # Documentação dos experimentos AE
 ├── tests/
 │   └── test_forecaster.py      # 10 testes automatizados com Pytest
 ├── Dockerfile                  # Imagem Docker para isolamento de ambiente
@@ -159,6 +163,33 @@ O `sktime` foi instanciado utilizando a estrutura de MultiIndex Hierárquico (`[
 3. **Equivalência Matemática:** Extraindo apenas o "PDV Campeão de Vendas" (uma única loja gerando ~6.554 registros perfeitamente seriais), o embate foi justo. O Sktime foi muito rápido (1.37s) e gerou o mesmo resultado estatístico que o Pandas (MAE de **2.516** no Pandas vs **2.544** no Sktime), provando que o bottleneck é puramente arquitetural (gestão de memória de High-Cardinality Panel Data), e não algorítmico.
 
 **Conclusão Acadêmica:** O `sktime` é o estado da arte para séries temporais univariadas e de baixa cardinalidade. No entanto, para Dataframes Transacionais massivos e hierárquicos (MLOps em produção corporativa), a rotina otimizada de vetores C/Cython do Pandas que arquitetamos na **V2.2** é indiscutivelmente superior e blindada contra gargalos de hardware.
+
+### Experimentos com Autoencoder (V2.4 - exploração)
+
+Testamos o uso de **Autoencoders (AE)** para extrair representações latentes das séries temporais e usá-las como features ou para clustering. O objetivo era avaliar se uma compressão não-linear do perfil temporal de cada série (pdv, sku) agregaria informação preditiva ao LightGBM. Detalhes completos no notebook `ae_embedding_experiments.ipynb`.
+
+**Arquitetura do AE:** Matriz de séries (709.667 séries × 47 semanas) de `log1p(quantidade)` → StandardScaler → MLP (47 → 32 → 8 → 32 → 47), bottleneck de 8 dimensões extraído manualmente via forward pass.
+
+**Resultados (baseline reproduzido: MAE = 1.4247):**
+
+| Abordagem | MAE val | Δ vs baseline |
+|-----------|---------|---------------|
+| + AE naive (leaky) | 1.7131 | **+20.24%** (pior) |
+| + AE causal | 1.4227 | -0.14% (neutro) |
+| k=3 global+cluster_id | 1.5087 | +5.89% (pior) |
+| k=5 global+cluster_id | 1.4653 | +2.85% (pior) |
+| k=8 global+cluster_id | 1.4786 | +3.78% (pior) |
+| k=3 per-cluster | 1.5188 | +6.60% (pior) |
+| k=5 per-cluster | 1.5276 | +7.22% (pior) |
+| k=8 per-cluster | 1.5376 | +7.92% (pior) |
+
+**Por que não funcionou:**
+
+1. **Vazamento de dados na variante naive:** Ao usar o embedding das semanas 1-47 completas como feature para todas as linhas, uma linha da semana 30 passou a "ver" as semanas 31-47 (futuro). O `best_iter` colapsou de ~1000 para 38 — sinal clássico de modelo aprendendo informação do futuro no treino. **Lições: embeddings temporais exigem máscara causal para serem features legítimas.**
+2. **Redundância com features existentes:** Com a variante causal (correta, sem vazamento), o resultado foi neutro (-0.14%). O LightGBM campeão já captura o perfil temporal via `lag_4`, `lag_52`, `rolling_mean_4/12/52` — o AE apenas comprime a mesma informação.
+3. **Clustering não agrega:** Em todas as configurações testadas (k=3, 5, 8 × cluster_id feature ou modelos por cluster), o resultado piorou. O `cluster_id` é redundante com as categóricas dimensionais já presentes (`categoria`, `marca`, etc.), e modelos por cluster fragmentam a amostra de treino — clusters pequenos (ex: 1.849 séries em k=8) produziram modelos fracos (MAE 8.91 no pior cluster).
+
+**Conclusão:** AE embeddings não agregam valor preditivo a um modelo já bem feature-engineered. O caminho promissor restante é o uso de AE sobre **metadados categóricos** para **cold-start** (prever séries novas sem histórico), que permanece como trabalho futuro.
 
 ---
 
