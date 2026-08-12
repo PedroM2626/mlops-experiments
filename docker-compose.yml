@@ -7,3 +7,26 @@ services:
     env_file:
       - .env
     restart: always
+    # serving real do campeao via FastAPI + MLflow registry local
+    volumes:
+      - ./experiments:/app/experiments
+    command: ["python", "-m", "mlops.serve"]
+
+  mlflow_ui:
+    image: ghcr.io/mlflow/mlflow:v2.17.2
+    container_name: mlflow_ui
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./experiments/mlruns:/mlruns
+    command: ["mlflow", "ui", "--host", "0.0.0.0", "--backend-store-uri", "file:///mlruns"]
+
+  mlops_monitor:
+    build: .
+    container_name: mlops_monitor
+    restart: always
+    volumes:
+      - ./experiments:/app/experiments
+    command: ["python", "-m", "mlops.monitor", "--loop", "--auto"]
+    depends_on:
+      - ml_api
