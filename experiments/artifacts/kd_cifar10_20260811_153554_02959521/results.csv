@@ -1,0 +1,7 @@
+cenário,acc_test,f1_macro,params,tempo_s,var_acc_pp,compression
+Teacher ResNet18,0.9113,0.9111,11181642,827,15.1,1.0
+Sem KD (baseline),0.7603,0.7593,1087786,50,0.0,10.3
+Response-based (Logit),0.7625,0.7615,1087786,52,0.22,10.3
+Feature-based (FitNets),0.7568,0.7559,1087786,53,-0.35,10.3
+Relation-based (RKD),0.7628,0.762,1087786,78,0.25,10.3
+Logit + Feature (híbrido),0.7553,0.7536,1087786,58,-0.5,10.3

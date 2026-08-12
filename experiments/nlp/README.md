@@ -80,10 +80,7 @@ Métricas: Acurácia, F1-Macro, F1-Weighted (mudadas entre fases), Precision/Rec
 ### 4.5 Reprodução
 
 - `ag-news-classification.ipynb` — Exp1 AG News (1000 treino / 200 teste, seed 42).
-- `twitter-sentiment-analysis.ipynb` (Pipeline B) e `senti-pred_pipeline.ipynb` (Pipeline A).
-- `twitter-sentiment-analysis.ipynb` (Twitter Methods Comparison é o notebook raiz `../NLP-twitter-methods-comparasion.ipynb`, processado com as mesmas features).
-- `logistic-regression-multiclass.ipynb` — estratégias multiclasse da Logistic Regression.
-- `feature-engineering-nlp.ipynb` — study de feature engineering NLP.
+- **Twitter Entity Sentiment Analysis**: Todos os experimentos e pipelines originais (A, B, C) envolvendo este dataset foram centralizados na subpasta `twitter-entity-sentiment/`. Isso inclui `twitter-sentiment-analysis.ipynb`, `senti-pred_pipeline.ipynb`, `logistic-regression-multiclass.ipynb`, `feature-engineering-nlp.ipynb` e `NLP-twitter-methods-comparasion.ipynb`.
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task em `go_emotions`.
 - `../ensemble_pyramid.py` — Ensemble Pyramid / Versatile Ensemble Pyramid (AutoML CLI).
 
@@ -184,19 +181,48 @@ As configurações são registradas no MLflow automaticamente para comparação 
 | Logistic Regression | 0.9750 |
 | Multinomial NB | 0.9140 |
 
-### 5.4. Duelo de engenharia: Pipeline A vs. Pipeline B
+### 5.4. Duelo de engenharia: Pipeline A vs. Pipeline B vs. Pipeline C (Senti-Pred-remake2)
 
 - Pipeline B: substitui `#palavra` por `palavra`, conserva pont. `!?.`, hífens e contrações (`don't`), mantém números.
 - Pipeline A: remove hashtags por completo, remove toda a pontuação (vira `dont` a partir de `don't`), exclui dígitos.
+- Pipeline C (Senti-Pred-remake2): vetorização extrema (TF-IDF 100k, 4-grams), limpeza com
+  lematização, stopwords (com `not`/`no` preservados) e expansão de contrações; votação
+  LinearSVC(C=0.5, balanced) + LR(C=10, balanced).
 
-Resultado final: com o `LinearSVC C=19.0` e o mesmo dataset, **Pipeline B = 0.9860 F1-Weighted** vs. **Pipeline A = 0.9820** — resultado +0.40 pp.
+Resultado final do duelo (reproduzido nesta execução, seed 42, holdout 1.000):
 
-**Conclusão da §5.4 na seção:** a engenharia de features (limpeza do texto) foi mais decisiva do que a escolha do modelo. Ao preservar exclamações, conteúdo de hashtags e contrações idiomáticas, o Pipeline B gera representações de sentimento mais ricas.
+| Pipeline | Campeã | Acurácia | F1-Macro | F1-Weighted |
+|---|---|---|---|---|
+| **A** (agressiva) | ExtraTrees | 0.9850 | **0.9845** | 0.9850 |
+| **B** (conservadora) | LinearSVC C=19 | 0.9830 | 0.9833 | 0.9830 |
+| **C** (remake2) | LinearSVC C=0.5 | 0.9780 | 0.9782 | 0.9780 |
+
+**Conclusão da §5.4:** a engenharia de features (limpeza do texto) foi mais decisiva do que a
+escolha do modelo. Ao preservar exclamações, conteúdo de hashtags e contrações idiomáticas, o
+Pipeline B gera representações de sentimento mais ricas; a Pipeline A, agressiva, atinge o
+**melhor F1-Macro entre as canônicas** com ExtraTrees. O recorde da Pipeline C (~97.8%)
+reproduz-se, mas a análise rigorosa de ablações (`pipelines_abc_comparison/README.md`)
+mostra que o vetorizador (100k + bigramas) é o ativo mais valioso — não a limpeza: o melhor
+F1-Macro do estudo (**0.9857**) surge ao combinar **pré-processamento A + vetorizador C**.
+Diferenças < 1 pp entre as três são estatisticamente não-significativas (McNemar, p ≥ 0.33).
+
+**What-ifs principais (detalhes e tabelas em `pipelines_abc_comparison/README.md`):**
+- **n-gramas:** remover os bigramas derruba −2.6 a −4.8 pp; a C melhora **+0.33 pp** ao
+  trocar 4-grams por bigramas; a B é a mais sensível a N>2 (até −0.61 pp).
+- **Vocabulário:** `max_features` 10k→100k na C custa −8.5 pp; 200k rende +0.41 pp; A/B sofrem
+  −4 a −4.6 pp se truncados a 10k.
+- **Limpeza:** manter hashtags/pontuação/dígitos na A rende ~+0.4 pp cada; manter stopwords na
+  C rende +0.30 pp; contrações e conteúdo de hashtags são sinal na C (+0.43/+0.32 pp).
+- **Modelo:** o Voting oficial da C é levemente inferior ao LinearSVC C=0.5 isolado;
+  `voting='soft'` degrada; `class_weight=balanced` sozinho não explica o ganho da C.
+- **Significância:** nenhuma diferença entre pipelines é estatisticamente significativa
+  (N=1.000; erros totais 15/17/22).
 
 ### Pipelines comparadoras — paths relativos:
 
 - Pipeline A → `senti-pred_pipeline.ipynb`
 - Pipeline B → `twitter-sentiment-analysis.ipynb`
+- Pipeline C → `pipelines_abc_comparison/` + `../senti-pred-variations/Senti-Pred-remake2/`
 
 ### 5.5. Twitter Methods Comparison — Paradigmas de Representação Textual
 
@@ -376,6 +402,7 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hipótese: tarefas correlatas (
 - `ag-news-classification.ipynb` — Exp1 AG News (low data, grid search).
 - `twitter-sentiment-analysis.ipynb` — Pipeline B.
 - `senti-pred_pipeline.ipynb` — Pipeline A.
+- `pipelines_abc_comparison/` — comparativo A vs B vs C (remake2) com what-ifs (n-grams, vocabulário, pré-processamento, modelo; McNemar).
 - `logistic-regression-multiclass.ipynb` — estratégias multiclassific Logistics Regression.
 - `feature-engineering-nlp.ipynb` — feature engineering alguma NLP.
 - `nlp-multi-task-classification.ipynb` — MMoE multi-finition (go_emotions).

@@ -1,0 +1,4 @@
+,f1_macro,f1_weighted,accuracy,per_class
+A,0.984531,0.985002,0.985,"{'Positive': 0.9856, 'Negative': 0.9887, 'Neutral': 0.9843, 'Irrelevant': 0.9796}"
+B,0.983279,0.983023,0.983,"{'Positive': 0.9767, 'Negative': 0.9868, 'Neutral': 0.9842, 'Irrelevant': 0.9854}"
+C,0.977347,0.978008,0.978,"{'Positive': 0.9693, 'Negative': 0.9831, 'Neutral': 0.9859, 'Irrelevant': 0.9711}"

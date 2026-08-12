@@ -1,0 +1,18 @@
+{
+  "seed": 42,
+  "train_rows": 73996,
+  "val_rows": 1000,
+  "executed_at": "2026-08-12 18:33:49",
+  "stages": [
+    "canonical",
+    "ngrams",
+    "max_features",
+    "min_df",
+    "sublinear_tf",
+    "preprocessing",
+    "model_c",
+    "fairness",
+    "cross",
+    "cv"
+  ]
+}

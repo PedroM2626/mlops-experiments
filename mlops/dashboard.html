@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLOps Sales-Forecast v2.2 — Dashboard Vivo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1419; color: #e0e0e0; padding: 20px; }
+  h1 { font-size: 1.4em; margin-bottom: 4px; color: #4fc3f7; }
+  .subtitle { color: #78909c; font-size: 0.85em; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: #1a2332; border-radius: 10px; padding: 18px; border: 1px solid #263238; }
+  .card .label { font-size: 0.75em; color: #78909c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .card .value { font-size: 1.8em; font-weight: 600; color: #e0e0e0; }
+  .card .sub { font-size: 0.7em; color: #546e7a; margin-top: 4px; }
+  .card.alert { border-color: #ff7043; }
+  .card.alert .value { color: #ff7043; }
+  .card.ok { border-color: #66bb6a; }
+  .card.ok .value { color: #66bb6a; }
+  .section { background: #1a2332; border-radius: 10px; padding: 18px; border: 1px solid #263238; margin-bottom: 20px; }
+  .section h2 { font-size: 1em; color: #4fc3f7; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+  th { text-align: left; color: #78909c; padding: 6px 10px; border-bottom: 1px solid #263238; text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.5px; }
+  td { padding: 6px 10px; border-bottom: 1px solid #1a1f2e; color: #b0bec5; }
+  tr:hover td { background: #22303f; }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #66bb6a; margin-right: 8px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .footer { text-align: center; color: #455a64; font-size: 0.75em; margin-top: 20px; }
+  .badge { background: #ff7043; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; margin-left: 8px; }
+</style>
+</head>
+<body>
+  <h1>MLOps Sales-Forecast v2.2 <span class="pulse" id="live"></span> <span class="badge" id="driftbadge" style="display:none">DRIFT</span></h1>
+  <div class="subtitle">Serving em FastAPI + MLflow registry + drift (Evidently) + retrain automático. Atualiza a cada 5s.</div>
+
+  <div class="grid" id="cards">
+    <div class="card"><div class="label">Modelo em Produção</div><div class="value" id="m_version">—</div><div class="sub" id="m_runid">run: —</div></div>
+    <div class="card"><div class="label">Calls (janela)</div><div class="value" id="m_calls">0</div><div class="sub" id="m_predtotal">0 preds</div></div>
+    <div class="card"><div class="label">Custo acumulado</div><div class="value" id="m_cost">$0.00</div><div class="sub">@ $0.0009 / 1k pred</div></div>
+    <div class="card"><div class="label">Latência média</div><div class="value" id="m_lat">0 ms</div><div class="sub" id="m_latmax">pico: 0 ms</div></div>
+    <div class="card" id="m_driftcard"><div class="label">Drift (PSI máx)</div><div class="value" id="m_drift">0.00</div><div class="sub" id="m_driftchecks">0 checks</div></div>
+    <div class="card" id="m_retraincard"><div class="label">Retrains (janela)</div><div class="value" id="m_retrains">0</div><div class="sub" id="m_retraininfo">sem gatilho</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Últimas predições</h2>
+    <table><thead><tr><th>Timestamp</th><th>Semanas</th><th>Nº predições</th><th>Latência (ms)</th><th>Custo ($)</th><th>Status</th></tr></thead>
+    <tbody id="preds"></tbody></table>
+  </div>
+
+  <div class="section">
+    <h2>Últimos checks de drift</h2>
+    <table><thead><tr><th>Timestamp</th><th>Features drift</th><th>PSI máx</th><th>Share máx</th><th>Gatilho</th></tr></thead>
+    <tbody id="drifts"></tbody></table>
+  </div>
+
+  <div class="footer">MLOps dashboard vivo · FastAPI /metrics · MLflow registry · Evidently drift</div>
+
+<script>
+const fmt_ts = u => {
+  if (!u) return '—';
+  const d = new Date(u * 1000);
+  return d.toLocaleTimeString('pt-BR') + ' ' + d.toLocaleDateString('pt-BR');
+};
+async function refresh() {
+  try {
+    const [metrics, recent, drift] = await Promise.all([
+      fetch('/metrics?window=3600').then(r => r.json()),
+      fetch('/recent?limit=12').then(r => r.json()),
+      fetch('/drift').then(r => r.json().catch(() => ({triggered:false}))),
+    ]);
+    document.getElementById('m_version').textContent = metrics.model_version || '—';
+    document.getElementById('m_runid').textContent = 'run: ' + (metrics.model_runid || '—');
+    document.getElementById('m_calls').textContent = metrics.predictions?.calls || 0;
+    document.getElementById('m_predtotal').textContent = (metrics.predictions?.total_predictions || 0) + ' preds';
+    document.getElementById('m_cost').textContent = '$' + (metrics.predictions?.cost_usd || 0).toFixed(6);
+    document.getElementById('m_lat').textContent = (metrics.predictions?.avg_latency_ms || 0) + ' ms';
+    document.getElementById('m_latmax').textContent = 'pico: ' + (metrics.predictions?.max_latency_ms || 0) + ' ms';
+    document.getElementById('m_drift').textContent = (metrics.drift?.max_psi || 0).toFixed(3);
+    document.getElementById('m_driftchecks').textContent = (metrics.drift?.checks || 0) + ' checks';
+    document.getElementById('m_retrains').textContent = metrics.retrains || 0;
+    document.getElementById('m_driftcard').className = 'card' + ((metrics.drift?.max_psi || 0) > 0.25 ? ' alert' : ' ok');
+    document.getElementById('m_retrains').textContent = metrics.retrains || 0;
+    const dt = drift.triggered ? 'TRIGGERED' : 'OK';
+    document.getElementById('m_retraininfo').textContent = drift.reason || dt;
+    const b = document.getElementById('driftbadge');
+    b.style.display = (metrics.drift?.max_psi || 0) > 0.25 || drift.triggered ? '' : 'none';
+    // tables
+    let h = '';
+    for (const p of recent.predictions || []) {
+      h += `<tr><td>${fmt_ts(p.ts)}</td><td>${p.weeks}</td><td>${p.n_predictions}</td><td>${(p.latency_ms||0).toFixed(0)}</td><td>${(p.cost_usd||0).toFixed(6)}</td><td>${p.status}</td></tr>`;
+    }
+    document.getElementById('preds').innerHTML = h || '<tr><td colspan="6" style="color:#546e7a">nenhuma predição ainda</td></tr>';
+    let h2 = '';
+    for (const d of recent.drift_checks || []) {
+      h2 += `<tr><td>${fmt_ts(d.ts)}</td><td>${d.drifted_features}/${d.n_features}</td><td>${(d.max_psi||0).toFixed(3)}</td><td>${(d.max_share_change||0).toFixed(3)}</td><td>${d.triggered ? 'SIM' : 'não'}</td></tr>`;
+    }
+    document.getElementById('drifts').innerHTML = h2 || '<tr><td colspan="5" style="color:#546e7a">nenhum check ainda</td></tr>';
+  } catch (e) { console.error(e); }
+}
+setInterval(refresh, 5000); refresh();
+</script>
+</body>
+</html>

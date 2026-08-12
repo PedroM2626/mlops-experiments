@@ -1,0 +1,16 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,cleaner_label,keep_hashtags,keep_punct,keep_digits,drop_hashtags,drop_punct,drop_digits,remove_stopwords,lemmatize,expand_contractions,keep_question_mark,keep_hashtag_word,stage
+A,LinearSVC_C19,70000,14.86,0.981,0.980677,0.981016,ablation_preprocessing,A_default,,,,,,,,,,,,preprocessing
+A,LinearSVC_C19,70000,14.71,0.985,0.984828,0.985006,ablation_preprocessing,A_keep_hashtags,True,,,,,,,,,,,preprocessing
+A,LinearSVC_C19,70000,14.07,0.985,0.98479,0.985005,ablation_preprocessing,A_keep_punct,,True,,,,,,,,,,preprocessing
+A,LinearSVC_C19,70000,12.85,0.985,0.984847,0.985023,ablation_preprocessing,A_keep_digits,,,True,,,,,,,,,preprocessing
+A,LinearSVC_C19,70000,13.49,0.984,0.984133,0.984,ablation_preprocessing,A_keep_punct_digits,,True,True,,,,,,,,,preprocessing
+B,LinearSVC_C19,70000,15.16,0.983,0.983279,0.983023,ablation_preprocessing,B_default,,,,,,,,,,,,preprocessing
+B,LinearSVC_C19,70000,15.43,0.981,0.981239,0.981025,ablation_preprocessing,B_drop_hashtags,,,,True,,,,,,,,preprocessing
+B,LinearSVC_C19,70000,12.79,0.985,0.985096,0.985016,ablation_preprocessing,B_drop_punct,,,,,True,,,,,,,preprocessing
+B,LinearSVC_C19,70000,17.53,0.982,0.982122,0.982013,ablation_preprocessing,B_drop_digits,,,,,,True,,,,,,preprocessing
+C,Voting_svc_lr,100000,18.29,0.978,0.977347,0.978008,ablation_preprocessing,C_default,,,,,,,,,,,,preprocessing
+C,Voting_svc_lr,100000,22.77,0.981,0.980331,0.981017,ablation_preprocessing,C_keep_stopwords,,,,,,,False,,,,,preprocessing
+C,Voting_svc_lr,100000,17.2,0.978,0.97686,0.97802,ablation_preprocessing,C_no_lemmatize,,,,,,,,False,,,,preprocessing
+C,Voting_svc_lr,100000,18.41,0.974,0.972998,0.974044,ablation_preprocessing,C_no_contractions,,,,,,,,,False,,,preprocessing
+C,Voting_svc_lr,100000,18.41,0.977,0.976186,0.977002,ablation_preprocessing,C_drop_exclam_question,,,,,,,,,,False,,preprocessing
+C,Voting_svc_lr,100000,18.5,0.975,0.974145,0.975024,ablation_preprocessing,C_remove_hashtag_word,,,,,,,,,,,False,preprocessing

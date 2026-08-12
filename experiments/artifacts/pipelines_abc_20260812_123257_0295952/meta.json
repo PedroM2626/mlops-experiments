@@ -1,0 +1,19 @@
+{
+  "seed": 42,
+  "train_rows": 73996,
+  "val_rows": 1000,
+  "executed_at": "2026-08-12 13:05:15",
+  "stages": [
+    "canonical",
+    "ngrams",
+    "max_features",
+    "min_df",
+    "sublinear_tf",
+    "preprocessing",
+    "model_c",
+    "fairness",
+    "cross"
+  ],
+  "hardware": "Windows / 16 logical cores / Python 3.13.1 / sklearn 1.7.1",
+  "note": "Reproducao das 3 pipelines; ablation what-ifs (E2-E9). Detalhes em experiments/nlp/pipelines_abc_comparison/README.md"
+}

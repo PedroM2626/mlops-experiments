@@ -1,0 +1,7 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,stage
+A,A_LR_C10,70000,14.43,0.979,0.978832,0.97902,fairness_balanced,fairness
+A,A_SVC_C19,70000,15.72,0.98,0.979517,0.980025,fairness_balanced,fairness
+B,B_LR_C10,70000,13.63,0.981,0.980943,0.981034,fairness_balanced,fairness
+B,B_SVC_C19,70000,14.52,0.982,0.981529,0.982009,fairness_balanced,fairness
+C,C_LR_C10,100000,17.36,0.978,0.977334,0.978015,fairness_balanced,fairness
+C,C_SVC_C19,100000,24.13,0.975,0.973251,0.975045,fairness_balanced,fairness

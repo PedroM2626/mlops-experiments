@@ -1,0 +1,9 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,stage
+C,LinearSVC_C0.5,100000,5.82,0.978,0.978239,0.978048,ablation_model,model_c
+C,LinearSVC_C0.5_noweight,100000,5.77,0.978,0.977932,0.978022,ablation_model,model_c
+C,LinearSVC_C19,100000,22.35,0.975,0.974058,0.975018,ablation_model,model_c
+C,LogReg_C10_balanced,100000,18.0,0.978,0.977334,0.978015,ablation_model,model_c
+C,LogReg_C10,100000,19.44,0.975,0.974647,0.975028,ablation_model,model_c
+C,Voting_hard,100000,19.04,0.978,0.977347,0.978008,ablation_model,model_c
+C,Voting_soft,100000,20.71,0.976,0.975841,0.976017,ablation_model,model_c
+C,Voting_hard_noweight,100000,20.18,0.978,0.977936,0.978012,ablation_model,model_c

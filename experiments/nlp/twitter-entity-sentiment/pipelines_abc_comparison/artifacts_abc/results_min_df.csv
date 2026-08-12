@@ -1,0 +1,13 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,min_df,default_min_df,stage
+A,LinearSVC_C19,70000,11.79,0.981,0.980677,0.981016,ablation_min_df,1,2,min_df
+A,LinearSVC_C19,70000,12.94,0.981,0.980677,0.981016,ablation_min_df,2,2,min_df
+A,LinearSVC_C19,70000,11.39,0.981,0.980677,0.981016,ablation_min_df,3,2,min_df
+A,LinearSVC_C19,70000,12.13,0.981,0.980677,0.981016,ablation_min_df,5,2,min_df
+B,LinearSVC_C19,70000,12.58,0.986,0.986253,0.986009,ablation_min_df,1,2,min_df
+B,LinearSVC_C19,70000,13.34,0.983,0.983279,0.983023,ablation_min_df,2,2,min_df
+B,LinearSVC_C19,70000,13.26,0.983,0.983594,0.983034,ablation_min_df,3,2,min_df
+B,LinearSVC_C19,70000,15.2,0.986,0.985982,0.986004,ablation_min_df,5,2,min_df
+C,Voting_svc_lr,100000,17.32,0.978,0.977371,0.978006,ablation_min_df,1,2,min_df
+C,Voting_svc_lr,100000,17.18,0.978,0.977347,0.978008,ablation_min_df,2,2,min_df
+C,Voting_svc_lr,100000,18.0,0.978,0.977381,0.977997,ablation_min_df,3,2,min_df
+C,Voting_svc_lr,76679,14.43,0.972,0.970675,0.972052,ablation_min_df,5,2,min_df

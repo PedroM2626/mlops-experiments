@@ -1,0 +1,10 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,cleaner,vectorizer_owner,stage
+PP=A,LinearSVC_C19,70000,13.24,0.981,0.980677,0.981016,cross_pp_x_vec,A,A,cross
+PP=A,LinearSVC_C19,70000,13.08,0.981,0.980677,0.981016,cross_pp_x_vec,A,B,cross
+PP=A,LinearSVC_C19,100000,31.87,0.986,0.985737,0.986023,cross_pp_x_vec,A,C,cross
+PP=B,LinearSVC_C19,70000,13.24,0.983,0.983279,0.983023,cross_pp_x_vec,B,A,cross
+PP=B,LinearSVC_C19,70000,13.04,0.983,0.983279,0.983023,cross_pp_x_vec,B,B,cross
+PP=B,LinearSVC_C19,100000,30.88,0.984,0.98334,0.984015,cross_pp_x_vec,B,C,cross
+PP=C,Voting_svc_lr,70000,13.31,0.978,0.977131,0.978014,cross_pp_x_vec,C,A,cross
+PP=C,Voting_svc_lr,70000,13.13,0.978,0.977131,0.978014,cross_pp_x_vec,C,B,cross
+PP=C,Voting_svc_lr,100000,17.06,0.978,0.977347,0.978008,cross_pp_x_vec,C,C,cross

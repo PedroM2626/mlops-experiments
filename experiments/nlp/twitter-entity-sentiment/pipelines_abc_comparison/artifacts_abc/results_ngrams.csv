@@ -1,0 +1,22 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,ngram_lo,ngram_hi,default_ngram,stage
+A,LinearSVC_C19,25786,8.44,0.956,0.95496,0.956029,ablation_ngram,1,1,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,13.83,0.981,0.980677,0.981016,ablation_ngram,1,2,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,15.48,0.981,0.980706,0.981027,ablation_ngram,1,3,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,16.61,0.98,0.979547,0.980037,ablation_ngram,1,4,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,18.66,0.98,0.979547,0.980037,ablation_ngram,1,5,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,6.06,0.955,0.955919,0.955183,ablation_ngram,2,2,"(1, 2)",ngrams
+A,LinearSVC_C19,70000,9.41,0.943,0.9434,0.943494,ablation_ngram,2,3,"(1, 2)",ngrams
+B,LinearSVC_C19,26353,8.81,0.953,0.952422,0.952969,ablation_ngram,1,1,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,13.15,0.983,0.983279,0.983023,ablation_ngram,1,2,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,14.62,0.979,0.978667,0.979021,ablation_ngram,1,3,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,17.1,0.979,0.978379,0.979031,ablation_ngram,1,4,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,20.12,0.978,0.977211,0.978029,ablation_ngram,1,5,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,6.35,0.954,0.955135,0.954386,ablation_ngram,2,2,"(1, 2)",ngrams
+B,LinearSVC_C19,70000,9.04,0.945,0.9453,0.945322,ablation_ngram,2,3,"(1, 2)",ngrams
+C,Voting_svc_lr,23652,8.25,0.932,0.929782,0.932212,ablation_ngram,1,1,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,12.37,0.981,0.980602,0.981001,ablation_ngram,1,2,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,16.75,0.978,0.977362,0.97799,ablation_ngram,1,3,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,17.1,0.978,0.977347,0.978008,ablation_ngram,1,4,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,19.51,0.974,0.972747,0.974034,ablation_ngram,1,5,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,15.82,0.963,0.964189,0.963327,ablation_ngram,2,2,"(1, 4)",ngrams
+C,Voting_svc_lr,100000,15.28,0.941,0.942548,0.941985,ablation_ngram,2,3,"(1, 4)",ngrams

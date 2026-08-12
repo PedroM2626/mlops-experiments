@@ -1,0 +1,7 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,sublinear_tf,default_sublinear_tf,stage
+A,LinearSVC_C19,70000,14.72,0.981,0.980677,0.981016,ablation_sublinear_tf,True,True,sublinear_tf
+A,LinearSVC_C19,70000,14.69,0.981,0.980677,0.981016,ablation_sublinear_tf,False,True,sublinear_tf
+B,LinearSVC_C19,70000,15.09,0.983,0.983279,0.983023,ablation_sublinear_tf,True,True,sublinear_tf
+B,LinearSVC_C19,70000,12.66,0.984,0.984478,0.984027,ablation_sublinear_tf,False,True,sublinear_tf
+C,Voting_svc_lr,100000,18.5,0.978,0.977347,0.978008,ablation_sublinear_tf,True,True,sublinear_tf
+C,Voting_svc_lr,100000,18.94,0.978,0.977352,0.978,ablation_sublinear_tf,False,True,sublinear_tf

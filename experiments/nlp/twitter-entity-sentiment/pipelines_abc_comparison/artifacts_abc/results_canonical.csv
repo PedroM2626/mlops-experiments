@@ -1,0 +1,17 @@
+pipeline,model,n_features,fit_time_s,accuracy,f1_macro,f1_weighted,tag,cleaner,stage
+A,LogisticRegression,70000,10.43,0.975,0.974272,0.974992,canonical,clean_a,canonical
+A,MultinomialNB,70000,2.41,0.914,0.910489,0.913445,canonical,clean_a,canonical
+A,LinearSVC_C1,70000,6.62,0.98,0.979739,0.980017,canonical,clean_a,canonical
+A,LinearSVC_C10,70000,11.12,0.983,0.982775,0.983017,canonical,clean_a,canonical
+A,LinearSVC_C19,70000,12.85,0.981,0.980677,0.981016,canonical,clean_a,canonical
+A,ExtraTrees,70000,81.8,0.985,0.984531,0.985002,canonical,clean_a,canonical
+B,LogisticRegression_C11,70000,12.4,0.981,0.981256,0.981042,canonical,clean_b,canonical
+B,ExtraTrees,70000,81.89,0.977,0.977228,0.976984,canonical,clean_b,canonical
+B,LinearSVC_C19,70000,13.35,0.983,0.983279,0.983023,canonical,clean_b,canonical
+B,PassiveAggressive,70000,3.0,0.98,0.980622,0.98005,canonical,clean_b,canonical
+B,KNN_cosine,70000,3.56,0.978,0.978545,0.978061,canonical,clean_b,canonical
+B,RidgeClassifier,70000,3.54,0.983,0.982959,0.983012,canonical,clean_b,canonical
+B,SGD_modhuber,70000,2.4,0.977,0.976894,0.977024,canonical,clean_b,canonical
+C,LinearSVC_C0.5,100000,6.12,0.978,0.978239,0.978048,canonical,clean_c,canonical
+C,LogisticRegression_C10,100000,16.64,0.978,0.977334,0.978015,canonical,clean_c,canonical
+C,Voting_svc_lr,100000,17.79,0.978,0.977347,0.978008,canonical,clean_c,canonical
