@@ -196,6 +196,8 @@ Notebooks (na própria pasta):
 - [`forecast-classification.ipynb`](forecast-classification.ipynb) — previsão de direção.
 - [`ibm-watsonx-local-timeseries.ipynb`](ibm-watsonx-local-timeseries.ipynb) — equivalente Watsonx.
 - [`databricks-forecast-local-equivalent.ipynb`](databricks-forecast-local-equivalent.ipynb) — equivalente Databricks.
+- [`multivariate-time-series-var.ipynb`](multivariate-time-series-var.ipynb) — Vector Autoregression (VAR) e Impulse Response Functions.
+- [`hierarchical_forecast.ipynb`](hierarchical_forecast.ipynb) — previsão hierárquica temporal com reconciliação bottom-up.
 - `sktime_vs_hybrid_ts.ipynb` — comparação library/custom hybrid TS de referência.
 
 Referências: Taylor & Letham, "Forecasting at Scale" (Prophet, 2018); Bromet et al., ROCKET (2020), Diebold & Mariano (1995); Hinton et al., Distilling the Knowledge (2015); UEA Archive, GunPoint/ArrowHead/ECG5000.
