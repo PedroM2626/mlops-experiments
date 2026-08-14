@@ -212,3 +212,5 @@ logs/
 .env.production
 *venv*
 experiments/computer_vision/data/cifar-10-python.tar.gz
+
+.qoder/
