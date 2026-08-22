@@ -8,7 +8,7 @@
 
 ## 1. Resumo
 
-Esta pasta agrega **11 experimentos** de previsão e análise de séries temporais: otimização de **Prophet com Optuna**, o confronto **Prophet vs LightGBM** (MAE 1,7344 vs 1,96), a evolução do **sales forecast** V2→V2.1→V2.2 (MAE 1,4218), **destilação de conhecimento** (LSTM→TCN com 103,9% da performance do Teacher), **detecção de anomalias** (Z-Score F1 0,9954), **classificação de séries** em 6 paradigmas, um **benchmark de 4 paradigmas × 4 cenários**, a fusão **TS+NLP** para direcionamento de mercado e a conversão do forecast em **classificação de direção**. Conclusão central: nenhum paradigma domina universalmente — cada família de modelos vence em séries cuja estrutura lhe favorece (SARIMA para séries suaves, ROCKET para classificação, Z-Score/Prophet para anomalias conservadoras).
+Esta pasta agrega **12 experimentos** de previsão e análise de séries temporais: otimização de **Prophet com Optuna**, o confronto **Prophet vs LightGBM** (MAE 1,7344 vs 1,96), a evolução do **sales forecast** V2→V2.1→V2.2 (MAE 1,4218), **destilação de conhecimento** (LSTM→TCN com 103,9% da performance do Teacher), **detecção de anomalias** (Z-Score F1 0,9954), **classificação de séries** em 6 paradigmas, um **benchmark de 4 paradigmas × 4 cenários**, a fusão **TS+NLP** para direcionamento de mercado, a conversão do forecast em **classificação de direção** e **forecasting probabilístico com DeepAR** (GluonTS/PyTorch). Conclusão central: nenhum paradigma domina universalmente — cada família de modelos vence em séries cuja estrutura lhe favorece (SARIMA para séries suaves, ROCKET para classificação, Z-Score/Prophet para anomalias conservadoras); DeepAR não supera baselines em acurácia pontual em séries únicas curtas, mas oferece forecasting probabilístico nativo (100 trajetórias amostradas, intervalos de confiança).
 
 ## 2. Contexto e Objetivos
 
@@ -60,6 +60,7 @@ Questões de pesquisa:
 | TS+NLP | LightGBM: TS-only, NLP-only, TS+NLP |
 | Forecast→Classification | Logística, Random Forest, XGBoost, LightGBM |
 | Equivalentes locais | Prophet+Optuna, SARIMA, ETS, Naive (Watsonx/Databricks locais) |
+| DeepAR probabilístico | DeepAR (GluonTS/PyTorch) vs SARIMA, Prophet, LightGBM + métricas probabilísticas (Coverage, CRPS) |
 
 ### 4.4 Avaliação
 - Splits temporais (sem shuffle), 80/20 treino/teste.
@@ -165,6 +166,26 @@ Baselines: maioria 66,9% | persistência (d+1) 67,7% | mesmo dia da semana passa
 | ETS | 9,6679 | 6,51% | 0,29s |
 | SARIMA | 9,9620 | 6,71% | 3,11s |
 
+### 5.11 DeepAR Probabilístico (4 datasets do benchmark, 100 amostras, CPU)
+
+**Forecast pontual (MAE):**
+| Dataset | SARIMA | Prophet | LightGBM | DeepAR | Vencedor |
+|---|---|---|---|---|---|
+| CO₂ | 4,27 | **0,61** | 1,19 | 1,76 | Prophet |
+| Nile | 123,01 | **120,12** | 127,24 | 142,18 | Prophet |
+| Sunspots | 44,90 | — (falhou) | **16,89** | 41,58 | LightGBM |
+| Synthetic | 8,33 | **4,20** | 4,68 | 4,45 | Prophet |
+
+**Métricas probabilísticas (DeepAR):**
+| Dataset | Coverage(90%) | AvgWidth | CRPS |
+|---|---:|---:|---:|
+| CO₂ | **100,0%** | 8,20 | 2,63 |
+| Nile | 50,0% | 318,18 | 160,95 |
+| Sunspots | 32,0% | 57,24 | 43,83 |
+| Synthetic | **93,3%** | 19,27 | 6,59 |
+
+DeepAR não venceu nenhum dataset em MAE pontual. Ficou competitivo no Synthetic (4,45 vs 4,20 do Prophet). Coverage excelente em CO₂ (100%) e Synthetic (93,3%), mas undercoverage severo em séries anuais curtas (Nile 50%, Sunspots 32%). Custo: **42–128s** por dataset (CPU) vs 0,2–2,9s do Prophet. Conclusão: DeepAR é relevante para forecasting probabilístico em séries longas/múltiplas, mas não substitui baselines em séries únicas curtas.
+
 ## 6. Discussão
 
 - **Desafio Prophet vs LightGBM:** em ruído diário abrupto, árvores que "leem" os lags imediatos reagem melhor do que equações aditivas baseadas apenas no calendário estático (MAE 1,73 vs 1,96). Categóricas de alta cardinalidade, `preco_medio_unitario` e features de preço concentraram ~65% do ganho no pipeline V2.2.
@@ -174,6 +195,7 @@ Baselines: maioria 66,9% | persistência (d+1) 67,7% | mesmo dia da semana passa
 - **Anomalias:** métodos estatísticos (Z-Score/Prophet) são conservadores e ideais quando alarmes falsos são caros; Isolation Forest supera em Recall (≈108/109) com calibração de contaminação; LOF falha por densidade espacial em um resíduo 1D agrupado próximo a zero — exige antes uma decomposição em resíduos ou janelas de lags.
 - **TS+NLP e Forecast→Classification:** a feição causal defasada (notícia do dia → retorno de amanhã) domina o sintético; em séries reais, TS+NLP tende a superar ambos isolados. Classificar direção converte métricas de erro em F1/AUC interpretáveis, com forte dominância de calendário (fim de semana ≈ 2,8% das vendas diárias).
 - **Equivalentes locais:** SARIMA reproduziu o Prophet+Optuna em Produção Elétrica (MAPE 3,90% igual, 24× mais rápido); Prophet+Optuna vence nas vendas sintéticas (sMAPE 5,66%, +11,4% vs baseline), superando SARIMA/ETS em padrões semanais complexos.
+- **DeepAR probabilístico:** o modelo de deep learning autoregressivo (LSTM + Student-T) não superou baselines em acurácia pontual em nenhum dos 4 datasets — Prophet venceu 3/4, LightGBM venceu 1/4. O diferencial do DeepAR é o forecasting probabilístico nativo: 100 trajetórias amostradas, intervalos de confiança calibrados (Coverage 90% ≈ 93–100% em séries semanais longas; undercoverage em séries anuais curtas com <350 obs). Custo computacional 50–600× superior aos baselines (CPU). Recomendado para múltiplas séries correlacionadas (cross-learning) ou quando a distribuição preditiva é requisito de negócio.
 
 ## 7. Conclusões e Recomendações
 
@@ -198,6 +220,8 @@ Notebooks (na própria pasta):
 - [`databricks-forecast-local-equivalent.ipynb`](databricks-forecast-local-equivalent.ipynb) — equivalente Databricks.
 - [`multivariate-time-series-var.ipynb`](multivariate-time-series-var.ipynb) — Vector Autoregression (VAR) e Impulse Response Functions.
 - [`hierarchical_forecast.ipynb`](hierarchical_forecast.ipynb) — previsão hierárquica temporal com reconciliação bottom-up.
+- [`deepar-probabilistic-forecast.ipynb`](deepar-probabilistic-forecast.ipynb) — DeepAR (GluonTS/PyTorch) probabilístico vs baselines pontuais.
+- [`deepar-generative/deepar-generative-futures.ipynb`](deepar-generative/deepar-generative-futures.ipynb) — DeepAR como modelo generativo: 500 trajetórias, cenários, probabilidades.
 - `sktime_vs_hybrid_ts.ipynb` — comparação library/custom hybrid TS de referência.
 
-Referências: Taylor & Letham, "Forecasting at Scale" (Prophet, 2018); Bromet et al., ROCKET (2020), Diebold & Mariano (1995); Hinton et al., Distilling the Knowledge (2015); UEA Archive, GunPoint/ArrowHead/ECG5000.
+Referências: Taylor & Letham, "Forecasting at Scale" (Prophet, 2018); Salinas et al., "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks" (2020); Bromet et al., ROCKET (2020), Diebold & Mariano (1995); Hinton et al., Distilling the Knowledge (2015); UEA Archive, GunPoint/ArrowHead/ECG5000.
