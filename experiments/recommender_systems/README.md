@@ -113,7 +113,17 @@ Usuário novo avaliou Star Wars 5, Fargo 4, Shining 3 → SVD recomendou **Empir
 
 - Pipeline: coleta → extração de embeddings ResNet → L2 normalização → cosseno top-K → saída JSONL.
 - Benchmark de indexação observada: **30 imagens indexadas em 4.229 s, dim 2048**.
-- **TBD:** sem métricas de qualidade (precision@K, recall@K) — a aplicação demonstrações via CLI/demo, sem avaliação formal de ranking nesta pasta.
+- Avaliação de ranking: usar `ranking_metrics.py` (`ranking_report(y_score, y_relevant, ks=(5,10,20))` → precision/recall@K, hit-rate@K, nDCG@K). Mascarar itens de treino com score −inf antes de ranquear.
+
+### 5.4 Avaliação de ranking (BPR e demais) — `ranking_metrics.py`
+
+RMSE mede rating absoluto; BPR otimiza pares (ranking). Para comparação justa em top-K:
+
+```bash
+python -c "from ranking_metrics import ranking_report; print(ranking_report(scores, rel))"
+```
+
+com `scores` (n_users × n_items) e `rel` binário (1 = relevante no teste, ex.: rating ≥ 4). Testes: `tests/test_ranking_metrics.py` (7 asserts, inclui caso BPR-ordenado > heurística em nDCG).
 
 ## 6. Discussão
 
@@ -121,20 +131,21 @@ Usuário novo avaliou Star Wars 5, Fargo 4, Shining 3 → SVD recomendou **Empir
 - **Two-Tower vs SVD** mantém empate mcase local (~0.005–0.006), mas o Two-Tower habilita ANN/max recovery para produção de milhões de itens (Google/Meta/Pinterest).
 - **LightGBM+FE** prova que FE manual (u_std, u_mean) compete com neurais (0.9406), além de ser interpretável (SHAP/feature importance).
 - **Sparsity prejudica métodos de similaridade** (KNN ~1.02); modelo é sample também do vitorá do Feature Engineering tabular: árvores ganham menos com FE do que modelos lineares (ver pasta `tabular_regression`).
-- **BPR não deve ser avaliado por RMSE** — sua função é top-K (precision/recall@K); incluir medição de ranking é refinância futura.
-- **Limitações:** dataset único (100k), sem avaliação de ranking (nDCG/precision@K) nas 8 abordagens, e imagem_recommender sem baseline de qualidade — só demonstração do pipeline.
+- **BPR não deve ser avaliado por RMSE** — sua função é top-K; a medição de ranking está implementada em `ranking_metrics.py` (§5.4).
+- **Limitações:** dataset único (100k); `image_recommender` avaliado via protocolo de ranking (`ranking_metrics.py`), sem baseline externo de qualidade — demonstração do pipeline.
 
 ## 7. Conclusões e Recomendações
 
 - **Predição de rating** em datasets ≤ 100k: **AutoRec item-based** (RMSE 0.9054) ou **SVD** (0.9352) como melhor custo/simplicidade (Cython, segundos).
 - **Melhor trade-off produção:** **Two-Tower** para escala (ANN) —o custo ~0.93 de RMSE é o melhor se precisa de recuperação em catálogo massivo.
 - **Interpretabilidade:** **LightGBM+m3** com 8 features (u_mean/u_std) é forte (0.9406) e fornece SHAP.
-- **Ranking (top-K):** **BPR** (pairwise) — mas deve ser medido por precision/recall@K, Não por RMSE.
+- **Ranking (top-K):** **BPR** (pairwise) — medido por precision/recall@K e nDCG via `ranking_metrics.py`, não por RMSE.
+- Sugestão: versionar a matriz de scores por modelo para reavaliar o ranking sem re-treinar, e avaliar o `image_recommender` com precision@K em dataset rotulado.
 - **Cold-start:** híbrido de popularidade + conteúdo até o usuário acumular interações.
-- Sugestão: adicionar quanto timesertal/eval de ranking e avaliar o `image_recommender` com precision@K em cada dataset.
 
 ## 8. Referências e Arquivos
 
 - Notebooks: `./movielens-recsys.ipynb`, `./movielens-autorec.ipynb`, `./image_recommender.ipynb`.
+- Código: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`.
 - Referências: Sedhain et al. (2015) *AutoRec: Autoencoders Meet Collaborative Filtering*; Koren et al. (2009) *Matrix Factorization Techniques for Recommender* (SVD); Rendle et al. (2009) *BPR*; He et al. (2017) *Neural Collaborative Filtering* (NeuMF); Grafer et al. para Two-Tower/DLRM; Harley et al. (2022) recommend visual embeddings (ResNet).
 - Documento de referência do grupo: `docs/modelo-academico-readme.md`.

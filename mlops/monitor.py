@@ -1,9 +1,13 @@
 """Monitor de drift de feature entre referencia (treino) e inferencias recentes.
 
-Abordagem: calcula PSI (Population Stability Index) por feature numerica e
-share-change para categoricas. Se max_PSI > DRIFT_PSI_THRESHOLD ou
-share > DRIFT_SHARE_THRESHOLD, escreve retrain_trigger.json (consumido pelo retrain).
-Tambem tenta usar Evidently se disponivel, com fallback robusto.
+Abordagem em 2 níveis:
+  1. Tenta Evidently (`DataDriftPreset`) se instalado — conta features com
+     drift e usa como sinal primário.
+  2. Sempre calcula PSI (numéricas) + share-change (categóricas) como
+     fallback robusto e como métricas registradas no SQLite.
+
+Se max_PSI > DRIFT_PSI_THRESHOLD ou share > DRIFT_SHARE_THRESHOLD, escreve
+retrain_trigger.json (consumido pelo retrain).
 
 Como 'current' usamos a matriz de features de uma recente /predict (amos-
 trada). Sem inferencias recentes, deriva a 'current' da propria referencia
@@ -46,6 +50,45 @@ def _share_diff(expected, actual):
     asc = actual.value_counts(normalize=True)
     cats = set(esc.index) | set(asc.index)
     return float(max(abs(esc.get(c, 0) - asc.get(c, 0)) for c in cats)) if cats else 0.0
+
+
+def _try_evidently_drift(reference, current) -> dict | None:
+    """Roda Evidently DataDriftPreset; retorna resumo ou None se indisponível.
+
+    Nunca levanta exceção — qualquer falha (import, API, versão) cai no
+    fallback PSI do `compute_drift`.
+    """
+    try:
+        from evidently.report import Report
+        from evidently.metric_preset import DataDriftPreset
+
+        report = Report(metrics=[DataDriftPreset()])
+        report.run(reference_data=reference, current_data=current)
+        payload = report.as_dict()
+        # Extrai nº de features com drift de forma tolerante a versões.
+        drifted, total, share = 0, len(reference.columns), 0.0
+        try:
+            metrics = payload.get("metrics", [])
+            for m in metrics:
+                res = (m.get("result") or {})
+                drift_by_col = res.get("drift_by_columns") or {}
+                if drift_by_col:
+                    total = len(drift_by_col)
+                    drifted = sum(1 for v in drift_by_col.values()
+                                  if isinstance(v, dict) and v.get("drift_detected"))
+                    share = drifted / total if total else 0.0
+                    break
+                if "number_of_drifted_columns" in res:
+                    drifted = int(res["number_of_drifted_columns"])
+                    total = int(res.get("number_of_columns", total))
+                    share = float(res.get("share_of_drifted_columns", 0.0) or 0.0)
+                    break
+        except Exception:
+            pass
+        return {"method": "evidently", "n_features": total,
+                "drifted_features": drifted, "share_drifted": round(share, 4)}
+    except Exception:
+        return None
 
 
 def compute_drift(reference, current):
@@ -98,6 +141,10 @@ def run_once(auto=False, dry_run=False, strong=False):
         if "preco_medio_unitario" in sample_cur.columns:
             sample_cur["preco_medio_unitario"] = sample_cur["preco_medio_unitario"] * (0.50 if strong else 1.20)
     result = compute_drift(sample_ref, sample_cur)
+    ev = _try_evidently_drift(sample_ref, sample_cur)
+    result["evidently"] = ev or {"method": "psi_fallback",
+                                 "reason": "evidently indisponível ou falhou"}
+    result["method"] = result["evidently"]["method"]
     triggered = (result["max_psi"] > config.DRIFT_PSI_THRESHOLD or
                  result["max_share_change"] > config.DRIFT_SHARE_THRESHOLD)
     result_with_ts = {"triggered": triggered,

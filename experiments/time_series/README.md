@@ -186,6 +186,15 @@ Baselines: maioria 66,9% | persistência (d+1) 67,7% | mesmo dia da semana passa
 
 DeepAR não venceu nenhum dataset em MAE pontual. Ficou competitivo no Synthetic (4,45 vs 4,20 do Prophet). Coverage excelente em CO₂ (100%) e Synthetic (93,3%), mas undercoverage severo em séries anuais curtas (Nile 50%, Sunspots 32%). Custo: **42–128s** por dataset (CPU) vs 0,2–2,9s do Prophet. Conclusão: DeepAR é relevante para forecasting probabilístico em séries longas/múltiplas, mas não substitui baselines em séries únicas curtas.
 
+### 5.12 Protocolo de recalibração (undercoverage Nile/Sunspots)
+
+Sem novo treino, para aproximar o coverage nominal de 90%:
+
+1. **Conformal split:** no holdout, calcule os quantis empíricos dos resíduos padronizados e escale a largura do intervalo por `q̂ = quantil(|res|/σ̂, 0.9)`.
+2. **Escala por horizonte:** estime `q̂(h)` por passo `h` (erro cresce com `h`; escalar global subcobre o fim do horizonte).
+3. **Checar CRPS antes/depois:** recalibração melhora coverage mas alarga `AvgWidth` — reporte o par (coverage, width), não só coverage.
+4. **Séries curtas (<350 obs):** prefira Prophet/LightGBM pontual + intervalo conformal próprio; DeepAR só com cross-learning (múltiplas séries correlacionadas).
+
 ## 6. Discussão
 
 - **Desafio Prophet vs LightGBM:** em ruído diário abrupto, árvores que "leem" os lags imediatos reagem melhor do que equações aditivas baseadas apenas no calendário estático (MAE 1,73 vs 1,96). Categóricas de alta cardinalidade, `preco_medio_unitario` e features de preço concentraram ~65% do ganho no pipeline V2.2.

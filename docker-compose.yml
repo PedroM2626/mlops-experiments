@@ -7,9 +7,16 @@ services:
     env_file:
       - .env
     restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     # serving real do campeao via FastAPI + MLflow registry local
+    # tracking URI do codigo: <repo>/experiments/mlruns (mlops/config.py)
     volumes:
       - ./experiments:/app/experiments
+      - ./experiments/artifacts/mlops_sales:/app/experiments/artifacts/mlops_sales
     command: ["python", "-m", "mlops.serve"]
 
   mlflow_ui:
@@ -25,8 +32,12 @@ services:
     build: .
     container_name: mlops_monitor
     restart: always
+    env_file:
+      - .env
     volumes:
       - ./experiments:/app/experiments
+      - ./experiments/artifacts/mlops_sales:/app/experiments/artifacts/mlops_sales
     command: ["python", "-m", "mlops.monitor", "--loop", "--auto"]
     depends_on:
-      - ml_api
+      ml_api:
+        condition: service_healthy

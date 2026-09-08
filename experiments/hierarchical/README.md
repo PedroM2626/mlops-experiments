@@ -202,16 +202,16 @@ Notas: o **top-down gera 45 clusters-folha** (não 20) porque os grupos reais n�
 - **Classificação hierárquica**: mais interpretável e escalável, com ~2.4 pp de perda de exact-match para o flat; a cadeia de erro se concentra no pai — ao reforçar o nível 1 (rebalanceamento + C) a acurácia da folha-subiu e a HF aproximou flat/hierárquico.
 - **Clustering top-down (2 níveis) é superior ao flat no nível de folha** (Purity 0.398, NMI 0.360) e **acima da literatura de text clustering no 20 Newsgroups**.
 - **Recomendação prática:** para dados com taxonomia conhecida (2+ níveis), o **clustering em cascata (top-down)** é superior a um único KMeans; para classificação, se exact-match é crítica prefira flat — se interpretabilidade e escalabilidade importam, use hierárquica com pai bem treinado.
-- **Próximos passos** (class): reformar o nível pai, calibrar via `decision_function`/`predict_proba` ou testar modelos não lineares (pequenos ensembles/redes) para as classes mais confundidas.
+- **Próximos passos** (class): calibrar o nível pai via `calibrate_parent.py::tune_parent_threshold` (varre limiar de confiança da `decision_function`/`predict_proba` maximizando o proxy de folha `mean(pai_ok × filho_ok)`); testar modelos não lineares (pequenos ensembles/redes) para as classes mais confundidas.
 
 ## 8. Referências e Arquivos
 
 **Classificação** (`classificacao_hierarquica.ipynb`)
 - Notebook principal (executado, contém tabelas, matrizes, gráficos, predições).
-- Scripts: `build_notebook.py`, `explore.py` / `explore2.py` (busca de hiperparâmetros), `resultados.txt`.
+- Código: `calibrate_parent.py` + `tests/test_calibrate_parent.py` (threshold tuning do pai).
 
 **Clustering** (`clustering_flat_vs_hierarquico.ipynb`)
 - Notebook principal (executado, com dendrograma e heatmap).
-- Scripts: `build_clustering.py`, `explore_clust.py`, `resultados_clust.txt`.
+- Comparativos avulsos: `clustering_comparison.ipynb`, `supervised_clustering.ipynb`.
 
 Fonte: README raiz do repositório (tabela resumo "Experimentos Hierárquicos — 20 Newsgroups") e documentação scikit-learn do dataset 20 Newsgroups.

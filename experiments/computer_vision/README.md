@@ -91,6 +91,8 @@ Configurações env para o face app: `FACE_DETECTOR=yunet\|haar`; `FACE_TL_EPOCH
 
 Comportamento do treino ResNet18: saturação rápida (época 1 = 0,9323, oscila ~0,94). ViT alcançou 0,9805 em **1 época**.
 
+**Nota de fairness (derivada dos números acima, sem nova execução):** HOG usou 5× menos dados (10k vs 50k) e mesmo assim custou mais (27 min vs 12,5 min ResNet / ~17 min ViT). Custo por 1k amostras: HOG ~2,7 min (+SVM O(n²·d) em d=2.916), ResNet ~0,25 min, ViT ~0,34 min. Ou seja, mesmo normalizando por amostra o HOG perde em acc (0,3970) e em custo — a conclusão qualitativa (evitar HOG em CIFAR) se mantém, mas comparação head-to-head exige HOG em 50k ou todos em 10k.
+
 ### 5.2 Multi-label de Pets — 4 Abordagens (animal-classifier.ipynb)
 
 | Métrica | ResNet18 + Aug | VGG16 | CLIP zero-shot | EfficientNet + Aug |
@@ -111,12 +113,13 @@ Comportamento do treino ResNet18: saturação rápida (época 1 = 0,9323, oscila
 ### 5.3 Face Recognition App (face_recognition_app.ipynb)
 
 - Fluxo embutido no notebook: coleta de faces por upload, treino (LBPH/CNN/YuNet) e predição por upload com visualização.
-- **TBD**: não há métricas de acurácia embutidas no notebook (resultado qualitativo por visualização). Modos: `lbph` (baseline OpenCV), `cnn` (CNN pequena), `transfer_yunet` (MobileNetV2 + YuNet).
+- Avaliação objetiva: `eval_detection.py::classification_metrics(y_true, y_pred)` (accuracy, F1-macro/micro, matriz de confusão) sobre split rotulado; `face_verification_metrics(distances, same_person)` varre o limiar de distância e retorna melhor acc + curva. Testes em `tests/test_eval_detection.py`.
+- Modos: `lbph` (baseline OpenCV), `cnn` (CNN pequena), `transfer_yunet` (MobileNetV2 + YuNet).
 
 ### 5.4 YOLO (yolo_notebook.ipynb)
 
 - Classificação/detecção por upload usando YOLOv3-tiny COCO via OpenCV DNN; classes custom exibidas quando modelo treinado baixado.
-- **TBD**: sem métricas de acurácia embutidas (resultado por inspeção das classes detectadas).
+- Avaliação objetiva: `eval_detection.py::detection_map(pred_boxes, pred_scores, true_boxes, iou_thr=0.5)` (mAP uma classe + AP por imagem). Anotar um subset de validação com boxes e rodar o harness — sem depender de inspeção visual.
 
 ## 6. Discussão
 
@@ -124,7 +127,7 @@ Comportamento do treino ResNet18: saturação rápida (época 1 = 0,9323, oscila
 - **Transformers ≈ novo padrão**: ViT supera ResNet18 por 4,4 pp com apenas 1 época. No 16.º experimento (DistilBERT vs TF-IDF+SVC em NLP) o salto arquitetural foi menor (0,9 pp), sugerindo que em visão o pré-treinamento em 21k classes dá vantagem qualitativa maior sobre dados de porte médio (50k).
 - **Fine-tuning supervisionado domina multi-label**, mas o dataset de 44 imagens impede conclusões fortes; os resultados perfeitos de ResNet18 devem ser lidos com cautela (overfitting benéfico).
 - **Zero-shot é opção para zero-dados**, porém a calibração do threshold é o fator decisivo: com 0.75 o CLIP ganhou recall e perdeu precisão (exact match 0.000).
-- **Limitações**: espaço para budgets de hardware (GPU obrigatória no comparativo CIFAR-10); face app e YOLO não possuem métricas objetivas nesta pasta (avaliação por inspeção).
+- **Limitações**: espaço para budgets de hardware (GPU obrigatória no comparativo CIFAR-10); face app e YOLO agora com protocolo de métricas em `eval_detection.py` (requer subset anotado para mAP).
 
 ## 7. Conclusões e Recomendações
 

@@ -94,7 +94,12 @@ interno de 3 folds.
 python feature_selection_ea.py             # pipeline completo
 python feature_selection_ea.py --quick     # config reduzida
 python build_notebook.py                   # gera/executa o notebook com outputs
+python multiseed.py outputs/summary_cal_seed*.csv   # agrega multi-seed (média ± std por método)
 ```
+
+Testes: `tests/test_multiseed.py`. Para robustez, rode `feature_selection_ea.py` com seeds
+distintas (ex.: 42, 43, 44), salve cada `summary_*.csv` por seed e agregue com `multiseed.py`
+(`summarize_multiseed` → `best_cv_mean/std`, `test_mean/std` por método).
 
 Artefatos em `outputs/` (`summary_*.csv`, `curves_*.csv`, `*.png`).
 

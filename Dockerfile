@@ -1,43 +1,32 @@
-# Use uma imagem base oficial do Python 3.11
+# Serving do campeão sales-forecast (FastAPI + MLflow registry local).
 FROM python:3.11-slim
 
-# Definir diretório de trabalho
 WORKDIR /app
 
-# Instalar dependências do sistema necessárias para bibliotecas de ML (Auto-sklearn, XGBoost, etc)
-RUN apt-get update && apt-get install -y \
+# Deps de sistema p/ LightGBM/OpenCV (build enxuto, sem cache apt)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    swig \
-    curl \
-    git \
     libgl1 \
     libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar os arquivos de requisitos primeiro para aproveitar o cache do Docker
+# Requisitos primeiro (cache de camadas). Para imagem leve, use
+# requirements_ensemble.txt ou um requirements-mlops mínimo.
 COPY requirements.txt .
-
-# Instalar as dependências do Python
-# Usamos --no-cache-dir para reduzir o tamanho da imagem
 RUN pip install --no-cache-dir -U pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copiar o restante do código do projeto
 COPY . .
 
-# Criar um usuário não-root para segurança (recomendado pelo Hugging Face)
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+# Usuário não-root sem quebrar o WORKDIR /app (config espera /app/experiments/...)
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+ENV HOME=/home/appuser \
+    PATH=/home/appuser/.local/bin:$PATH
 
-# Definir o diretório de trabalho para o diretório do usuário
-WORKDIR $HOME/app
-COPY --chown=user . $HOME/app
-
-# Expor a porta que o Gradio usa
-EXPOSE 7860
-
-# Comando para rodar a aplicação
-# O Gradio no Spaces espera rodar na porta 7860
-CMD ["python", "app.py"]
+# API FastAPI (mlops.serve), não Gradio
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+CMD ["python", "-m", "mlops.serve"]

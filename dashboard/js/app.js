@@ -245,11 +245,11 @@ const App = (() => {
       description: "State-Space Model (130M params) para classificacao de sentimento. Depende de CUDA.",
       techniques: ["Mamba", "SSM", "State-Space", "Deep Learning"],
       metric: null,
-      script: "experiments/nlp/twitter-entity-sentiment/run_twitter_mamba.ipynb",
+      script: "experiments/nlp/twitter-entity-sentiment/run_twitter_mamba.py",
       readme: "experiments/nlp/README.md",
       models: ["Mamba SSM (130M)"],
       dataset: "Twitter Sentiment",
-      details: "TBD: overhead de projecoes lineares em textos curtos. CUDA/Triton necessario."
+      details: "Entry-point reproduzível em run_twitter_mamba.py: detecta CUDA/mamba-ssm e registra mamba_status.json (skip documentado sem GPU; READY com CUDA). Treino completo no notebook run_twitter_mamba.ipynb."
     },
     {
       id: 16,
@@ -1075,6 +1075,36 @@ const App = (() => {
       models: ["SalesForecasterV2 (LightGBM)"],
       dataset: "Sales Forecast V2.2",
       details: "Precompute 12 semanas -> lookup numpy ~80-100ms. 1.6k x speedup. Cooldown 1800s."
+    },
+    {
+      id: 94,
+      title: "Ordinal vs Nominal (Wine Quality)",
+      category: "regression",
+      categoryLabel: "Regressao Tabular",
+      status: "completed",
+      description: "LogReg/RF nominais vs LogisticAT/IT ordinais (mord). RF vence acc; ordinais empatam em acc+-1.",
+      techniques: ["Ordinal Regression", "mord", "Random Forest", "Kappa", "MAE"],
+      metric: {"label": "RF Acc", "value": "0.660", "percent": 66},
+      script: "experiments/ordinal_classification/ordinal_classification.ipynb",
+      readme: "experiments/ordinal_classification/README.md",
+      models: ["RandomForest", "LogisticRegression", "LogisticAT", "LogisticIT"],
+      dataset: "Wine Quality Red (1599x12, 6 classes)",
+      details: "RF 0.66/MAE 0.36/Kappa 0.45. Ordinais ~0.59 acc mas 0.9775 acc+-1. Classes raras (3,8) colapsam."
+    },
+    {
+      id: 602,
+      title: "DeepAR Generativo — Cenários e Probabilidades",
+      category: "timeseries",
+      categoryLabel: "Series Temporais",
+      status: "completed",
+      description: "DeepAR como modelo generativo: 500 trajetórias amostradas, cenários e probabilidades de eventos.",
+      techniques: ["DeepAR", "GluonTS", "Generative Forecasting", "Scenarios", "CRPS"],
+      metric: {"label": "Trajetorias", "value": "500", "percent": 90},
+      script: "experiments/time_series/deepar-generative/deepar-generative-futures.ipynb",
+      readme: "experiments/time_series/README.md",
+      models: ["DeepAR (GluonTS/PyTorch)"],
+      dataset: "Benchmark TS (CO2/Nile/Sunspots/Synthetic)",
+      details: "Estende o DeepAR probabilístico: amostragem massiva, faixas de cenário e P(evento) para decisão."
     }
   ];
 

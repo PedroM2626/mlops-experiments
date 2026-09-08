@@ -36,7 +36,8 @@ Pipeline de produção completo sobre o campeão do repo (`sales-forecast`, Ligh
 | `retrain.py` | reusa o pipeline, loga nova run MLflow, promove a versão auto-registrada |
 | `serve.py` | FastAPI: `/predict /metrics /recent /drift /health /dashboard` |
 | `dashboard.html` | dashboard vivo (polling 5s) |
-| `monitor.py` | drift PSI por feature + share-change por categórica; `--auto` executa retrain com cooldown |
+| `monitor.py` | drift em 2 níveis (Evidently `DataDriftPreset` se instalado + PSI/share-change sempre); `--auto` executa retrain com cooldown |
+| `tests/` | `test_monitor.py` (PSI/share/compute_drift/Evidently-safe) + `test_metrics_store.py` (ciclo pred→drift→retrain em SQLite tmp) |
 
 ## Como rodar
 

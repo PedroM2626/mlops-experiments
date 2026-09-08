@@ -31,7 +31,7 @@ Para o padrão de documentação, veja
 
 | Experimento | Objetivo | Principal resultado | Leitura |
 |---|---|---|---|
-| **Grupo Séries Temporais** (Prophet, benchmark 4×4, classificação 6 paradigmas, TS+NLP, forecast-classification, destilação, anomalias) | previsão, classificação e análise de TS | SARIMA vence 2/4 no benchmark; ROCKET 3/3; Logística 0.958 no forecast-direção | [ver](experiments/time_series/README.md) |
+| **Grupo Séries Temporais** (Prophet, benchmark 4×4, classificação 6 paradigmas, TS+NLP, forecast-classification, destilação, anomalias, DeepAR probabilístico/generativo, VAR, forecast hierárquico) | previsão, classificação e análise de TS | SARIMA vence 2/4 no benchmark; ROCKET 3/3; Logística 0.958 no forecast-direção | [ver](experiments/time_series/README.md) |
 | **5 Fases de Feature Engineering (TS)** | manual vs automático vs sinais vs embeddings | DWT + manual: MAE 54.19 (melhor) | [ver](experiments/ts_fe/README.md) |
 | **Sales Forecast (Hackathon)** | previsão semanal de vendas | LightGBM V2.2 MAE 1.4218 | [ver](experiments/sales-forecast/README.md) |
 | **Databricks Forecast (cloud)** | Prophet/DeepAR importados (Databricks) | equivalentes locais em time_series | [ver](experiments/databricks-forecast/README.md) |
@@ -68,6 +68,12 @@ Para o padrão de documentação, veja
 | Experimento | Objetivo | Principal resultado | Leitura |
 |---|---|---|---|
 | **GAAP (NSGA-II) e MO-DE vs clássicos** | seleção de features multiobjetivo (R²/F1 × nº de features) | vantagem em features interativas (California); clássicos já bastam no Twitter | [ver](experiments/feature_selection_ea/README.md) |
+
+### 🔢 Classificação Ordinal
+
+| Experimento | Objetivo | Principal resultado | Leitura |
+|---|---|---|---|
+| **Ordinal vs Nominal (Wine Quality)** | LogReg/RF nominais vs LogisticAT/IT ordinais (`mord`) | RF nominal acc 0.66 / MAE 0.36; ordinais empatam em acc±1 ~0.9775 | [ver](experiments/ordinal_classification/README.md) |
 
 ---
 
