@@ -13,7 +13,8 @@ CURRENT_PATH = ARTIFACTS_DIR / "current_features.parquet"
 MLFLOW_TRACKING_URI = (REPO_ROOT / "experiments" / "mlruns").as_uri()
 MLFLOW_EXPERIMENT = "sales_forecast_v22_prod"
 MLFLOW_MODEL_NAME = "sales_forecaster_v22"
-MLFLOW_MODEL_STAGE = "Production"
+MLFLOW_MODEL_STAGE = "Production"  # legado (fallback); o primario e o alias abaixo
+MLFLOW_MODEL_ALIAS = "production"  # `models:/<nome>@production` (MLflow 3.x)
 
 API_HOST = "0.0.0.0"
 API_PORT = 8000

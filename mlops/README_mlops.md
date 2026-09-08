@@ -37,7 +37,8 @@ Pipeline de produção completo sobre o campeão do repo (`sales-forecast`, Ligh
 | `serve.py` | FastAPI: `/predict /metrics /recent /drift /health /dashboard` |
 | `dashboard.html` | dashboard vivo (polling 5s) |
 | `monitor.py` | drift em 2 níveis (Evidently `DataDriftPreset` se instalado + PSI/share-change sempre); `--auto` executa retrain com cooldown |
-| `tests/` | `test_monitor.py` (PSI/share/compute_drift/Evidently-safe) + `test_metrics_store.py` (ciclo pred→drift→retrain em SQLite tmp) |
+| `registry.py` | promote/resolve via alias `production` (+ fallback stage); `latest_unstaged_version` pega a auto-registrada do `log_model` |
+| `tests/` | `test_monitor.py` (PSI/share/compute_drift/Evidently-safe) + `test_metrics_store.py` (ciclo pred→drift→retrain em SQLite tmp) + `test_registry_alias.py` (alias/stage/fallback em file-store tmp) + `test_serve_lifespan.py` (lifespan sem carregar dados) |
 
 ## Como rodar
 
@@ -101,15 +102,19 @@ Custo estimado: $0.0009 / 1k predições; cada chamada registra `n_predictions`,
 `latency_ms`, `cost_usd`. O `top_n` reduz o resultado final, mas as features são
 computadas para todas as combinações antes do corte (ou pré-computadas).
 
-## Registry: por que v.source ≠ caminho de artefato
+## Registry: alias `production` (primário) + stage (fallback)
 
-No MLflow 3.x, `get_latest_versions(...)` pode retornar `source` como locator
-`models:/m-<hash>` (não o caminho `.../mlruns/<exp>/<run>/artifacts/model`). O
-`serve.py` carrega via `models:/<name>/<version>`, que resolve na registry e é
-independente do estilo do `source`. Caso histórico: um `create_model_version`
-manual com `mlflow.get_artifact_uri()` gerava source quebrado em `mlruns/0` —
-por isso registramos sempre a **versão auto-registrada pelo `log_model`** e a
-promovemos.
+Produção resolve via `models:/sales_forecaster_v22@production` (`mlops/registry.py`).
+`register_model`/`retrain` apontam o alias e ainda tentam o stage `Production`
+para compatibilidade com deploys antigos; o serving aceita ambos (alias
+primeiro, stage depois, joblib por último). Motivo: `get_latest_versions` e
+`transition_model_version_stage` estão deprecated desde o MLflow 2.9 e os
+stages serão removidos em major futura — o alias é o caminho suportado.
+
+Nota histórica (MLflow 3.x): `get_latest_versions(...)` podia retornar `source`
+como locator `models:/m-<hash>` (não o caminho `.../mlruns/<exp>/...`). O
+`serve.py` sempre carregou via `models:/<nome>/<versão>` ou `@alias`, que
+resolve no registry e independe do estilo do `source`.
 
 ## Modelo registrado
 

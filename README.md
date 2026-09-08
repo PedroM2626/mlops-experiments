@@ -79,10 +79,9 @@ Para o padrão de documentação, veja
 
 ## Outros artefatos e avulsos
 
-- **Scripts/notebooks na raiz de `experiments/`** (comparação de anomalias,
-  `run_anomaly_*.py`, `run_clustering_comparison.py`, `run_senti_*.py`,
-  `run_supervised_clustering.py`, `ensemble_pyramid.py`, etc.) — apoio aos
-  READMEs acima.
+- **Notebooks avulsos na raiz de `experiments/`** (`anomaly_detection_comparison.ipynb`,
+  `anomaly_detection_enhanced.ipynb`, `ensemble_pyramid.ipynb` + `ensemble_pyramid_best.pkl`)
+  — apoio aos READMEs acima.
 - **Dashboard de experimentos**: `dashboard/index.html` (abrir no navegador).
 
 ## Padrões do repositório

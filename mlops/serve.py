@@ -20,6 +20,7 @@ import threading
 import joblib
 import pandas as pd
 import mlflow
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
@@ -37,26 +38,40 @@ class PredictRequest(BaseModel):
 
 
 def _load_production_predictor():
-    """Carrega artefato Production do MLflow e cacheia dados historicos."""
+    """Carrega artefato de producao do MLflow e cacheia dados historicos.
+
+    Primario: alias `models:/<nome>@production` (MLflow 3.x). Fallback:
+    stage Production legado e, em ultimo caso, joblib commitado.
+    """
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     client = mlflow.tracking.MlflowClient(config.MLFLOW_TRACKING_URI)
-    versions = client.search_model_versions(f"name='{config.MLFLOW_MODEL_NAME}'")
-    prod = [v for v in versions if v.current_stage == config.MLFLOW_MODEL_STAGE]
-    if not prod:
+    try:
+        v = client.get_model_version_by_alias(
+            name=config.MLFLOW_MODEL_NAME, alias=config.MLFLOW_MODEL_ALIAS)
+        model = mlflow.pyfunc.load_model(
+            f"models:/{config.MLFLOW_MODEL_NAME}@{config.MLFLOW_MODEL_ALIAS}")
+        return model, f"v{v.version}@{config.MLFLOW_MODEL_ALIAS}", v.run_id
+    except Exception:
+        pass
+    from .registry import resolve_production_version
+    try:
+        v = resolve_production_version(client, config.MLFLOW_MODEL_NAME,
+                                       config.MLFLOW_MODEL_ALIAS,
+                                       config.MLFLOW_MODEL_STAGE)
+    except RuntimeError:
         # fallback: joblib committed
         p = os.path.join(SALES_DIR, "artifacts", "sales_forecaster_v2_final.joblib")
         if not os.path.exists(p):
             raise RuntimeError("Sem modelo Production e sem fallback joblib.")
         from .model_wrapper_local import load_local_pyfunc
         return load_local_pyfunc(p), "fallback_joblib", None
-    v = sorted(prod, key=lambda x: x.last_updated_timestamp)[-1]
     # resolve pelo registry (estilo-independente: v.source pode ser caminho
     # de artefato OU locator 'models:/...' dependendo da versao do MLflow)
     model = mlflow.pyfunc.load_model(f"models:/{config.MLFLOW_MODEL_NAME}/{v.version}")
     return model, f"v{v.version}", v.run_id
 
 
-app = FastAPI(title="MLOps Sales-Forecast v2.2", version="1.0")
+app = FastAPI(title="MLOps Sales-Forecast v2.2", version="2.0")
 _predictor, _model_version, _model_run_id = None, None, None
 _forecaster_cache = None  # para reusar dados historicos
 _precompute_thread = None
@@ -100,11 +115,16 @@ def _kick_precompute():
     _precompute_thread.start()
 
 
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown moderno (substitui o `@app.on_event`, deprecated)."""
     metrics_store.init_db()
     _ensure_predictor()
     _kick_precompute()
+    yield
+
+
+app.router.lifespan_context = lifespan
 
 
 @app.get("/health")

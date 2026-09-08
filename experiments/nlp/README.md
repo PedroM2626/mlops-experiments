@@ -82,7 +82,7 @@ Métricas: Acurácia, F1-Macro, F1-Weighted (mudadas entre fases), Precision/Rec
 - `ag-news-classification.ipynb` — Exp1 AG News (1000 treino / 200 teste, seed 42).
 - **Twitter Entity Sentiment Analysis**: Todos os experimentos e pipelines originais (A, B, C) envolvendo este dataset foram centralizados na subpasta `twitter-entity-sentiment/`. Isso inclui `twitter-sentiment-analysis.ipynb`, `senti-pred_pipeline.ipynb`, `logistic-regression-multiclass.ipynb`, `feature-engineering-nlp.ipynb` e `NLP-twitter-methods-comparasion.ipynb`.
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task em `go_emotions`.
-- `../ensemble_pyramid.py` — Ensemble Pyramid / Versatile Ensemble Pyramid (AutoML CLI).
+- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parâmetros de camadas/estratégia documentados na §5.2; execução via notebook).
 
 Padrão de saída de artefatos: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
 
@@ -127,10 +127,10 @@ Parâmetros CLI (sem alterar código):
 | `--seed` | Reproducibilidade 100% (seeding global) | `--seed 42` |
 | `--tfidf_max` / `--tfidf_ngrams` | Customização da extração de features | `--tfidf_max 75000` |
 
-Execução com customização extrema:
+Execução com customização extrema (flags da tabela acima = parâmetros do notebook):
 
 ```bash
-python ../ensemble_pyramid.py --layers 15 --min_models 3 --max_models 6 --strategy dense --jitter True --metric f1 --tfidf_max 75000
+jupyter nbconvert --to notebook --execute ../ensemble_pyramid.ipynb --inplace
 ```
 
 As configurações são registradas no MLflow automaticamente para comparação entre estratégias de evolução.
@@ -407,5 +407,5 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hipótese: tarefas correlatas (
 - `feature-engineering-nlp.ipynb` — feature engineering alguma NLP.
 - `nlp-multi-task-classification.ipynb` — MMoE multi-finition (go_emotions).
 - `../NLP-twitter-methods-comparasion.ipynb` — Twitter Methods Comparison (5 paradigmas).
-- `../ensemble_pyramid.py` — Ensemble Pyramid / Versatile Ensemble Pyramid (AutoML RL).
+- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parâmetros documentados na §5.2).
 - Referências: Devlin et al. (BERT); Sanh et al. (DistilBERT); Gu & Dao et al. (Mamba — SSMs); Sennrich? ver papers de MMoE (Ma et al., SIGIR 2018) e Lin et al. (Focal Loss, ICCV 2017).

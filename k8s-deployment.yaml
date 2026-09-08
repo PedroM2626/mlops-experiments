@@ -87,3 +87,25 @@ spec:
       port: 80
       targetPort: 8000
   type: LoadBalancer
+---
+# Volumes persistentes do registry MLflow e do SQLite/drift do MLOps.
+# Ajuste `storageClassName`/tamanhos ao seu cluster (valores abaixo: dev).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlruns-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlops-data-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi

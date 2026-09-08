@@ -85,21 +85,17 @@ def main():
         )
         run_id = run.info.run_id
 
-    # promover para Production usando a versao AUTO-registrada pelo log_model
+    # promover usando a versao AUTO-registrada pelo log_model
     # (source aponta para o artifact do run real; create_model_version manual
-    #  com mlflow.get_artifact_uri() gerava source quebrado em mlruns/0)
+    #  com mlflow.get_artifact_uri() gerava source quebrado em mlruns/0).
+    # Alias e o primario (MLflow 3.x); stage mantido por compatibilidade.
+    from .registry import latest_unstaged_version, promote_version
     client = MlflowClient(config.MLFLOW_TRACKING_URI)
-    latest = client.get_latest_versions(config.MLFLOW_MODEL_NAME, stages=["None"])
-    if not latest:
-        raise RuntimeError(f"log_model não registrou nenhuma versão de '{config.MLFLOW_MODEL_NAME}'")
-    mv = sorted(latest, key=lambda x: x.last_updated_timestamp)[-1]
-    client.transition_model_version_stage(
-        name=config.MLFLOW_MODEL_NAME,
-        version=mv.version,
-        stage=config.MLFLOW_MODEL_STAGE,
-        archive_existing_versions=True,
-    )
-    print(f"[register] modelo '{config.MLFLOW_MODEL_NAME}' v{mv.version} -> {config.MLFLOW_MODEL_STAGE}")
+    mv = latest_unstaged_version(client, config.MLFLOW_MODEL_NAME)
+    res = promote_version(client, config.MLFLOW_MODEL_NAME, mv.version,
+                          config.MLFLOW_MODEL_ALIAS, config.MLFLOW_MODEL_STAGE)
+    print(f"[register] modelo '{config.MLFLOW_MODEL_NAME}' v{mv.version} -> "
+          f"@{res['alias']} (stage_ok={res['stage_ok']})")
     print(f"[register] source={mv.source}")
     print(f"[register] run_id={run_id} | val_mae={val_mae:.4f}")
 

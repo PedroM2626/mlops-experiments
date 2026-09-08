@@ -5,7 +5,7 @@
 
 const App = (() => {
 
-  const GH_BASE = 'https://github.com/pedro-morato/mlops-experiments/blob/main/';
+  const GH_BASE = 'https://github.com/PedroM2626/mlops-experiments/blob/main/';
 
   /* -------------------------------------------------------
      EXPERIMENT DATA — complete inventory of the repository

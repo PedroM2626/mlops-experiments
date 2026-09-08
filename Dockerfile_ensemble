@@ -1,31 +1,35 @@
-# Base image
-FROM python:3.9-slim
+# Ensemble Pyramid — imagem batch (scikit-learn + Streamlit deps).
+# O UI Streamlit referenciado anteriormente (flexible_ensemble_pyramid_ui_enhanced.py)
+# nunca foi commitado; o artefato existente é o notebook abaixo. Por isso o
+# default executa o notebook de ponta a ponta; para servir um UI, adicione o
+# script streamlit e troque o CMD (exemplo comentado no final).
+FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    software-properties-common \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
 COPY requirements_ensemble.txt .
-RUN pip install --no-cache-dir -r requirements_ensemble.txt
+RUN pip install --no-cache-dir -U pip && \
+    pip install --no-cache-dir -r requirements_ensemble.txt
 
-# Copy project files
 COPY . .
 
-# Environment variables
-ENV PYTHONUNBUFFERED=1
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+ENV HOME=/home/appuser \
+    PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1
 
-# Expose Streamlit port
-EXPOSE 8501
+# Execucao batch do ensemble existente (6 camadas, TF-IDF + meta-ensembles)
+CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute",
+     "experiments/ensemble_pyramid.ipynb",
+     "--output", "experiments/ensemble_pyramid.executed.ipynb",
+     "--ExecutePreprocessor.timeout=3600"]
 
-# Command to run (can be overridden)
-# To run the core: python experiments/flexible_ensemble_pyramid.py
-# To run the UI: streamlit run experiments/flexible_ensemble_pyramid_ui_enhanced.py
-CMD ["streamlit", "run", "experiments/flexible_ensemble_pyramid_ui_enhanced.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Alternativa (quando houver um app streamlit commitado):
+# EXPOSE 8501
+# CMD ["streamlit", "run", "experiments/<seu_app>.py", "--server.port=8501", "--server.address=0.0.0.0"]
