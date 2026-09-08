@@ -168,7 +168,7 @@ const App = (() => {
       categoryLabel: "NLP - Classificacao",
       status: "completed",
       description: "TF-IDF+LinearSVC vs DistilBERT vs TextCNN vs BiLSTM vs Sentence-BERT no dataset completo.",
-      techniques: ["TF-IDF+LinearSVC", "DistilBERT", "TextCNN", "BiLSTM", "Sentence-BERT", "Mamba"],
+      techniques: ["TF-IDF+LinearSVC", "DistilBERT", "TextCNN", "BiLSTM", "Sentence-BERT"],
       metric: {"label": "Best Acc", "value": "0.980", "percent": 98},
       script: "experiments/nlp/twitter-entity-sentiment/NLP-twitter-methods-comparasion.ipynb",
       readme: "experiments/nlp/README.md",
@@ -235,21 +235,6 @@ const App = (() => {
       models: ["LinearSVC", "ExtraTrees"],
       dataset: "Twitter Sentiment",
       details: "Hashing trick 262k features sem custo IDF. Trees so ganham com domain knowledge."
-    },
-    {
-      id: 15,
-      title: "Mamba SSM (Twitter)",
-      category: "nlp-class",
-      categoryLabel: "NLP - Classificacao",
-      status: "partial",
-      description: "State-Space Model (130M params) para classificacao de sentimento. Depende de CUDA.",
-      techniques: ["Mamba", "SSM", "State-Space", "Deep Learning"],
-      metric: null,
-      script: "experiments/nlp/twitter-entity-sentiment/run_twitter_mamba.py",
-      readme: "experiments/nlp/README.md",
-      models: ["Mamba SSM (130M)"],
-      dataset: "Twitter Sentiment",
-      details: "Entry-point reproduzível em run_twitter_mamba.py: detecta CUDA/mamba-ssm e registra mamba_status.json (skip documentado sem GPU; READY com CUDA). Treino completo no notebook run_twitter_mamba.ipynb."
     },
     {
       id: 16,

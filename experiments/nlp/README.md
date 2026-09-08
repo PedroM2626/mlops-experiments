@@ -30,7 +30,7 @@ As hipóteses investigadas foram:
 - **TF-IDF** — *Term Frequency × Inverse Document Frequency*: matriz esparsa onde cada dimensão é um termo do vocabulário; o peso escala com a frequência no documento e é amortecido pela frequência no corpus (IDF). Com `sublinear_tf=True` aplica-se `1 + log(tf)`, atenuando palavras muito repetidas.
 - **n-grams** — unigramas/bigramas capturam sentidos de negação (`not good`, `very bad`); n-grams de caracteres (`char_wb` 2–5) capturam padrões morfológicos. Em geral, bigramas em sentimento são discriminativos e frequentes (~5–15% dos documentos), enquanto em tópicos são esparsos (<1%).
 - **LinearSVC** — SVM linear com penalidade L2 (parâmetro C); robusto em espaços esparsos de alta dimensionalidade.
-- **Transformers** — Self-attention com complexidade quadrática O(N²). **DistilBERT** (66M params): destilado do BERT. **Mamba (SSM, 130M)**: modelos de espaço de estado discretizados, complexidade O(N), mas com overhead fixo das projeções lineares.
+- **Transformers** — Self-attention com complexidade quadrática O(N²). **DistilBERT** (66M params): destilado do BERT.
 - **Ensembles** — Bagging, Voting (Soft/Hard) e Stacking com combinação de modelos. **Épsilon-Greedy** e **Thompson Sampling** usados no controle do RL do Versatile Ensemble Pyramid.
 - **MMoE** — *Multi-gate Mixture of Experts*: múltiplas redes especialistas compartilhadas com gates por tarefa; visa mitigar Transferência Negativa, mas é sensível à escala de dados/features.
 - **Focal Loss** — variante de entropia cruzada que penaliza dinamicamente amostras difíceis sobre as fáceis; útil para a tarefa desbalanceada.
@@ -67,7 +67,7 @@ A limpeza de texto evoluiu ao longo da série (detalhamento na §5.3). Variaçõ
 | Ensemble Pyramid (6 camadas) | LR, LinearSVC, NB, CNB, Ridge, RF, ET + Bagging/Voting/Stacking | Pirâmide hierárquica de meta-ensembles |
 | Versatile Ensemble Pyramid | RL Meta-Learner escolhe nº de modelos e estratégia | AutoML com `--layers` variável |
 | Pipeline A / B | Extra Trees, LinearSVC(C=1/10/19), LR, MNB | TF-IDF 15k→70k features |
-| Twitter Methods | TF-IDF+LinearSVC, Sentence-BERT frozen, DistilBERT, BiLSTM, TextCNN, Mamba (SSM) | 74j amostras |
+| Twitter Methods | TF-IDF+LinearSVC, Sentence-BERT frozen, DistilBERT, BiLSTM, TextCNN | 74k amostras |
 | Logística multiclasse | Multinomial(lbfgs), OvR(lbfgs/liblinear/saga), OvO(liblinear) | C ∈ {0.1 … 100} |
 | Feature Engineering | TF-IDF vs. hashing trick, word+char n-grams | varias transformed |
 | AG News | DistilBERT (fine-tune) vs. TF-IDF+LinearSVC / +ExtraTrees | Low-data 1k |
@@ -226,20 +226,27 @@ Diferenças < 1 pp entre as três são estatisticamente não-significativas (McN
 
 ### 5.5. Twitter Methods Comparison — Paradigmas de Representação Textual
 
-Notebook: `../NLP-twitter-methods-comparasion.ipynb`. Cinco (seis) paradigmas no dataset completo (73.995 treino / 999 val, 4 classes).
+Notebook: `../NLP-twitter-methods-comparasion.ipynb`. Cinco paradigmas no dataset completo (73.995 treino / 999 val, 4 classes).
 
 | Modelo | Acurácia | Tempo (s) | Paradigma | Parâmetros |
 |---|---|---|---|---|
 | **TF-IDF + LinearSVC** | **0.9800** | **4,35** | BoW + SVM linear | ~70M features |
 | **DistilBERT** | **0.9710** | 2.421,08 | Transformer | 66M parámetros |
-| **Mamba (SSM)** | **TBD** | TBD | State-Space Model (linear head) | 130M |
 | TextCNN | 0.9530 | 13,00 | CNN 1D em embeddings | ~2.6M |
 | BiLSTM | 0.8900 | 13,26 | LSTM bidirecional | ~1.1M |
 | Sentence-BERT | 0.6036 | 33,93 | Transformer congelado + LinearSVC | 22M congelados |
 
 Detalhe: TF-IDF+LinearSVC 0.9800 / 4.35s — acurácia com regularização L2 (C=1), dependendo do vocabulário. Percentagem das tabelas reais:
 
-**TF-IDF + LinearSVC descreve** (weighted 0.98). **DistilBERT** refosa de 0.8529 (30k) para **0.9710** (74k, +11.81 pp; 2.421s, 556× o tempo do TF-IDF). Época 1 do 74k: Loss 0.1962 → Acc 0.9409; Época 2: Loss 0.1003 → Acc 0.9710. **TextCNN** 0.9530/13s (melhor proporção acurácia/tempo entre neurais: 98,5% da performance do DistilBERT em 0,5% do tempo). **BiLSTM** 0.8809/13,26s. **Sentence-BERT** estagnado 0.6036 (ganho de +0,40 pp da subamostra 30k para a completa). **Mamba (SSM)** — em aster? TBD: em textos curtos (~20 tokenários) o ganho assintótico O(N) é suprimido pelo overhead das projeções de 130M pesos; no Windows local cai para fallback sequencial, já que `mamba-ssm` é otimizado apenas via CUDA/Triton.
+**TF-IDF + LinearSVC descreve** (weighted 0.98). **DistilBERT** refosa de 0.8529 (30k) para **0.9710** (74k, +11.81 pp; 2.421s, 556× o tempo do TF-IDF). Época 1 do 74k: Loss 0.1962 → Acc 0.9409; Época 2: Loss 0.1003 → Acc 0.9710. **TextCNN** 0.9530/13s (melhor proporção acurácia/tempo entre neurais: 98,5% da performance do DistilBERT em 0,5% do tempo). **BiLSTM** 0.8809/13,26s. **Sentence-BERT** estagnado 0.6036 (ganho de +0,40 pp da subamostra 30k para a completa).
+
+> **Mamba (SSM, 130M) — tentado e descartado.** Treino executado em RTX 3060
+> Laptop (subset estratificado 4k, 2 épocas, batch 16, max_len 32):
+> época 1 acc 0.328 / F1 0.30 (64 min), época 2 acc 0.440 / F1 0.406 (131 min
+> acumulados). Gargalo: `mamba-ssm` não instala no Windows (sem Triton), e o
+> fallback `slow_forward` do transformers mede **~8,3 s/step** — o full 74k
+> projetaria ~12 h/época (~38 h p/ 3 épocas). Recomendação: só retomar em
+> Linux + `mamba-ssm` (kernels fundidos), onde o mesmo treino cai p/ minutos.
 
 **Efeito do dataset completo (30k → 74k):**
 
@@ -247,7 +254,6 @@ Detalhe: TF-IDF+LinearSVC 0.9800 / 4.35s — acurácia com regularização L2 (C
 |---|---|---|---|---|
 | TF-IDF + LinearSVC | 0,9800 | 0,9800 | 0,00 | 4,35 |
 | DistilBERT | 0,8529 | **0,9710** | **+11,81** | 2.421,08 |
-| Mamba (SSM) | - | **TBD** | **-** | TBD |
 | TextCNN | 0,7838 | **0,9530** | **+16,92** | 13,00 |
 | BiLSTM | 0,7187 | **0,8809** | **+16,22** | 13,26 |
 | Sentence-BERT | 0,5996 | 0,6036 | +0,40 | 33,93 |
@@ -262,7 +268,6 @@ Detalhe: TF-IDF+LinearSVC 0.9800 / 4.35s — acurácia com regularização L2 (C
 | **TextCNN** | 0,9530 | 13,00 | **0,0733** | Recomendada |
 | BiLSTM | 0,8809 | 4,26 | 0,0664 | Recomendada |
 | DistilBERT | 0,9710 | 2.421,08 | 0,0004 | Sim |
-| Mamba (130M) | TBD | TBD | – | Sim (CUDA estrito) |
 | Sentence-BERT | 0,6036 | 33,93 | 0,0178 | Sim |
 
 ### 5.6. Logistic Regression: Estratégias Multiclasse
@@ -385,7 +390,7 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hipótese: tarefas correlatas (
 
 **Preprocessamento e a "Data-Centric AI":** o duelo A vs B mostra que o tratamento de hashtags, pontuação e números é mais decisivo que o modelo — engenharia da limpeza ganhou **+0.40%**.
 
-**Limitações/biases:** o Mamba ficou **TBD** (dependência de hardware CUDA estrita); Sentence-BERT frozen é inadequado para polaridade (limite de representação, dados não resolvem); a exatidão dos valores depende da seed (42) e rfira limitação de contexto e hardware; o Mamba,O dataset go_emotions tem dominância da classe "Alegria".
+**Limitações/biases:** Sentence-BERT frozen é inadequado para polaridade (limite de representação, dados não resolvem); a exatidão dos valores depende da seed (42) e do hardware; o dataset go_emotions tem dominância da classe "Alegria". Mamba foi descartado após medição (ver §5.5).
 
 ## 7. Conclusões e Recomendações
 
@@ -408,4 +413,4 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hipótese: tarefas correlatas (
 - `nlp-multi-task-classification.ipynb` — MMoE multi-finition (go_emotions).
 - `../NLP-twitter-methods-comparasion.ipynb` — Twitter Methods Comparison (5 paradigmas).
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parâmetros documentados na §5.2).
-- Referências: Devlin et al. (BERT); Sanh et al. (DistilBERT); Gu & Dao et al. (Mamba — SSMs); Sennrich? ver papers de MMoE (Ma et al., SIGIR 2018) e Lin et al. (Focal Loss, ICCV 2017).
+- Referências: Devlin et al. (BERT); Sanh et al. (DistilBERT); ver papers de MMoE (Ma et al., SIGIR 2018) e Lin et al. (Focal Loss, ICCV 2017).

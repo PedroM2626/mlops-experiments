@@ -11,7 +11,6 @@ O dataset contém cerca de 74.000 tweets de treinamento focados primariamente em
 - [`senti-pred_pipeline.ipynb`](file:///d:/mlops-experiments/experiments/nlp/twitter-entity-sentiment/senti-pred_pipeline.ipynb): Notebook da **Pipeline A** (focado num pré-processamento forte/conservador).
 - [`logistic-regression-multiclass.ipynb`](file:///d:/mlops-experiments/experiments/nlp/twitter-entity-sentiment/logistic-regression-multiclass.ipynb): Análise com regressão logística.
 - [`feature-engineering-nlp.ipynb`](file:///d:/mlops-experiments/experiments/nlp/twitter-entity-sentiment/feature-engineering-nlp.ipynb): Extração de *features* e NLP voltado aos dados do Twitter.
-- [`run_twitter_mamba.py`](file:///d:/mlops-experiments/experiments/nlp/twitter-entity-sentiment/run_twitter_mamba.py): Script de inferência/treinamento (experimental).
 
 ### Subprojetos
 

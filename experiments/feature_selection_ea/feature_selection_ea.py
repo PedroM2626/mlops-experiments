@@ -86,7 +86,13 @@ def _clean_tweet(t):
 def load_twitter(max_features=400, n_rows=2000):
     """Twitter Entity Sentiment -> classificacao multiclasse."""
     here = Path(__file__).resolve().parent
-    train = here / ".." / "senti-pred-variations" / "Senti-Pred-remake2" / "data" / "raw" / "twitter_training.csv"
+    candidates = [
+        here / ".." / "nlp" / "twitter-entity-sentiment" / "senti-pred-variations"
+        / "Senti-Pred-remake2" / "data" / "raw" / "twitter_training.csv",
+        here / ".." / "senti-pred-variations" / "Senti-Pred-remake2" / "data"
+        / "raw" / "twitter_training.csv",  # layout legado
+    ]
+    train = next((p for p in candidates if p.exists()), candidates[0])
     if not train.exists():
         raise FileNotFoundError(f"Twitter CSV not found: {train}")
     df = pd.read_csv(train, header=None, names=["id", "entity", "label", "text"])
@@ -354,11 +360,11 @@ def run_one(task, X, y, cfg):
     t_base = time.time() - t0
 
     t0 = time.time()
-    p_ga, masks_ga = run_ga(ev, cfg["ga_pop"], cfg["ga_gen"])
+    p_ga, masks_ga = run_ga(ev, cfg["ga_pop"], cfg["ga_gen"], seed=SEED)
     print(f"   [GA NSGA-II] {time.time()-t0:.1f}s front={len(p_ga)}")
 
     t0 = time.time()
-    p_de, masks_de = run_de(ev, cfg["de_pop"], cfg["de_gen"])
+    p_de, masks_de = run_de(ev, cfg["de_pop"], cfg["de_gen"], seed=SEED)
     print(f"   [MO-DE     ] {time.time()-t0:.1f}s front={len(p_de)}")
 
     rows = []
@@ -410,10 +416,19 @@ def main():
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--no-mlflow", action="store_true")
     ap.add_argument("--only-cal", action="store_true")
+    ap.add_argument("--seed", type=int, default=42,
+                    help="seed global (EA, splits, CV). Default 42 reproduz os outputs commitados.")
+    ap.add_argument("--suffix", default=None,
+                    help="sufixo dos artefatos (default: '' p/ seed 42, '_s<seed>' caso contrario)")
     args = ap.parse_args()
+
+    global SEED
+    SEED = args.seed
+    suffix = args.suffix if args.suffix is not None else ("" if SEED == 42 else f"_s{SEED}")
 
     os.makedirs(OUT, exist_ok=True)
     np.random.seed(SEED)
+    random.seed(SEED)
 
     # ---------- California Housing (regressao) ----------
     print("=" * 95)
@@ -444,13 +459,15 @@ def main():
         sum_tw = None
 
     # persiste e plota
-    df_cal.to_csv(OUT / "curves_cal.csv", index=False)
-    sum_cal.to_csv(OUT / "summary_cal.csv", index=False)
-    plot_curves(df_cal, "Feature Selection EA - California Housing", "curves_cal.png")
+    df_cal.to_csv(OUT / f"curves_cal{suffix}.csv", index=False)
+    sum_cal.to_csv(OUT / f"summary_cal{suffix}.csv", index=False)
+    plot_curves(df_cal, f"Feature Selection EA - California Housing (seed {SEED})",
+                f"curves_cal{suffix}.png")
     if sum_tw is not None:
-        df_tw.to_csv(OUT / "curves_twitter.csv", index=False)
-        sum_tw.to_csv(OUT / "summary_twitter.csv", index=False)
-        plot_curves(df_tw, "Feature Selection EA - Twitter", "curves_twitter.png")
+        df_tw.to_csv(OUT / f"curves_twitter{suffix}.csv", index=False)
+        sum_tw.to_csv(OUT / f"summary_twitter{suffix}.csv", index=False)
+        plot_curves(df_tw, f"Feature Selection EA - Twitter (seed {SEED})",
+                    f"curves_twitter{suffix}.png")
 
     for tag, sm_row in {"California": sum_cal, "twitter": sum_tw}.items():
         if sm_row is None:
@@ -466,7 +483,7 @@ def main():
             for tag, sm_row in {"California": sum_cal, "twitter": sum_tw}.items():
                 if sm_row is None:
                     continue
-                with mlflow.start_run(run_name=f"{tag}_{time.strftime('%H%M%S')}"):
+                with mlflow.start_run(run_name=f"{tag}{suffix}_{time.strftime('%H%M%S')}"):
                     for _, r in sm_row.iterrows():
                         mlflow.log_metric(f"{r['method']}_cv", r["best_cv"])
                         mlflow.log_metric(f"{r['method']}_feats", r["best_feats"])

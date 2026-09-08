@@ -127,6 +127,26 @@ Artefatos em `outputs/` (`summary_*.csv`, `curves_*.csv`, `*.png`).
 | GAAP (NSGA-II) | 0.4547 | 182 | 0.4394 |
 | MO-DE | 0.4501 | 198 | 0.4405 |
 
+### 5.1b Robustez multi-seed (seeds 42–45, `multiseed.py`)
+
+| California (R2) | best_cv média ± std | feats (mediana) |
+|---|---|---|
+| SelectKBest | 0.7013 ± 0.0105 | 44 |
+| Boruta / RandomForest | 0.6994 ± 0.0137 | 44 |
+| GAAP (NSGA-II) | 0.6842 ± 0.0082 | 22.5 |
+| MO-DE | 0.6722 ± 0.0132 | 19.5 |
+
+| Twitter (F1-macro) | best_cv média ± std | feats (mediana) |
+|---|---|---|
+| SelectKBest | 0.4835 ± 0.0106 | 229 |
+| RandomForest | 0.4633 ± 0.0116 | 286 |
+| Boruta | 0.4606 ± 0.0125 | 400 |
+| GAAP (NSGA-II) | 0.4451 ± 0.0101 | 182 |
+| MO-DE | 0.4438 ± 0.0054 | 185 |
+
+Std ≤ 0.014 em todos os métodos: o ranking EA-vs-clássicos é estável entre
+seeds (vale nos dois domínios). Artefatos por seed: `summary_*_s43/s44/s45.csv`.
+
 ### 5.2 Comparacao em orcamento igual de features (California, R2)
 
 | k features | GAAP | MO-DE | RandomForest | SelectKBest |
