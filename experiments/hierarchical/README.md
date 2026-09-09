@@ -202,7 +202,7 @@ Notas: o **top-down gera 45 clusters-folha** (não 20) porque os grupos reais n�
 - **Classificação hierárquica**: mais interpretável e escalável, com ~2.4 pp de perda de exact-match para o flat; a cadeia de erro se concentra no pai — ao reforçar o nível 1 (rebalanceamento + C) a acurácia da folha-subiu e a HF aproximou flat/hierárquico.
 - **Clustering top-down (2 níveis) é superior ao flat no nível de folha** (Purity 0.398, NMI 0.360) e **acima da literatura de text clustering no 20 Newsgroups**.
 - **Recomendação prática:** para dados com taxonomia conhecida (2+ níveis), o **clustering em cascata (top-down)** é superior a um único KMeans; para classificação, se exact-match é crítica prefira flat — se interpretabilidade e escalabilidade importam, use hierárquica com pai bem treinado.
-- **Próximos passos** (class): calibrar o nível pai via `calibrate_parent.py::tune_parent_threshold` (varre limiar de confiança da `decision_function`/`predict_proba` maximizando o proxy de folha `mean(pai_ok × filho_ok)`); testar modelos não lineares (pequenos ensembles/redes) para as classes mais confundidas.
+- **Próximos passos** (class): calibrar o nível pai via `calibrate_parent.py::tune_parent_threshold` — **medido em dados reais** (`run_hierarchical_calibration.py`, reproduz V3 exato: flat 0,7188 / pai 0,8079 / folha 0,6953 / filho-dado-pai 0,8606): o limiar ótimo é "manter tudo" nos dois fallbacks (zeros e flat), proxy 0,6953 = base. Ou seja, erros do pai se espalham por toda a faixa de confiança — thresholding não resolve; o caminho é pai melhor (rebalanceamento/C, já feito na V3) ou modelos não lineares nas classes política/religião.
 
 ## 8. Referências e Arquivos
 

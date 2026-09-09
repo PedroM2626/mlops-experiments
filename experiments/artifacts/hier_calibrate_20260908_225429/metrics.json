@@ -1,0 +1,18 @@
+{
+  "parent_acc": 0.8079,
+  "flat_leaf_acc": 0.7188,
+  "hier_leaf_acc": 0.6953,
+  "threshold_zeros": {
+    "threshold": -0.6805,
+    "parent_acc": 0.8079,
+    "leaf_proxy": 0.6953
+  },
+  "n_thresholds_zeros": 21,
+  "threshold_flat": {
+    "threshold": -0.6805,
+    "parent_acc": 0.8079,
+    "leaf_proxy": 0.6953
+  },
+  "n_thresholds_flat": 21,
+  "elapsed_min": 0.7
+}
