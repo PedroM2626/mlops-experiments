@@ -189,7 +189,24 @@ Testamos o uso de **Autoencoders (AE)** para extrair representações latentes d
 2. **Redundância com features existentes:** Com a variante causal (correta, sem vazamento), o resultado foi neutro (-0.14%). O LightGBM campeão já captura o perfil temporal via `lag_4`, `lag_52`, `rolling_mean_4/12/52` — o AE apenas comprime a mesma informação.
 3. **Clustering não agrega:** Em todas as configurações testadas (k=3, 5, 8 × cluster_id feature ou modelos por cluster), o resultado piorou. O `cluster_id` é redundante com as categóricas dimensionais já presentes (`categoria`, `marca`, etc.), e modelos por cluster fragmentam a amostra de treino — clusters pequenos (ex: 1.849 séries em k=8) produziram modelos fracos (MAE 8.91 no pior cluster).
 
-**Conclusão:** AE embeddings não agregam valor preditivo a um modelo já bem feature-engineered. O caminho promissor restante é o uso de AE sobre **metadados categóricos** para **cold-start** (prever séries novas sem histórico), que permanece como trabalho futuro.
+**Conclusão:** AE embeddings não agregam valor preditivo a um modelo já bem feature-engineered. O caminho promissor restante é o uso de AE sobre **metadados categóricos** para **cold-start** (prever séries novas sem histórico) — implementado abaixo.
+
+### Cold-start com metadados (`scripts/coldstart_metadata.py`, 08/09/2026)
+
+Sem lags, sem histórico: split por combo (835k treino / 209k combos novos), só
+categóricas + calendário + preço. MAE nos combos novos (1,25M linhas):
+
+| Abordagem | MAE cold |
+|---|---|
+| Média global | 11,07 |
+| Média por (categoria_pdv, categoria) | 9,68 |
+| **LightGBM metadados** | **5,87** |
+
+−47% vs média global; longe do campeão com lags (1,42) — esperado, é outra
+tarefa (série nova, zero histórico). Top features: `marca`, `preco`,
+`categoria_pdv`. Uso: estimativa inicial p/ SKU/PDV sem histórico até acumular
+lags (depois migra p/ V2.2). Limite: `best_iter` atingiu o cap (2000, ainda
+melhorando devagar). Artefatos: `experiments/artifacts/sales_coldstart_20260908_131710/metrics.json`.
 
 ---
 

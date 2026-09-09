@@ -194,6 +194,7 @@ mlruns.db
 temp_artifacts/
 .mlflow/
 outputs/
+.tsnlp_cache/
 
 # Dados processados (se forem muito grandes)
 processed_*.csv

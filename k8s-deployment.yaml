@@ -32,7 +32,7 @@ spec:
           name: http
         env:
         - name: MLFLOW_TRACKING_URI
-          value: "/app/experiments/mlruns"
+          value: "sqlite:////app/experiments/mlops_tracking.db"
         - name: API_PORT
           value: "8000"
         envFrom:

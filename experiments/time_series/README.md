@@ -138,6 +138,32 @@ Prophet vs TCN: **3/4** datasets significativo; SARIMA vs LightGBM no Sunspots (
 | TS+NLP | 0,718 | **0,720** |
 | TS-only | 0,492 | 0,504 |
 
+### 5.8b TS+NLP em dados reais — 8-K × direção D+1 (`run_tsnlp_edgar.py`)
+
+Piloto real (sintético tinha sinal por construção): 179 filings 8-K
+(SEC EDGAR, sem auth) de AAPL/MSFT/NVDA/AMZN/META/TSLA/JPM, 2024-01–2026-08;
+sentimento FinBERT no corpo do filing (512 tokens); alvo = alta/queda do
+ticker no pregão seguinte; 178 eventos válidos, split temporal 70/30
+(teste ≈ 54 eventos — IC largo, ler com cautela):
+
+| Modelo | Acurácia | F1 | AUC |
+|---|---|---|---|
+| TS/logreg | 0,537 | 0,000 (classe única) | 0,500 |
+| TS/lgbm | 0,482 | 0,482 | 0,484 |
+| NLP/logreg | 0,500 | 0,542 | 0,510 |
+| NLP/lgbm | 0,500 | 0,342 | 0,485 |
+| TS+NLP/logreg | 0,500 | 0,542 | 0,510 |
+| TS+NLP/lgbm | 0,444 | 0,423 | 0,444 |
+
+Tudo ≈ cara-ou-coroa — o oposto do sintético (NLP-only 0,730). Leitura:
+no sintético o sinal existia por construção (notícia defasada → retorno);
+em filings reais de large-caps, sentimento + momentum de 5 dias não batem o
+mercado — consistente com eficiência informacional em D+1. Limites: teste
+pequeno (n≈54), FinBERT truncado em 512 tokens, sem controle de horário do
+filing (after-close vs intraday). Artefatos:
+`experiments/artifacts/tsnlp_edgar_20260908_194545/` (+ `run_tsnlp_real.py`
+documenta a tentativa via GDELT, bloqueada por rate-limit 429).
+
 ### 5.9 Forecast→Classificação (teste out-of-sample, 71 dias) — maior = melhor
 | Modelo | Acurácia | Bal. Acc | Prec | Recall | F1 | AUC-ROC |
 |---|---|---|---|---|---|---:|
@@ -168,32 +194,50 @@ Baselines: maioria 66,9% | persistência (d+1) 67,7% | mesmo dia da semana passa
 
 ### 5.11 DeepAR Probabilístico (4 datasets do benchmark, 100 amostras, CPU)
 
+Re-execução em 08/09/2026 (GluonTS 0.17, seed 42; `deepar-probabilistic-forecast.ipynb`
+com outputs atualizados):
+
 **Forecast pontual (MAE):**
 | Dataset | SARIMA | Prophet | LightGBM | DeepAR | Vencedor |
 |---|---|---|---|---|---|
-| CO₂ | 4,27 | **0,61** | 1,19 | 1,76 | Prophet |
-| Nile | 123,01 | **120,12** | 127,24 | 142,18 | Prophet |
-| Sunspots | 44,90 | — (falhou) | **16,89** | 41,58 | LightGBM |
-| Synthetic | 8,33 | **4,20** | 4,68 | 4,45 | Prophet |
+| CO₂ | 4,27 | **0,61** | 1,19 | 2,01 | Prophet |
+| Nile | 123,01 | **120,12** | 127,24 | 137,94 | Prophet |
+| Sunspots | 44,90 | — (falhou: `Overflow in int64 addition` em datas anuais) | 16,89 | **15,22** | DeepAR |
+| Synthetic | 8,33 | 4,20 | 4,68 | **4,09** | DeepAR |
 
 **Métricas probabilísticas (DeepAR):**
 | Dataset | Coverage(90%) | AvgWidth | CRPS |
 |---|---:|---:|---:|
-| CO₂ | **100,0%** | 8,20 | 2,63 |
-| Nile | 50,0% | 318,18 | 160,95 |
-| Sunspots | 32,0% | 57,24 | 43,83 |
-| Synthetic | **93,3%** | 19,27 | 6,59 |
+| CO₂ | 90,0% | 6,35 | 2,41 |
+| Nile | 75,0% | 370,52 | 164,97 |
+| Sunspots | 80,0% | 87,16 | 26,43 |
+| Synthetic | 93,3% | 18,37 | 6,35 |
 
-DeepAR não venceu nenhum dataset em MAE pontual. Ficou competitivo no Synthetic (4,45 vs 4,20 do Prophet). Coverage excelente em CO₂ (100%) e Synthetic (93,3%), mas undercoverage severo em séries anuais curtas (Nile 50%, Sunspots 32%). Custo: **42–128s** por dataset (CPU) vs 0,2–2,9s do Prophet. Conclusão: DeepAR é relevante para forecasting probabilístico em séries longas/múltiplas, mas não substitui baselines em séries únicas curtas.
+DeepAR venceu 2/4 em MAE nesta re-execução (Sunspots, Synthetic) — treino
+estocástico varia entre runs (na execução anterior: 0/4). Coverage segue o
+padrão: bom em séries semanais longas (90–93%), fraco nas anuais curtas
+(75–80%). Custo: 10–54 s por dataset (GPU disponível p/ Lightning; Prophet
+0,1–2 s). Conclusão mantida: DeepAR é relevante para forecasting
+probabilístico em séries longas/múltiplas, não substitui baselines em séries
+únicas curtas — mas com re-treino pode empatar/vencer em MAE pontual.
 
-### 5.12 Protocolo de recalibração (undercoverage Nile/Sunspots)
+### 5.12 Recalibração conformal — medida em séries reais (`run_deepar_conformal.py`)
 
-Sem novo treino, para aproximar o coverage nominal de 90%:
+Split-conformal com pool rolling (6 origens; `n_cal_points` abaixo), nominal 90%:
 
-1. **Conformal split:** no holdout, calcule os quantis empíricos dos resíduos padronizados e escale a largura do intervalo por `q̂ = quantil(|res|/σ̂, 0.9)`.
-2. **Escala por horizonte:** estime `q̂(h)` por passo `h` (erro cresce com `h`; escalar global subcobre o fim do horizonte).
-3. **Checar CRPS antes/depois:** recalibração melhora coverage mas alarga `AvgWidth` — reporte o par (coverage, width), não só coverage.
-4. **Séries curtas (<350 obs):** prefira Prophet/LightGBM pontual + intervalo conformal próprio; DeepAR só com cross-learning (múltiplas séries correlacionadas).
+| Dataset | n_cal | Coverage antes | Depois (global) | Depois (por-h) | Largura antes → por-h |
+|---|---|---|---|---|---|
+| CO₂ | 180 | 1,00 | 1,00 | 1,00 | 8,1 → 13,9 |
+| Nile | 48 | 0,375 | 0,75 | 0,75 | 326,7 → 429,2 |
+| Sunspots | 150 | 0,12 | 0,96 | **0,92** | 31,2 → 613,0 |
+| Synthetic | 90 | 0,30 | 1,00 | 0,77 | 11,6 → 137,2 |
+
+Lições medidas (não só protocolo):
+1. **Janela única de H pontos não basta** (primeira tentativa: CO₂ 0,43→0,57) — o pool rolling (48–180 pontos) foi o que destravou a correção.
+2. **Por-horizonte ≈ nominal com menos largura que global** (Sunspots 0,92 com 613 vs 0,96 com 671; Synthetic 0,77 com 137 vs 1,00 com 192).
+3. **Conformal é band-aid, não cura**: q_global de 27–35× em Sunspots/Synthetic mostra que o σ nativo é inútil nesses regimes — o modelo precisa de revisão, não só de reescala.
+4. **Granularidade do teste limita**: Nile H=8 só permite coverages em passos de 1/8 (0,75 = 6/8) — nunca cravará 0,90 exato.
+Artefatos: `experiments/artifacts/deepar_conformal_20260908_130049/metrics.json`.
 
 ## 6. Discussão
 

@@ -1,0 +1,59 @@
+{
+  "seed": 42,
+  "nominal": 0.9,
+  "windows": 6,
+  "datasets": {
+    "CO2": {
+      "horizon": 30,
+      "n_cal_windows": 6,
+      "n_cal_points": 180,
+      "coverage_antes": 1.0,
+      "largura_antes": 8.1236,
+      "q_global": 3.1659,
+      "coverage_depois_global": 1.0,
+      "largura_depois_global": 15.6342,
+      "coverage_depois_por_h": 1.0,
+      "largura_depois_por_h": 13.906,
+      "treino_s": 289.9
+    },
+    "Nile": {
+      "horizon": 8,
+      "n_cal_windows": 6,
+      "n_cal_points": 48,
+      "coverage_antes": 0.375,
+      "largura_antes": 326.7181,
+      "q_global": 2.5805,
+      "coverage_depois_global": 0.75,
+      "largura_depois_global": 512.5107,
+      "coverage_depois_por_h": 0.75,
+      "largura_depois_por_h": 429.159,
+      "treino_s": 115.7
+    },
+    "Sunspots": {
+      "horizon": 25,
+      "n_cal_windows": 6,
+      "n_cal_points": 150,
+      "coverage_antes": 0.12,
+      "largura_antes": 31.2407,
+      "q_global": 35.3516,
+      "coverage_depois_global": 0.96,
+      "largura_depois_global": 671.3735,
+      "coverage_depois_por_h": 0.92,
+      "largura_depois_por_h": 612.9506,
+      "treino_s": 117.2
+    },
+    "Synthetic": {
+      "horizon": 30,
+      "n_cal_windows": 3,
+      "n_cal_points": 90,
+      "coverage_antes": 0.3,
+      "largura_antes": 11.5564,
+      "q_global": 27.3446,
+      "coverage_depois_global": 1.0,
+      "largura_depois_global": 192.1,
+      "coverage_depois_por_h": 0.7667,
+      "largura_depois_por_h": 137.224,
+      "treino_s": 144.9
+    }
+  }
+}

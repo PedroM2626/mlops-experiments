@@ -10,7 +10,10 @@ DB_PATH = ARTIFACTS_DIR / "mlops_prod.db"
 REFERENCE_PATH = ARTIFACTS_DIR / "reference_features.parquet"
 CURRENT_PATH = ARTIFACTS_DIR / "current_features.parquet"
 
-MLFLOW_TRACKING_URI = (REPO_ROOT / "experiments" / "mlruns").as_uri()
+MLFLOW_TRACKING_URI = os.environ.get(
+    "MLFLOW_TRACKING_URI",
+    (REPO_ROOT / "experiments" / "mlops_tracking.db").as_uri().replace(
+        "file:///", "sqlite:///"))
 MLFLOW_EXPERIMENT = "sales_forecast_v22_prod"
 MLFLOW_MODEL_NAME = "sales_forecaster_v22"
 MLFLOW_MODEL_STAGE = "Production"  # legado (fallback); o primario e o alias abaixo

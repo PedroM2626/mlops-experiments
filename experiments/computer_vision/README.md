@@ -93,6 +93,24 @@ Comportamento do treino ResNet18: saturação rápida (época 1 = 0,9323, oscila
 
 **Nota de fairness (derivada dos números acima, sem nova execução):** HOG usou 5× menos dados (10k vs 50k) e mesmo assim custou mais (27 min vs 12,5 min ResNet / ~17 min ViT). Custo por 1k amostras: HOG ~2,7 min (+SVM O(n²·d) em d=2.916), ResNet ~0,25 min, ViT ~0,34 min. Ou seja, mesmo normalizando por amostra o HOG perde em acc (0,3970) e em custo — a conclusão qualitativa (evitar HOG em CIFAR) se mantém, mas comparação head-to-head exige HOG em 50k ou todos em 10k.
 
+### 5.1b HOG em 50k/10k — comparação justa (`run_hog_full.py`)
+
+Mesma receita (gray → 64×64 → HOG 9/8×8/3×3 → StandardScaler → LinearSVC C=1),
+extração paralelizada (joblib), dados HF `cifar10` (o tarball local
+`data/cifar-10-python.tar.gz` está truncado — verificado EOFError no gzip):
+
+| Método | Acurácia | Tempo | Dados |
+|--------|----------|-------|-------|
+| **ViT** | **0,9805** | ~17 min | 50k treino |
+| **ResNet18** | **0,9362** | 12,5 min | 50k treino |
+| HOG+SVM (full) | 0,5381 | ~33 min (1958 s) | 50k treino / 10k teste |
+| HOG+SVM (subamostra, original) | 0,3970 | 27 min | 10k / 2k |
+
+5× mais dados elevaram o HOG de 0,3970 → **0,5381 (+14 pp)**, e o padrão por
+classe se manteve (`automobile` melhor, `cat` pior) — mas o gap p/ ResNet
+(−39,8 pp) continua abissal: features manuais não escalam, e ainda custam
+mais tempo que o fine-tuning. Artefatos: `experiments/artifacts/hog_cifar10_20260908_121832/metrics.json`.
+
 ### 5.2 Multi-label de Pets — 4 Abordagens (animal-classifier.ipynb)
 
 | Métrica | ResNet18 + Aug | VGG16 | CLIP zero-shot | EfficientNet + Aug |

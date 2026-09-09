@@ -3,6 +3,12 @@
 Pipeline de produção completo sobre o campeão do repo (`sales-forecast`, LightGBM V2.2):
 **serving (FastAPI + MLflow registry) → métricas de custo/latência → drift (PSI) → retrain automático (com cooldown) → dashboard vivo.**
 
+Tracking de produção: **SQLite** (`experiments/mlops_tracking.db`, default;
+override via env `MLFLOW_TRACKING_URI`). O file store legado
+(`experiments/mlruns`) guarda o histórico e continua navegável no
+`mlflow_ui` / via override. Motivo: o backend file será deprecated em
+fev/2026 e o registry file já é segunda-classe no MLflow 3.x.
+
 ## Arquitetura
 
 ```

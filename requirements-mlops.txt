@@ -1,0 +1,20 @@
+# Dependencias minimas p/ o serving MLOps (mlops/serve.py + monitor + retrain).
+# Substitui o requirements.txt monolito (torch/transformers/autogluon/h2o/...)
+# na imagem da API: build em minutos em vez de horas.
+# Pinos = ambiente verificado (testes mlops + coldstart + register passando).
+mlflow==3.8.1
+fastapi==0.121.2
+uvicorn==0.38.0
+pydantic==2.12.4
+httpx==0.28.1
+pandas==2.2.3
+numpy==2.2.6
+scikit-learn==1.7.1
+scipy==1.16.1
+lightgbm==4.6.0
+optuna==4.6.0
+joblib==1.5.2
+matplotlib==3.10.3
+python-dotenv==1.0.1
+evidently==0.7.19
+pyarrow==22.0.0

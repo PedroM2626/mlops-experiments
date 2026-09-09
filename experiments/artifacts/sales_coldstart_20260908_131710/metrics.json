@@ -1,0 +1,23 @@
+{
+  "mae_global": 11.0735,
+  "mae_categoria": 9.6766,
+  "mae_metadata_lgbm": 5.8682,
+  "best_iter": 2000,
+  "importance_rel": {
+    "categoria_pdv": 0.313,
+    "premise": 0.005,
+    "categoria": 0.005,
+    "subcategoria": 0.104,
+    "tipos": 0.011,
+    "label": 0.01,
+    "marca": 1.0,
+    "fabricante": 0.081,
+    "sem_sin": 0.067,
+    "sem_cos": 0.123,
+    "preco": 0.457,
+    "semana": 0.12
+  },
+  "n_train": 4994072,
+  "n_cold": 1252835,
+  "elapsed_min": 8.7
+}

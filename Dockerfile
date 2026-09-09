@@ -11,11 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Requisitos primeiro (cache de camadas). Para imagem leve, use
-# requirements_ensemble.txt ou um requirements-mlops mínimo.
-COPY requirements.txt .
+# Requisitos primeiro (cache de camadas). Imagem da API usa o requirements
+# enxuto de MLOps (serving/monitor/retrain); o monolito fica p/ pesquisa.
+COPY requirements-mlops.txt .
 RUN pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements-mlops.txt
 
 COPY . .
 

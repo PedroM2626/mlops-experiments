@@ -1,0 +1,46 @@
+{
+  "n_events": 178,
+  "features": {
+    "TS": [
+      "mom5",
+      "vol20",
+      "mkt_mom5"
+    ],
+    "NLP": [
+      "sent",
+      "doclen"
+    ]
+  },
+  "results": {
+    "TS/logreg": {
+      "acc": 0.537,
+      "f1": 0.0,
+      "auc": 0.5
+    },
+    "TS/lgbm": {
+      "acc": 0.4815,
+      "f1": 0.4815,
+      "auc": 0.4841
+    },
+    "NLP/logreg": {
+      "acc": 0.5,
+      "f1": 0.5424,
+      "auc": 0.5097
+    },
+    "NLP/lgbm": {
+      "acc": 0.5,
+      "f1": 0.3415,
+      "auc": 0.4848
+    },
+    "TS+NLP/logreg": {
+      "acc": 0.5,
+      "f1": 0.5424,
+      "auc": 0.5097
+    },
+    "TS+NLP/lgbm": {
+      "acc": 0.4444,
+      "f1": 0.4231,
+      "auc": 0.4441
+    }
+  }
+}
