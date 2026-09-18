@@ -75,6 +75,12 @@ Para o padrão de documentação, veja
 |---|---|---|---|
 | **Ordinal vs Nominal (Wine Quality)** | LogReg/RF nominais vs LogisticAT/IT ordinais (`mord`) | RF nominal acc 0.66 / MAE 0.36; ordinais empatam em acc±1 ~0.9775 | [ver](experiments/ordinal_classification/README.md) |
 
+### 🧭 Inferência Causal
+
+| Experimento | Objetivo | Principal resultado | Leitura |
+|---|---|---|---|
+| **Causal ML + NLP (Olist, dados reais)** | efeito causal do atraso de entrega no sentimento do review (ATE/CATE: LPM, Logit-AME, Matching, IPW, AIPW, S/T-learners, árvore honesta) | atraso eleva P(review negativo) em ~+42 p.p. após ajuste (AIPW); estável a bootstrap/placebo/trimming; efeito positivo em todas as folhas | [ver](experiments/causal_nlp_olist/README.md) |
+
 ---
 
 ## Outros artefatos e avulsos

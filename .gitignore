@@ -200,6 +200,9 @@ outputs/
 processed_*.csv
 data/processed/
 
+# Dados brutos baixados automaticamente pelos experimentos (re-download via notebook)
+experiments/causal_nlp_olist/data/
+
 # Logs de experimentos
 logs/
 *.log
