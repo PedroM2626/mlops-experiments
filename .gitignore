@@ -167,15 +167,15 @@ cython_debug/
 .idea/
 
 
-# Experimentos locais e modelos temporários
+# Local experiments and temporary models
 AutogluonModels/
 ag-*/
 
-# Dados processados (bloqueio de arquivos específicos se necessário)
+# Processed data (blocking of specific files if needed)
 processed_train.csv
 clustering_results.csv
 
-# Modelos e Pesos (Bloqueio total de arquivos grandes)
+# Models and Weights (total block of large files)
 # EXCEPT for ibm-experiments folder (tracked with Git LFS)
 *.pkl
 *.joblib
@@ -196,25 +196,26 @@ temp_artifacts/
 outputs/
 .tsnlp_cache/
 
-# Dados processados (se forem muito grandes)
+# Processed data (if they are too large)
 processed_*.csv
 data/processed/
 
-# Dados brutos baixados automaticamente pelos experimentos (re-download via notebook)
+# Raw data downloaded automatically by the experiments (re-download via notebook)
 experiments/causal_nlp_olist/data/
 
-# Logs de experimentos
+# Experiment logs
 logs/
 *.log
 
-# Arquivos de cache
+# Cache files
 .cache/
 .cache
 
-# Arquivos de ambiente
+# Environment files
 .env.local
 .env.production
 *venv*
 experiments/computer_vision/data/cifar-10-python.tar.gz
 
 .qoder/
+.i18n/

@@ -1,8 +1,8 @@
-# Ensemble Pyramid — imagem batch (scikit-learn + Streamlit deps).
-# O UI Streamlit referenciado anteriormente (flexible_ensemble_pyramid_ui_enhanced.py)
-# nunca foi commitado; o artefato existente é o notebook abaixo. Por isso o
-# default executa o notebook de ponta a ponta; para servir um UI, adicione o
-# script streamlit e troque o CMD (exemplo comentado no final).
+# Ensemble Pyramid — batch image (scikit-learn + Streamlit deps).
+# The Streamlit UI previously referenced (flexible_ensemble_pyramid_ui_enhanced.py)
+# was never committed; the existing artifact is the notebook below. So the
+# default runs the notebook end to end; to serve a UI, add the
+# streamlit script and change the CMD (commented example at the end).
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -24,12 +24,12 @@ ENV HOME=/home/appuser \
     PATH=/home/appuser/.local/bin:$PATH \
     PYTHONUNBUFFERED=1
 
-# Execucao batch do ensemble existente (6 camadas, TF-IDF + meta-ensembles)
+# Batch execution of the existing ensemble (6 layers, TF-IDF + meta-ensembles)
 CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute",
      "experiments/ensemble_pyramid.ipynb",
      "--output", "experiments/ensemble_pyramid.executed.ipynb",
      "--ExecutePreprocessor.timeout=3600"]
 
-# Alternativa (quando houver um app streamlit commitado):
+# Alternative (once a streamlit app is committed):
 # EXPOSE 8501
-# CMD ["streamlit", "run", "experiments/<seu_app>.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# CMD ["streamlit", "run", "experiments/<your_app>.py", "--server.port=8501", "--server.address=0.0.0.0"]

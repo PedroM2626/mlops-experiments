@@ -1,112 +1,112 @@
-# Repositório de Experimentos de Machine Learning & MLOps
+# Machine Learning & MLOps Experiment Repository
 
-Um portfólio de experimentos de ML/MLOps. Cada experimento vive na sua pasta
-em `experiments/<experimento>/` com um **README acadêmico próprio** (artigo
-compacto: resumo, contexto, metodologia, resultados, discussão, conclusões e
-reprodução). Este documento é apenas o **índice** que conecta tudo.
+A portfolio of ML/MLOps experiments. Each experiment lives in its own folder
+under `experiments/<experiment>/` with its **own academic README** (a compact
+article: abstract, context, methodology, results, discussion, conclusions and
+reproduction). This document is only the **index** that connects everything.
 
-Para o padrão de documentação, veja
+For the documentation standard, see
 [`docs/modelo-academico-readme.md`](docs/modelo-academico-readme.md).
 
 ---
 
-## Índice de Experimentos
+## Experiment Index
 
-### 🧪 NLP — Análise de Sentimento, Tópicos e Representações
+### 🧪 NLP — Sentiment Analysis, Topics and Representations
 
-| Experimento | O que faz | Resultado principal | Leitura |
+| Experiment | What it does | Main result | Read more |
 |---|---|---|---|
-| **Grupo NLP** (senti-pred, pipelines A/B/C, Twitter Methods, Logistic multiclasse, MMoE, AG News, FE NLP) | Classificação de sentimento/tópicos e representações textuais | TF-IDF + n-grams ~0.98 F1; transformers vencem em low-data | [ver README](experiments/nlp/README.md) |
-| **NLP em Regressão — Vinhos (Kaggle)** | Pontuação de vinhos por texto | Ridge MAE 1.33 / R² 0.69 vs LightGBM 1.47 / 0.63 | [ver](experiments/nlp-regression-wine/README.md) |
-| **Variações Senti-Pred** | Variações do pipeline de sentimento | recorde 97.80% (TF-IDF 100k, 4-grams) | [ver](experiments/senti-pred-variations/README.md) |
-| **Hierárquico 20 Newsgroups** | classificação/flat vs hieráquico, clustering | flat acc 0.7188 vs hierárquico 0.6953 | [ver](experiments/hierarchical/README.md) |
+| **NLP group** (senti-pred, A/B/C pipelines, Twitter Methods, multiclass Logistic, MMoE, AG News, FE NLP) | Sentiment/topic classification and text representations | TF-IDF + n-grams ~0.98 F1; transformers win in low-data | [see README](experiments/nlp/README.md) |
+| **NLP in Regression — Wine (Kaggle)** | wine scoring from text | Ridge MAE 1.33 / R² 0.69 vs LightGBM 1.47 / 0.63 | [see](experiments/nlp-regression-wine/README.md) |
+| **Senti-Pred variations** | Variations of the sentiment pipeline | record 97.80% (TF-IDF 100k, 4-grams) | [see](experiments/senti-pred-variations/README.md) |
+| **Hierarchical 20 Newsgroups** | flat vs hierarchical classification, clustering | flat acc 0.7188 vs hierarchical 0.6953 | [see](experiments/hierarchical/README.md) |
 
 ### 🤖 Reinforcement Learning / AutoML
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **Q-Learning para AutoML** | agente RL otimiza hiperparâmetros | proxy RL no sales-forecast: MAE 1.4297 vs Optuna 1.4218 | [ver](experiments/reinforcement_learning/README.md) |
+| **Q-Learning for AutoML** | RL agent optimizes hyperparameters | RL proxy on sales-forecast: MAE 1.4297 vs Optuna 1.4218 | [see](experiments/reinforcement_learning/README.md) |
 
-### 📈 Séries Temporais e Previsão
+### 📈 Time Series and Forecasting
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **Grupo Séries Temporais** (Prophet, benchmark 4×4, classificação 6 paradigmas, TS+NLP, forecast-classification, destilação, anomalias, DeepAR probabilístico/generativo, VAR, forecast hierárquico) | previsão, classificação e análise de TS | SARIMA vence 2/4 no benchmark; ROCKET 3/3; Logística 0.958 no forecast-direção | [ver](experiments/time_series/README.md) |
-| **5 Fases de Feature Engineering (TS)** | manual vs automático vs sinais vs embeddings | DWT + manual: MAE 54.19 (melhor) | [ver](experiments/ts_fe/README.md) |
-| **Sales Forecast (Hackathon)** | previsão semanal de vendas | LightGBM V2.2 MAE 1.4218 | [ver](experiments/sales-forecast/README.md) |
-| **Databricks Forecast (cloud)** | Prophet/DeepAR importados (Databricks) | equivalentes locais em time_series | [ver](experiments/databricks-forecast/README.md) |
+| **Time Series group** (Prophet, 4×4 benchmark, 6-paradigm classification, TS+NLP, forecast-classification, distillation, anomalies, probabilistic/generative DeepAR, VAR, hierarchical forecast) | TS forecasting, classification and analysis | SARIMA wins 2/4 in the benchmark; ROCKET 3/3; Logistic 0.958 on forecast-direction | [see](experiments/time_series/README.md) |
+| **5 Feature Engineering Phases (TS)** | manual vs automatic vs signals vs embeddings | DWT + manual: MAE 54.19 (best) | [see](experiments/ts_fe/README.md) |
+| **Sales Forecast (Hackathon)** | weekly sales forecasting | LightGBM V2.2 MAE 1.4218 | [see](experiments/sales-forecast/README.md) |
+| **Databricks Forecast (cloud)** | Prophet/DeepAR imported (Databricks) | local equivalents in time_series | [see](experiments/databricks-forecast/README.md) |
 
-### 🖥️ Nuvem → Equivalentes Locais (Watsonx & Databricks)
+### 🖥️ Cloud → Local Equivalents (Watsonx & Databricks)
 
-| Experimento | Objetivo | Leitura |
+| Experiment | Objective | Read more |
 |---|---|---|
-| **IBM Watsonx (originais cloud)** | Boston Housing, Electric_Production, sentimentos | [ver](experiments/ibm-experiments/README.md) |
-| **Equivalentes open-source locais** | replicar AutoML/forecast cloud (FLAML, TPOT, Prophet+Optuna, GluonTS) | [time_series](experiments/time_series/README.md) · [tabular](experiments/tabular_regression/README.md) |
+| **IBM Watsonx (cloud originals)** | Boston Housing, Electric_Production, sentiment | [see](experiments/ibm-experiments/README.md) |
+| **Local open-source equivalents** | replicate cloud AutoML/forecast (FLAML, TPOT, Prophet+Optuna, GluonTS) | [time_series](experiments/time_series/README.md) · [tabular](experiments/tabular_regression/README.md) |
 
 ### 🐱🖼️ Computer Vision
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **CV Methods (CIFAR-10)** | HOG+SVM vs ResNet18 vs ViT | ViT 0.9805 vs ResNet 0.9362 vs HOG 0.3970 | [ver](experiments/computer_vision/README.md) |
-| **Animal multi-label** | 4 abordagens (pets Dime/Frida) | ResNet18+aug Exact Match 1.000 | idem acima |
-| **Detecção/reconhecimento facial** | LBPH, CNN, YuNet (app no notebook) | — | [ver](experiments/computer_vision/README.md) |
+| **CV Methods (CIFAR-10)** | HOG+SVM vs ResNet18 vs ViT | ViT 0.9805 vs ResNet 0.9362 vs HOG 0.3970 | [see](experiments/computer_vision/README.md) |
+| **Animal multi-label** | 4 approaches (pets Dime/Frida) | ResNet18+aug Exact Match 1.000 | same as above |
+| **Face detection/recognition** | LBPH, CNN, YuNet (app in the notebook) | — | [see](experiments/computer_vision/README.md) |
 
 ### 🎬 RecSys
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **MovieLens RecSys — 8 abordagens** | MF, redes neurais, similaridade, heurístico | Two-Tower RMSE 0.9297; SVD mais eficiente | [ver](experiments/recommender_systems/README.md) |
+| **MovieLens RecSys — 8 approaches** | MF, neural networks, similarity, heuristic | Two-Tower RMSE 0.9297; SVD most efficient | [see](experiments/recommender_systems/README.md) |
 
-### 🏎️ Regressão Tabular & AutoML local
+### 🏎️ Tabular Regression & local AutoML
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **Grupo de Regressão Tabular** (FE tabular, Price Prediction v1–v3, IBM Watsonx local) | impacto de feature engineering; evolução de pipeline | R² 0.9489 (Random Forest); FE assimétrica por modelo | [ver](experiments/tabular_regression/README.md) |
+| **Tabular Regression group** (tabular FE, Price Prediction v1–v3, IBM Watsonx local) | impact of feature engineering; pipeline evolution | R² 0.9489 (Random Forest); per-model asymmetric FE | [see](experiments/tabular_regression/README.md) |
 
-### 🔬 Feature Selection Evolucionária
+### 🔬 Evolutionary Feature Selection
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **GAAP (NSGA-II) e MO-DE vs clássicos** | seleção de features multiobjetivo (R²/F1 × nº de features) | vantagem em features interativas (California); clássicos já bastam no Twitter | [ver](experiments/feature_selection_ea/README.md) |
+| **GAAP (NSGA-II) and MO-DE vs classics** | multi-objective feature selection (R²/F1 × number of features) | advantage on interactive features (California); classics are already enough on Twitter | [see](experiments/feature_selection_ea/README.md) |
 
-### 🔢 Classificação Ordinal
+### 🔢 Ordinal Classification
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **Ordinal vs Nominal (Wine Quality)** | LogReg/RF nominais vs LogisticAT/IT ordinais (`mord`) | RF nominal acc 0.66 / MAE 0.36; ordinais empatam em acc±1 ~0.9775 | [ver](experiments/ordinal_classification/README.md) |
+| **Ordinal vs Nominal (Wine Quality)** | nominal LogReg/RF vs ordinal LogisticAT/IT (`mord`) | RF nominal acc 0.66 / MAE 0.36; the ordinal models tie on acc±1 ~0.9775 | [see](experiments/ordinal_classification/README.md) |
 
-### 🧭 Inferência Causal
+### 🧭 Causal Inference
 
-| Experimento | Objetivo | Principal resultado | Leitura |
+| Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **Causal ML + NLP (Olist, dados reais)** | efeito causal do atraso de entrega no sentimento do review (ATE/CATE: LPM, Logit-AME, Matching, IPW, AIPW, S/T-learners, árvore honesta) | atraso eleva P(review negativo) em ~+42 p.p. após ajuste (AIPW); estável a bootstrap/placebo/trimming; efeito positivo em todas as folhas | [ver](experiments/causal_nlp_olist/README.md) |
+| **Causal ML + NLP (Olist, real data)** | causal effect of delivery delay on review sentiment (ATE/CATE: LPM, Logit-AME, Matching, IPW, AIPW, S/T-learners, honest tree) | delay raises P(negative review) by ~+42 p.p. after adjustment (AIPW); stable to bootstrap/placebo/trimming; positive effect in all leaves | [see](experiments/causal_nlp_olist/README.md) |
 
 ---
 
-## Outros artefatos e avulsos
+## Other artifacts and standalone files
 
-- **Notebooks avulsos na raiz de `experiments/`** (`anomaly_detection_comparison.ipynb`,
+- **Standalone notebooks at the root of `experiments/`** (`anomaly_detection_comparison.ipynb`,
   `anomaly_detection_enhanced.ipynb`, `ensemble_pyramid.ipynb` + `ensemble_pyramid_best.pkl`)
-  — apoio aos READMEs acima.
-- **Dashboard de experimentos**: `dashboard/index.html` (abrir no navegador).
+  — supporting the READMEs above.
+- **Experiment dashboard**: `dashboard/index.html` (open in the browser).
 
-## Padrões do repositório
+## Repository standards
 
-- **Reprodução**: rodar cada script/notebook a partir da sua própria pasta;
-  artefatos em `experiments/artifacts/<experimento>_<timestamp>_<sha>/`
-  (`model.pkl` / `model.joblib` / `SavedModel/` / `pip_freeze.txt`); seeds
-  fixas registrando no MLflow (`seed`, `git_sha`, `run_timestamp`).
-- **Validação estrutural** de notebooks: `python scripts/validate_notebooks.py`
-  (notebooks externos marcados como `EXT`).
-- **Convenções de runtime** (CPU vs GPU) estão em cada README de grupo.
+- **Reproduction**: run each script/notebook from its own folder;
+  artifacts in `experiments/artifacts/<experiment>_<timestamp>_<sha>/`
+  (`model.pkl` / `model.joblib` / `SavedModel/` / `pip_freeze.txt`); fixed
+  seeds recorded in MLflow (`seed`, `git_sha`, `run_timestamp`).
+- **Structural validation** of notebooks: `python scripts/validate_notebooks.py`
+  (external notebooks marked as `EXT`).
+- **Runtime conventions** (CPU vs GPU) are in each group README.
 
-## Como navegar
+## How to navigate
 
-1. Abra o README da pasta do experimento (links do índice acima).
-2. Para os detalhes técnicos completos (código, notebooks executados),
-   entre na pasta correspondente: `experiments/<experimento>/`.
-3. No histórico agregado: dashboard (`dashboard/index.html`) e `mlflow ui`.
+1. Open the README of the experiment folder (index links above).
+2. For the full technical details (code, executed notebooks),
+   enter the corresponding folder: `experiments/<experiment>/`.
+3. In the aggregated history: dashboard (`dashboard/index.html`) and `mlflow ui`.
 
 ---
 
-*Este repositório é um diário vivo de descobertas em Ciência de Dados.*
+*This repository is a living diary of Data Science discoveries.*
