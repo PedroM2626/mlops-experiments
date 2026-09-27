@@ -1,75 +1,75 @@
-# Classificação Ordinal vs. Nominal — Wine Quality (Red)
+# Ordinal vs. Nominal Classification — Wine Quality (Red)
 
-> **Área:** Classificação ordinal / Tabular
-> **Tarefa:** Predizer qualidade do vinho (notas 3–8, 6 classes ordenadas) como problema ordinal vs. nominal
-> **Métricas:** Acurácia, MAE (distância ordinal), Kappa de Cohen, Acurácia ±1
-> **Status:** Concluído
-> **Dataset:** Wine Quality Red (UCI) — 1.599 linhas × 12 colunas; split 1.199 treino / 400 teste (seed 42). Fallback sintético ordinal se o download falhar.
+> **Area:** Ordinal classification / Tabular
+> **Task:** Predict wine quality (wine scores 3–8, 6 ordered classes) as an ordinal vs. nominal problem
+> **Metrics:** Accuracy, MAE (ordinal distance), Cohen's Kappa, within-one accuracy (±1)
+> **Status:** Done
+> **Dataset:** Wine Quality Red (UCI) — 1.599 rows × 12 columns; split 1.199 training / 400 test (seed 42). Synthetic ordinal fallback if the download fails.
 
-## 1. Resumo
+## 1. Abstract
 
-Compara 4 abordagens no mesmo split: LogReg nominal, RF nominal, LogisticAT ordinal (`mord`) e LogisticIT ordinal (`mord`). O **RF nominal vence em acurácia (0.6600) e MAE (0.3600)**, mas os modelos ordinais empatam em **acurácia ±1 (~0.9775)** — erram "perto". A lição: para rótulos ordenados, MAE/Kappa/acc±1 contam mais que acurácia exata; modelo ordinal raramente vence o RF em acc pura, porém produz erros menos graves.
+Compares 4 approaches on the same split: nominal LogReg, nominal RF, ordinal LogisticAT (`mord`) and ordinal LogisticIT (`mord`). The **nominal RF wins on accuracy (0.6600) and MAE (0.3600)**, but the ordinal models tie on **within-one accuracy (~0.9775)** — their errors are "close". The lesson: for ordered labels, MAE/Kappa/acc±1 count more than exact accuracy; an ordinal model rarely beats the RF on pure accuracy, yet it produces less severe errors.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-Classificação nominal ignora a ordem (errar 5→8 custa o mesmo que 5→6). Classificação ordinal penaliza a distância. Questões: (RQ1) o modelo ordinal supera o nominal em MAE/Kappa? (RQ2) acc±1 revela equivalência prática?
+Nominal classification ignores the order (a 5→8 miss costs the same as 5→6). Ordinal classification penalizes the distance. Questions: (RQ1) does the ordinal model beat the nominal one on MAE/Kappa? (RQ2) does acc±1 reveal practical equivalence?
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **Nominal (LogReg OvR, RF):** fronteiras por classe, sem noção de vizinhança ordinal.
-- **Ordinal (LogisticAT/IT, `mord`):** limiares cumulativos sobre escore latente; AT (all-threshold) vs IT (immediate-threshold).
-- **OrdinalRandomForest (notebook):** decomposição em K−1 binários `P(y ≥ k)`, classe final = soma das predições.
-- **Métricas ordinais:** MAE = média |ŷ−y|; Kappa pondera concordância além do acaso; acc±1 = fração com erro ≤ 1 nível.
+- **Nominal (LogReg OvR, RF):** per-class boundaries, no notion of ordinal neighborhood.
+- **Ordinal (LogisticAT/IT, `mord`):** cumulative thresholds over a latent score; AT (all-threshold) vs IT (immediate-threshold).
+- **OrdinalRandomForest (notebook):** decomposition into K−1 binary classifiers `P(y ≥ k)`, final class = sum of the predictions.
+- **Ordinal metrics:** MAE = mean |ŷ−y|; Kappa weights agreement beyond chance; acc±1 = fraction with error ≤ 1 level.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
+### 4.1 Data
 
-Wine Quality Red: 1.599 amostras; distribuição por qualidade: 3:10, 4:53, 5:681, 6:638, 7:199, 8:18 (forte desbalanceamento, classes extremas raras). `y −= y.min()` para 0..5 (`mord` exige 0..K−1).
+Wine Quality Red: 1.599 samples; distribution by quality: 3:10, 4:53, 5:681, 6:638, 7:199, 8:18 (strong imbalance, rare extreme classes). `y −= y.min()` to 0..5 (`mord` requires 0..K−1).
 
-### 4.2 Métodos comparados
+### 4.2 Compared methods
 
-| Modelo | Tipo | Config |
+| Model | Type | Config |
 |---|---|---|
 | LogReg (Nominal) | nominal | `StandardScaler + LogisticRegression(max_iter=2000)` |
 | RF (Nominal) | nominal | `RandomForestClassifier(n_estimators=200, random_state=42)` |
 | LogisticAT (Ordinal) | ordinal | `StandardScaler + mord.LogisticAT(alpha=1.0)` |
 | LogisticIT (Ordinal) | ordinal | `StandardScaler + mord.LogisticIT(alpha=1.0)` |
 
-### 4.3 Avaliação
+### 4.3 Evaluation
 
-Holdout único 75/25 estratificado (1.199/400). Métricas: acurácia, MAE, Kappa, acc±1. Figuras: barras por métrica, matrizes de confusão, distribuição de erros |ŷ−y|.
+Single stratified 75/25 holdout (1.199/400). Metrics: accuracy, MAE, Kappa, acc±1. Figures: bars per metric, confusion matrices, distribution of errors |ŷ−y|.
 
-### 4.4 Reprodução
+### 4.4 Reproduction
 
 ```bash
 jupyter nbconvert --to notebook --execute experiments/ordinal_classification/ordinal_classification.ipynb --inplace
 pip install mord scikit-learn pandas matplotlib seaborn
 ```
 
-## 5. Resultados
+## 5. Results
 
-| Modelo | Tipo | Acurácia | MAE | Kappa | Acc ±1 |
+| Model | Type | Accuracy | MAE | Kappa | Acc ±1 |
 |---|---|---|---|---|---|
 | **RF (Nominal)** | nominal | **0.6600** | **0.3600** | **0.4451** | **0.9800** |
 | LogisticIT (Ordinal) | ordinal | 0.5975 | 0.4275 | 0.3285 | 0.9775 |
 | LogReg (Nominal) | nominal | 0.5950 | 0.4375 | 0.3286 | 0.9700 |
 | LogisticAT (Ordinal) | ordinal | 0.5850 | 0.4400 | 0.3082 | 0.9775 |
 
-## 6. Discussão
+## 6. Discussion
 
-- **RF domina tudo** (acc +0.06, MAE −0.07 vs 2º): árvores capturam não-linearidades químicas que limiares lineares não capturam.
-- **Ordinais não superam o nominal correspondente** (LogReg 0.5950 vs LogisticIT 0.5975 — empate; MAE 0.4375 vs 0.4275 — ganho marginal). O ganho ordinal aparece em acc±1 (0.9775 vs 0.9700): erros "de 1 nível".
-- **Classes raras (3, 8) são quase nunca acertadas** — Kappa 0.31–0.45 reflete isso; sem rebalanceamento ou loss ordinal ponderada, o modelo colapsa para 5/6.
-- **Limitações:** holdout único (sem CV); 1 seed; `mord` linear (sem kernel); sem calibração de limiares por classe.
+- **RF dominates across the board** (acc +0.06, MAE −0.07 vs 2nd): trees capture chemical non-linearities that linear thresholds do not capture.
+- **Ordinal models do not beat their nominal counterpart** (LogReg 0.5950 vs LogisticIT 0.5975 — tie; MAE 0.4375 vs 0.4275 — marginal gain). The ordinal gain shows up in acc±1 (0.9775 vs 0.9700): "1-level" errors.
+- **Rare classes (3, 8) are almost never predicted correctly** — Kappa 0.31–0.45 reflects this; without rebalancing or weighted ordinal loss, the model collapses to 5/6.
+- **Limitations:** single holdout (no CV); 1 seed; linear `mord` (no kernel); no per-class threshold calibration.
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- Se a métrica de negócio tolera erro de ±1 nível (ex.: faixa de qualidade), **qualquer modelo serve** (≥0.97) — escolha o mais simples.
-- Se erro grave custa caro, **RF nominal + monitoramento de MAE** é o melhor custo-benefício aqui; ordinal linear só vale com restrição de interpretabilidade monotônica.
-- Próximos: CV estratificado ×5, `class_weight=balanced`, threshold tuning por classe, RF ordinal (K−1 binários) como meio-termo.
+- If the business metric tolerates an error of ±1 level (e.g.: a quality band), **any model works** (≥0.97) — pick the simplest.
+- If severe errors are costly, **nominal RF + MAE monitoring** is the best cost-benefit here; a linear ordinal model is only worth it under a monotonic interpretability constraint.
+- Next: stratified CV ×5, `class_weight=balanced`, per-class threshold tuning, ordinal RF (K−1 binary) as a middle ground.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- Notebook: `./ordinal_classification.ipynb` (executado, com figuras).
-- Referências: Pedregosa et al. (`mord`); UCI Wine Quality (Cortez et al., 2009); Cohen (1960) Kappa; ver `docs/modelo-academico-readme.md`.
+- Notebook: `./ordinal_classification.ipynb` (executed, with figures).
+- References: Pedregosa et al. (`mord`); UCI Wine Quality (Cortez et al., 2009); Cohen (1960) Kappa; see `docs/modelo-academico-readme.md`.
