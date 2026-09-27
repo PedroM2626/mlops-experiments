@@ -42,9 +42,9 @@ agg = agg.rename(columns={'produto': 'sku'})
 agg['preco_medio_unitario'] = np.where(agg['quantidade'] > 0, agg['gross_value'] / agg['quantidade'], 0.0)
 agg.drop(columns=['gross_value'], inplace=True)
 del df_merged; gc.collect()
-log(f'[AGGR] {len(agg):,} linhas, mem {mem():.0f} MB, {time.time()-t0:.0f}s')
+log(f'[AGGR] {len(agg):,} rows, mem {mem():.0f} MB, {time.time()-t0:.0f}s')
 
-log('[FEAT] iniciando...')
+log('[FEAT] starting...')
 df_feat = agg.sort_values(['pdv', 'sku', 'ano', 'semana']).reset_index(drop=True)
 df_feat['trimestre'] = (df_feat['semana'] - 1) // 13 + 1
 df_feat['seno_semana'] = np.sin(2 * np.pi * df_feat['semana'] / 52)
@@ -70,18 +70,18 @@ m4 = df_feat['rolling_mean_4_semanas']; s4 = df_feat['rolling_std_4_semanas']
 df_feat['coef_variacao_4'] = np.where(m4 > 0, s4 / m4, 0.0)
 df_feat.fillna(0, inplace=True)
 del agg, tmp, shifted; gc.collect()
-log(f'[FEAT] done, {len(df_feat):,} linhas, mem {mem():.0f} MB, {time.time()-t0:.0f}s')
+log(f'[FEAT] done, {len(df_feat):,} rows, mem {mem():.0f} MB, {time.time()-t0:.0f}s')
 
 ART = joblib.load(ROOT + r'\artifacts\BACKUP\sales_forecaster_v2_final.joblib')
 feature_names = ART['feature_names']
 cat_features = ART['categorical_features']
 best_params = ART['best_params']
-log('[LOAD] campeão carregado')
+log('[LOAD] champion loaded')
 
-# ================= AE (embedding p/ clustering, SEM leakage) =================
+# ================= AE (embedding for clustering, NO leakage) =================
 emb_dim = 8
 ae_cols = [f'ae_emb_{i}' for i in range(emb_dim)]
-log('[AE] construindo matriz de séries (semanas 1-47)...')
+log('[AE] building series matrix (weeks 1-47)...')
 hist = df_feat[df_feat['semana'] <= 47][['pdv', 'sku', 'semana', 'quantidade']]
 pivot = hist.pivot_table(index=['pdv', 'sku'], columns='semana', values='quantidade', fill_value=0)
 pivot = pivot.reindex(columns=range(1, 48), fill_value=0)
@@ -89,7 +89,7 @@ X_hist = np.log1p(pivot.values).astype(np.float32)
 X_hist = np.nan_to_num(X_hist, nan=0.0, posinf=0.0, neginf=0.0)
 series_keys = pivot.index.to_frame(index=False)
 series_keys.columns = ['pdv', 'sku']
-log(f'[AE] séries: {len(pivot):,}, shape {X_hist.shape}, mem {mem():.0f} MB')
+log(f'[AE] series: {len(pivot):,}, shape {X_hist.shape}, mem {mem():.0f} MB')
 
 scaler = StandardScaler()
 X_s = scaler.fit_transform(X_hist)
@@ -97,7 +97,7 @@ ae = MLPRegressor(hidden_layer_sizes=(32, emb_dim), activation='relu', solver='a
                   alpha=0.001, max_iter=80, random_state=42, early_stopping=True,
                   validation_fraction=0.1, n_iter_no_change=10, batch_size=4096)
 ae.fit(X_s, X_s)
-log(f'[AE] treinado, iters={ae.n_iter_}, loss={ae.loss_:.4f}')
+log(f'[AE] trained, iters={ae.n_iter_}, loss={ae.loss_:.4f}')
 
 def relu(x):
     return np.maximum(0, x)
@@ -109,11 +109,11 @@ def embed_batch(Xs):
     Z2 = relu(Z1 @ W2 + b2)
     return Z2.astype(np.float32)
 
-# embedding de perfil (semanas 1-47) — usado p/ clustering de SÉRIES
+# profile embedding (weeks 1-47) — used for SERIES clustering
 emb_profile = embed_batch(X_s)
 emb_profile_df = pd.DataFrame(emb_profile, columns=ae_cols)
 emb_profile_df[['pdv', 'sku']] = series_keys
-log(f'[EMB] perfil pronto, {len(emb_profile_df):,} séries, mem {mem():.0f} MB')
+log(f'[EMB] profile ready, {len(emb_profile_df):,} series, mem {mem():.0f} MB')
 del pivot, X_hist, X_s, hist; gc.collect()
 
 # ================= Clustering =================
@@ -124,11 +124,11 @@ def evaluate_clusters(k):
     km = KMeans(n_clusters=k, random_state=42, n_init=10)
     clusters = km.fit_predict(emb_for_cluster)
     cl_df = pd.DataFrame({'pdv': series_keys['pdv'], 'sku': series_keys['sku'], 'cluster': clusters})
-    # tamanho p/ diagnóstico
+    # size for diagnostics
     sizes = cl_df['cluster'].value_counts().sort_index()
-    log(f'[CLUSTER k={k}] tamanhos: {dict(sizes)}')
+    log(f'[CLUSTER k={k}] sizes: {dict(sizes)}')
 
-    # merge cluster_id em df_feat
+    # merge cluster_id into df_feat
     df_w = df_feat.merge(cl_df, on=['pdv', 'sku'], how='left')
     df_w['cluster'] = df_w['cluster'].fillna(-1).astype(int)
 
@@ -160,10 +160,10 @@ def evaluate_clusters(k):
     params['random_state'] = 42
     params['n_jobs'] = -1
 
-    # ---- Cenário A: Global + cluster_id feature ----
+    # ---- Scenario A: Global + cluster_id feature ----
     X_train = train[feature_names + ['cluster']]
     X_val = val[feature_names + ['cluster']]
-    log(f'[k={k}A] global+cluster_id treinando...')
+    log(f'[k={k}A] global+cluster_id training...')
     mA = lgb.LGBMRegressor(n_estimators=1000, verbosity=-1, **params)
     mA.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric='mae',
            callbacks=[lgb.early_stopping(50, verbose=False)],
@@ -172,17 +172,17 @@ def evaluate_clusters(k):
     log(f'[k={k}A] global+cluster_id MAE = {mae_A:.4f} (best_iter={mA.best_iteration_})')
     del mA; gc.collect()
 
-    # ---- Cenário B: Per-cluster models ----
+    # ---- Scenario B: Per-cluster models ----
     preds = np.zeros(len(y_val))
     train_cl = train['cluster'].astype(int).values
     val_cl = val['cluster'].astype(int).values
     train_idx_clusters = pd.Series(train_cl).index if False else None
-    log(f'[k={k}B] per-cluster treinando...')
+    log(f'[k={k}B] per-cluster training...')
     for c in sorted(set(train_cl) | set(val_cl)):
         tr_mask = train_cl == c
         va_mask = val_cl == c
         if tr_mask.sum() < 100 or va_mask.sum() == 0:
-            # cluster pequeno: usa modelo global fallback (treina nos dados disponíveis mesmos)
+            # small cluster: use the global model as fallback (trained on the available data anyway)
             if tr_mask.sum() > 0:
                 mB = lgb.LGBMRegressor(n_estimators=1000, verbosity=-1, **params)
                 mB.fit(train[feature_names][tr_mask], y_train[tr_mask],
@@ -206,7 +206,7 @@ def evaluate_clusters(k):
 
     return mae_A, mae_B, dict(sizes)
 
-# ================= Baseline (sem cluster) =================
+# ================= Baseline (no cluster) =================
 val = df_feat[df_feat['semana'] >= 48].copy()
 train = df_feat[df_feat['semana'] < 48].copy()
 def prepare_base(df_in):
@@ -228,7 +228,7 @@ params.pop('n_estimators', None)
 params['objective'] = 'regression_l1'
 params['random_state'] = 42
 params['n_jobs'] = -1
-log('[BASELINE] treinando...')
+log('[BASELINE] training...')
 m_base = lgb.LGBMRegressor(n_estimators=1000, verbosity=-1, **params)
 m_base.fit(base_train, y_train, eval_set=[(base_val, y_val)], eval_metric='mae',
            callbacks=[lgb.early_stopping(50, verbose=False)],
@@ -244,11 +244,11 @@ for k in [3, 5, 8]:
     results[f'k{k}_per-cluster'] = mae_B
 
 log('\n' + '=' * 60)
-log('RESULTADO COMPARATIVO:')
+log('COMPARATIVE RESULT:')
 log(f'  baseline                               MAE = {results["baseline"]:.4f}')
 for k in [3, 5, 8]:
     ma = results[f'k{k}_global+cluster']
     mb = results[f'k{k}_per-cluster']
     log(f'  k={k} global+cluster_id                MAE = {ma:.4f}  (delta {ma-mae_base:+.4f}, {(ma-mae_base)/mae_base*100:+.2f}%)')
     log(f'  k={k} per-cluster models              MAE = {mb:.4f}  (delta {mb-mae_base:+.4f}, {(mb-mae_base)/mae_base*100:+.2f}%)')
-log(f'mem final {mem():.0f} MB, tempo total {time.time()-t0:.0f}s')
+log(f'final mem {mem():.0f} MB, total time {time.time()-t0:.0f}s')

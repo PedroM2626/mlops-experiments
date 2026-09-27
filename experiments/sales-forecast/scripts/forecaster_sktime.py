@@ -6,25 +6,25 @@ from sktime.transformations.series.summarize import WindowSummarizer
 from .forecaster_class import SalesForecasterV2
 
 class SalesForecasterSktime(SalesForecasterV2):
-    """Classe de previsao de vendas que herda da V2 mas usa sktime para extrair features temporais."""
+    """Sales forecasting class that inherits from V2 but uses sktime to extract time-based features."""
     
     def __init__(self):
         super().__init__()
         self.fe_time = 0.0
 
     def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Gera features temporais usando sktime WindowSummarizer paralelizado."""
+        """Generate time-based features using the parallelized sktime WindowSummarizer."""
         start_time = time.time()
         
         df_featured = df.copy()
         
-        # 1. Features Temporais Básicas
+        # 1. Basic Time-Based Features
         df_featured['trimestre'] = (df_featured['semana'] - 1) // 13 + 1
         df_featured['seno_semana'] = np.sin(2 * np.pi * df_featured['semana'] / 52)
         df_featured['cosseno_semana'] = np.cos(2 * np.pi * df_featured['semana'] / 52)
         
-        # 2. Sktime WindowSummarizer para Lags e Janelas Moveis
-        # Configurar index hierárquico exigido para Panel Data
+        # 2. Sktime WindowSummarizer for Lags and Moving Windows
+        # Set up the hierarchical index required for Panel Data
         df_featured.set_index(['pdv', 'sku', 'semana'], inplace=True, drop=False)
         
         kwargs = {
@@ -46,17 +46,17 @@ class SalesForecasterSktime(SalesForecasterV2):
         transformer_qty = WindowSummarizer(**kwargs, target_cols=["quantidade"], n_jobs=1)
         transformer_price = WindowSummarizer(**kwargs_preco, target_cols=["preco_medio_unitario"], n_jobs=1)
         
-        # Transformando e mesclando de volta (passando apenas a coluna alvo para evitar erro de dtype 'object')
+        # Transform and merge back (passing only the target column to avoid a dtype 'object' error)
         df_qty_feats = transformer_qty.fit_transform(df_featured[['quantidade']])
         df_price_feats = transformer_price.fit_transform(df_featured[['preco_medio_unitario']])
         
-        # Juntar features geradas
+        # Join the generated features
         df_featured = pd.concat([df_featured, df_qty_feats, df_price_feats], axis=1)
         
-        # Voltar a flat data
+        # Back to flat data
         df_featured.reset_index(drop=True, inplace=True)
         
-        # 3. Features Derivadas
+        # 3. Derived Features
         df_featured['lag_diff_1'] = df_featured['quantidade_lag_1'] - df_featured['quantidade_lag_2']
         
         mean_4 = df_featured['quantidade_mean_1_4']
@@ -69,7 +69,7 @@ class SalesForecasterSktime(SalesForecasterV2):
         return df_featured
 
     def _prepare_data_for_model(self, df: pd.DataFrame):
-        """Seleciona as features recem criadas pelo sktime."""
+        """Select the newly created sktime features."""
         df_model = df.copy()
 
         self.categorical_features = [
@@ -86,22 +86,22 @@ class SalesForecasterSktime(SalesForecasterV2):
             'categoria_pdv', 'premise',
             'categoria', 'subcategoria', 'tipos', 'label', 'marca', 'fabricante',
             
-            # Sktime Lags (Quantidade)
+            # Sktime Lags (Quantity)
             'quantidade_lag_1', 'quantidade_lag_2', 'quantidade_lag_3', 'quantidade_lag_4',
             'quantidade_lag_12', 'quantidade_lag_52',
             
-            # Sktime Lag (Preço)
+            # Sktime Lag (Price)
             'preco_medio_unitario_lag_1', 
             
-            # Derivadas
+            # Derived
             'lag_diff_1', 'coef_variacao_4',
             
-            # Sktime Janelas (Média, Std, Max, Min)
+            # Sktime Windows (Mean, Std, Max, Min)
             'quantidade_mean_1_4', 'quantidade_std_1_4', 'quantidade_max_1_4', 'quantidade_min_1_4',
             'quantidade_mean_1_12', 'quantidade_std_1_12', 'quantidade_max_1_12', 'quantidade_min_1_12',
             'quantidade_mean_1_52', 'quantidade_std_1_52', 'quantidade_max_1_52',
             
-            # Outros
+            # Others
             'preco_medio_unitario',
         ]
 

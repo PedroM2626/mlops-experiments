@@ -12,11 +12,11 @@ import mlflow
 
 def main(data_path: str, artifacts_path: str, n_trials: int):
     """
-    Funcao principal para orquestrar o treinamento do modelo.
+    Main function to orchestrate model training.
     """
-    logging.info("Iniciando o Pipeline de Treinamento V2.2.")
+    logging.info("Starting the Training Pipeline V2.2.")
 
-    # Define os caminhos para os arquivos de dados e saida do modelo
+    # Define the paths for the data files and model output
     file_paths = {
         'vendas': os.path.join(data_path, 'raw/fato_vendas.parquet'),
         'pdvs': os.path.join(data_path, 'raw/dim_pdvs.parquet'),
@@ -25,10 +25,10 @@ def main(data_path: str, artifacts_path: str, n_trials: int):
     model_output_path = os.path.join(artifacts_path, 'sales_forecaster_v2_final.joblib')
     fi_plot_path = os.path.join(artifacts_path, 'feature_importance.png')
 
-    # Configurando tracking do MLflow
+    # Configure MLflow tracking
     mlflow.set_experiment("Sales_Forecaster_Hackathon")
 
-    # Instancia e executa o pipeline
+    # Instantiate and run the pipeline
     forecaster = SalesForecasterV2()
 
     with mlflow.start_run(run_name="V2.2_training"):
@@ -63,28 +63,28 @@ def main(data_path: str, artifacts_path: str, n_trials: int):
             for param_name, param_val in forecaster.best_params.items():
                 mlflow.log_param(f"best_{param_name}", param_val)
 
-            # Gerar e logar grafico de feature importance
+            # Generate and log the feature importance plot
             forecaster.plot_feature_importance(fi_plot_path)
             mlflow.log_artifact(fi_plot_path, artifact_path="plots")
 
-            # Salvar e logar modelo
+            # Save and log the model
             forecaster.save_model(path=model_output_path)
             mlflow.log_artifact(model_output_path, artifact_path="model")
 
-            logging.info(f"Treinamento completo em {elapsed:.1f}s. MAE: {forecaster.performance_metrics.get('validation_mae', 'N/A')}")
+            logging.info(f"Training completed in {elapsed:.1f}s. MAE: {forecaster.performance_metrics.get('validation_mae', 'N/A')}")
 
         except Exception as e:
-            logging.error(f"O pipeline de treinamento falhou com o erro: {e}")
+            logging.error(f"The training pipeline failed with error: {e}")
             raise e
 
-    logging.info("Pipeline de Treinamento finalizado com sucesso!")
+    logging.info("Training Pipeline finished successfully!")
 
 if __name__ == "__main__":
-    # Configura os argumentos que o script pode receber via linha de comando
-    parser = argparse.ArgumentParser(description="Treina o modelo de previsao de vendas.")
-    parser.add_argument("--data_path", type=str, default="data", help="Caminho para a pasta 'data'.")
-    parser.add_argument("--artifacts_path", type=str, default="artifacts", help="Caminho para salvar o modelo treinado.")
-    parser.add_argument("--n_trials", type=int, default=30, help="Numero de trials para a otimizacao com Optuna.")
+    # Configure the arguments the script can receive via the command line
+    parser = argparse.ArgumentParser(description="Train the sales forecasting model.")
+    parser.add_argument("--data_path", type=str, default="data", help="Path to the 'data' folder.")
+    parser.add_argument("--artifacts_path", type=str, default="artifacts", help="Path to save the trained model.")
+    parser.add_argument("--n_trials", type=int, default=30, help="Number of trials for the Optuna optimization.")
 
     args = parser.parse_args()
 

@@ -1,111 +1,111 @@
-# Feature Engineering em Séries Temporais: 5 Fases
+# Feature Engineering for Time Series: 5 Phases
 
-> **Área:** Séries Temporais
-> **Tarefa:** Previsão (regressão) com engenharia de features
-> **Métrica principal:** MAE
-> **Status:** Concluído
-> **Datasets:** Daily Minimum Temperatures (univariado), Beijing PM2.5 (multivariado), séries derivadas para embeddings DL, decomposição sazonal + wavelets.
+> **Area:** Time Series
+> **Task:** Forecasting (regression) with feature engineering
+> **Primary metric:** MAE
+> **Status:** Completed
+> **Datasets:** Daily Minimum Temperatures (univariate), Beijing PM2.5 (multivariate), derived series for DL embeddings, seasonal decomposition + wavelets.
 
-## 1. Resumo
+## 1. Abstract
 
-Jornada de 5 fases em busca do menor MAE na previsão de séries temporais, respondendo: **o que funciona melhor — intuição humana, força bruta estatística (tsfresh) ou algoritmos avançados (Deep Learning)?** O resultado evolui do uni- para o multivariado e para representações de sinais: a vitória final fica com a combinação **Features Manuais + Wavelets (DWT)** com MAE **54,19**; na Fase 5, os **time embeddings (seno/cosseno)** + **Optuna** melhoraram todas as bases isoladas, mas — paradoxalmente — pioraram o modelo híbrido por underfitting induzido pela validação cruzada.
+A 5-phase journey in search of the lowest MAE in time series forecasting, answering: **what works better — human intuition, statistical brute force (tsfresh) or advanced algorithms (Deep Learning)?** The work evolves from univariate to multivariate and to signal representations: the final win goes to the **Manual Features + Wavelets (DWT)** combination with MAE **54.19**; in Phase 5, **time embeddings (sine/cosine)** + **Optuna** improved all isolated feature sets, but — paradoxically — made the hybrid model worse through underfitting induced by cross-validation.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-O objetivo era sistematizar a evolução da engenharia de features de séries temporais em um único pipeline comparável, começando do univariado e chegando a representações avançadas (Deep Learning, wavelets, embeddings circulares, HPO). A cada fase, decidimos a representação de features com base no erro absoluto (MAE) obtido em holdout, verificando se "mais features automáticas" realmente ajuda contra a engenharia manual controlada.
+The objective was to systematize the evolution of time series feature engineering into a single comparable pipeline, starting from univariate and reaching advanced representations (Deep Learning, wavelets, circular embeddings, HPO). At each phase, the feature representation was decided from the absolute error (MAE) obtained on holdout, checking whether "more automatic features" really helps against controlled manual feature engineering.
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **tsfresh:** extração automática em massa de features estatísticas de séries; aqui mostrou queda de performance em series curtas.
-- **LSTM Autoencoder (PyTorch):** aprende uma representação latente comprimida (vetor de 16 dims) que pode ser usada como feature tabular.
-- **Transformada Wavelet Discreta (DWT, `pywt`):** extrair os choques em janelas (7 dias), separando a estrutura de magnitude da tendência/sazonalidade.
-- **Embeddings circulares (Seno/Cosseno):** codificar meses/dias de forma que a semana 52 seja próxima da semana 1.
-- **Optuna (TPE)** + `TimeSeriesSplit` (validação cross-temporal) como protocolo de Avaliação.
+- **tsfresh:** mass automatic extraction of statistical features from series; here it showed a performance drop on short series.
+- **LSTM Autoencoder (PyTorch):** learns a compressed latent representation (16-dim vector) that can be used as a tabular feature.
+- **Discrete Wavelet Transform (DWT, `pywt`):** extracts the shocks in windows (7 days), separating the magnitude structure from the trend/seasonality.
+- **Circular embeddings (Sine/Cosine):** encode months/days so that week 52 is close to week 1.
+- **Optuna (TPE)** + `TimeSeriesSplit` (cross-temporal validation) as the Evaluation protocol.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
-| Fase | Série | Abordagens comparadas |
+### 4.1 Data
+| Phase | Series | Approaches compared |
 |---|---|---|
-| 1 | Daily Minimum Temperatures (univariado) | tsfresh (automático) vs Manual FE |
-| 2 | Beijing PM2.5 (multivariado) | tsfresh (automático, 313 features) vs Manual FE (média móvel) |
-| 3 | Séries da Fase 2 + representação latente | Manual, DL Embeddings, Híbrido |
-| 4 | Séries da Fase 2 + decomposição | Manual + Trend/Sazonalidade → Wavelet (DWT) |
-| 5 | Fase 4 com time embeddings | 4 abordagens (Manual, Decomp. Sazonal, Wavelets, Híbrido Total) + Optuna |
+| 1 | Daily Minimum Temperatures (univariate) | tsfresh (automated) vs Manual FE |
+| 2 | Beijing PM2.5 (multivariate) | tsfresh (automated, 313 features) vs Manual FE (moving average) |
+| 3 | Phase 2 series + latent representation | Manual, DL Embeddings, Hybrid |
+| 4 | Phase 2 series + decomposition | Manual + Trend/Seasonality → Wavelet (DWT) |
+| 5 | Phase 4 with time embeddings | 4 approaches (Manual, Seasonal Decomp., Wavelets, Full Hybrid) + Optuna |
 
-### 4.2 Pré-processamento
-- Decomposição de sinal em Trend/Seasonality antes da extração de wavelets.
-- Lags, rolling windows (média móvel), embeddings circulares (seno/cosseno) para mês/dia.
-- Transformadas DWT sobre janelas de 7 dias para capturar choques.
+### 4.2 Preprocessing
+- Signal decomposition into Trend/Seasonality before wavelet extraction.
+- Lags, rolling windows (moving average), circular embeddings (sine/cosine) for month/day.
+- DWT transforms over 7-day windows to capture shocks.
 
-### 4.3 Métodos comparados (Fase 5)
-| Abordagem | Descrição |
+### 4.3 Compared methods (Phase 5)
+| Approach | Description |
 |---|---|
-| 1. Apenas Manual FE | Features manuais clássicas (lags, média móvel) |
-| 2. Apenas Decomp. Sazonal | Trend + sazonalidade separadas, sem wavelets |
-| 3. Apenas Wavelets (DWT) | Decomposição sazonal + DWT, sem features manuais |
-| 4. Híbrido Total | Manual + Decomp. Sazonal + Wavelets (62 features) |
+| 1. Manual FE only | Classic manual features (lags, moving average) |
+| 2. Seasonal Decomp. only | Trend + seasonality separated, no wavelets |
+| 3. Wavelets only (DWT) | Seasonal decomposition + DWT, no manual features |
+| 4. Full Hybrid | Manual + Seasonal Decomp. + Wavelets (62 features) |
 
-### 4.4 Avaliação
-- Indicador: **MAE** em holdout temporal; validação cruzada `TimeSeriesSplit` (3 folds) no Optuna.
-- Optuna executou testes de hiperparâmetros (Random Forest: `n_estimators`, `max_depth`, `min_samples_split`).
+### 4.4 Evaluation
+- Metric: **MAE** on a time-based holdout; `TimeSeriesSplit` cross-validation (3 folds) in Optuna.
+- Optuna ran hyperparameter searches (Random Forest: `n_estimators`, `max_depth`, `min_samples_split`).
 
-### 4.5 Reprodução
-Notebooks (na própria pasta, já contêm os outputs):
-- `automated_vs_manual_fe_ts.ipynb` → Fase 1
-- `multivariate_auto_vs_manual_fe.ipynb` → Fase 2
-- `dl_embeddings_fe_ts.ipynb` → Fase 3
-- `advanced_signal_fe_ts.ipynb` → Fase 4
-- `hpo_time_embeddings_ts.ipynb` → Fase 5
+### 4.5 Reproduction
+Notebooks (in this same folder, outputs already included):
+- `automated_vs_manual_fe_ts.ipynb` → Phase 1
+- `multivariate_auto_vs_manual_fe.ipynb` → Phase 2
+- `dl_embeddings_fe_ts.ipynb` → Phase 3
+- `advanced_signal_fe_ts.ipynb` → Phase 4
+- `hpo_time_embeddings_ts.ipynb` → Phase 5
 
 ```powershell
-# Execução opcional (re-executa o notebook no lugar):
+# Optional run (re-executes the notebook in place):
 jupyter nbconvert --to notebook --execute hpo_time_embeddings_ts.ipynb --inplace
 ```
 
-Padrão de saída: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+Output pattern: `experiments/artifacts/<experiment>_<timestamp>_<sha>/`.
 
-## 5. Resultados
+## 5. Results
 
-| Fase | Vencedor (Fase) | MAE | Detalhes |
+| Phase | Winner (Phase) | MAE | Details |
 |---|---|---|---|
-| 1 | Random Forest + Manual FE | **1,76** | tsfresh: centenas de features, ~30 s, MAE 1,79 |
-| 2 | Random Forest + Manual FE | **46,07** | tsfresh: 313 features destruindo performance; média móvel vence |
-| 3 | Híbrido (Manual + DL) | **57,24** | LSTM Autoencoder comprime em vetor latente de 16 dims |
-| 4 | Híbrido Total (Manual + Wavelets) | **54,19** | DWT extrai choques em janelas de 7 dias |
+| 1 | Random Forest + Manual FE | **1.76** | tsfresh: hundreds of features, ~30 s, MAE 1.79 |
+| 2 | Random Forest + Manual FE | **46.07** | tsfresh: 313 features destroying performance; moving average wins |
+| 3 | Hybrid (Manual + DL) | **57.24** | LSTM Autoencoder compresses into a 16-dim latent vector |
+| 4 | Full Hybrid (Manual + Wavelets) | **54.19** | DWT extracts shocks in 7-day windows |
 
-### Duelo Final (Fase 5 — abordagens com Optuna vs Fase 4)
+### Final Duel (Phase 5 — approaches with Optuna vs Phase 4)
 
-| Abordagem (Fase 5) | Best Params (Optuna) | MAE Fase 5 (com Optuna) | MAE Fase 4 (sem Optuna) |
+| Approach (Phase 5) | Best Params (Optuna) | MAE Phase 5 (with Optuna) | MAE Phase 4 (without Optuna) |
 |---|---|---|---|
-| **3. Apenas Wavelets (DWT)** | `n_est: 50, depth: 5, min_split: 5` | **56,74** | 57,23 |
-| **1. Apenas Manual FE** | `n_est: 200, depth: 5, min_split: 5` | **57,14** | 57,88 |
-| **2. Apenas Decomp. Sazonal** | `n_est: 200, depth: 5, min_split: 4` | **59,63** | 60,82 |
-| **4. Híbrido Total (Manual + Sinais)** | `n_est: 150, depth: 5, min_split: 2` | 55,25 | **54,19** (sem HPO vence) |
+| **3. Wavelets only (DWT)** | `n_est: 50, depth: 5, min_split: 5` | **56.74** | 57.23 |
+| **1. Manual FE only** | `n_est: 200, depth: 5, min_split: 5` | **57.14** | 57.88 |
+| **2. Seasonal Decomp. only** | `n_est: 200, depth: 5, min_split: 4` | **59.63** | 60.82 |
+| **4. Full Hybrid (Manual + Signals)** | `n_est: 150, depth: 5, min_split: 2` | 55.25 | **54.19** (wins without HPO) |
 
 > [!WARNING]
-> A otimização ajudou os modelos simples a não sofrer overfitting; na validação cruzada do Optuna, porém, impôs regularização dura ao modelo Híbrido, que passou a sofrer underfitting no teste final.
+> The optimization kept the simple models from overfitting; in Optuna's cross-validation, however, it imposed hard regularization on the Hybrid model, which then underfit on the final test.
 
-## 6. Discussão
+## 6. Discussion
 
-- **tsfresh não é bala de prata:** produz centenas de features (313 no PM2.5), explode a dimensão e piora o MAE (1,79 vs 1,76; destruição completa no PM2.5). Features automáticas sem seleção regularizada não ajudam séries curtas e degradam a informação útil.
-- **Deep Learning e wavelets:** o embedding latente do LSTM Autoencoder (16 dims) é eficaz mas inferior à representação de sinais explícitos; o DWT (54,19) superou toda tática anterior, capturando os choques em janelas de 7 dias que features estáticas perdem.
-- **Paradoxo da validação cruzada:** o Optuna escolheu `max_depth = 5` para abaixar o erro médio nos 3-folds, o que é suficiente para as bases de ~20 features, mas provoca underfitting no Híbrido de 62 features, que precisa de árvores mais profundas para relacionar média móvel e choque da wavelet (perdeu 54,19 → 55,25).
-- **Time embeddings + HPO salvam os modelos simples:** representações seno/cosseno + Optuna melhoraram todas as bases isoladas (Wavelet 57,23→56,74; Manual 57,88→57,14), provando que a regularização (o `max_depth` escolhido) evita decorar o passado e melhora a generalização.
+- **tsfresh is not a silver bullet:** it produces hundreds of features (313 on PM2.5), explodes the dimensionality and worsens the MAE (1.79 vs 1.76; complete destruction on PM2.5). Automatic features without regularized selection do not help short series and degrade the useful information.
+- **Deep Learning and wavelets:** the latent embedding of the LSTM Autoencoder (16 dims) is effective but inferior to explicit signal representations; DWT (54.19) beat every previous tactic, capturing the shocks in 7-day windows that static features lose.
+- **Cross-validation paradox:** Optuna chose `max_depth = 5` to lower the mean error over the 3 folds, which is enough for the ~20-feature sets but causes underfitting in the 62-feature Hybrid, which needs deeper trees to relate the moving average and the wavelet shock (lost 54.19 → 55.25).
+- **Time embeddings + HPO rescue the simple models:** sine/cosine representations + Optuna improved all isolated feature sets (Wavelet 57.23→56.74; Manual 57.88→57.14), showing that regularization (the chosen `max_depth`) avoids memorizing the past and improves generalization.
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- **Use wavelets (DWT) + time embeddings (seno/cosseno) como coração da engenharia de features em séries temporais**; foi a coroação do projeto. Ciência de sinais > algoritmos de "caixa preta".
-- **Não dependa do tsfresh como extração automática** sem controle de dimensionalidade/regularização.
-- **Se for treinar o Híbrido Total (62 features), não restrinja `max_depth`** (nem use `min_samples_split` muito alto) — ou use **muito mais de 10 trials de Optuna** para que o otimizador descubra que a complexidade da base exige árvores mais profundas.
-- Para bases simples, Optuna + time embeddings servem bem e garantem boa generalização no futuro.
+- **Use wavelets (DWT) + time embeddings (sine/cosine) as the heart of feature engineering for time series**; this was the crowning result of the project. Signal science > "black box" algorithms.
+- **Do not rely on tsfresh as automatic extraction** without dimensionality/regularization control.
+- **If you train the Full Hybrid (62 features), do not restrict `max_depth`** (nor use a very high `min_samples_split`) — or use **far more than 10 Optuna trials** so the optimizer discovers that the complexity of the feature set requires deeper trees.
+- For simple feature sets, Optuna + time embeddings work well and ensure good generalization in the future.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- [`automated_vs_manual_fe_ts.ipynb`](automated_vs_manual_fe_ts.ipynb) — Fase 1 (univariado).
-- [`multivariate_auto_vs_manual_fe.ipynb`](multivariate_auto_vs_manual_fe.ipynb) — Fase 2 (PM2.5).
-- [`dl_embeddings_fe_ts.ipynb`](dl_embeddings_fe_ts.ipynb) — Fase 3 (LSTM Autoencoder).
-- [`advanced_signal_fe_ts.ipynb`](advanced_signal_fe_ts.ipynb) — Fase 4 (DWT).
-- [`hpo_time_embeddings_ts.ipynb`](hpo_time_embeddings_ts.ipynb) — Fase 5 (Optuna + time embeddings).
+- [`automated_vs_manual_fe_ts.ipynb`](automated_vs_manual_fe_ts.ipynb) — Phase 1 (univariate).
+- [`multivariate_auto_vs_manual_fe.ipynb`](multivariate_auto_vs_manual_fe.ipynb) — Phase 2 (PM2.5).
+- [`dl_embeddings_fe_ts.ipynb`](dl_embeddings_fe_ts.ipynb) — Phase 3 (LSTM Autoencoder).
+- [`advanced_signal_fe_ts.ipynb`](advanced_signal_fe_ts.ipynb) — Phase 4 (DWT).
+- [`hpo_time_embeddings_ts.ipynb`](hpo_time_embeddings_ts.ipynb) — Phase 5 (Optuna + time embeddings).
 
-Referências: Christ et al., "Time Series FeatuRe Extraction on basis of Scalable Hypothesis tests (tsfresh)", 2018 (breve); planejados: uso de `pywt` (wavelets).
+References: Christ et al., "Time Series FeatuRe Extraction on basis of Scalable Hypothesis tests (tsfresh)", 2018 (brief); planned: use of `pywt` (wavelets).

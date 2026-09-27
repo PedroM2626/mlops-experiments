@@ -18,19 +18,19 @@ def main():
         'produtos': os.path.join(base_dir, 'data', 'raw', 'dim_produtos.parquet')
     }
 
-    logging.info("Inicializando Pipeline Sktime...")
+    logging.info("Initializing Sktime pipeline...")
     pipeline = SalesForecasterSktime()
     
-    # 1. Carregar dados
+    # 1. Load data
     df_agregado = pipeline.load_data(file_paths)
     
-    # 2. Treinamento
-    # Subamostragem drástica para testar OOM crash no Sktime
+    # 2. Training
+    # Drastic subsampling to test the OOM crash in Sktime
     df_agregado = df_agregado.head(50000)
     
-    # Para fins de comparacao rapida sem perder horas de otimizacao, 
-    # vamos usar n_trials=5. O foco principal é medir o tempo do Feature Engineering e se o modelo quebra
-    logging.info("Iniciando Treinamento com Sktime WindowSummarizer (50k registros)")
+    # For a quick comparison without spending hours on optimization,
+    # we use n_trials=5. The main focus is to measure the Feature Engineering time and whether the model breaks
+    logging.info("Starting Training with Sktime WindowSummarizer (50k records)")
     
     start_total = time.time()
     pipeline.train(df_agregado, validation_split_week=48, use_optuna=True, n_trials=20)
@@ -39,11 +39,11 @@ def main():
     mae = pipeline.performance_metrics.get('validation_mae', -1)
     
     print("\n" + "="*50)
-    print(" 🚀 RESULTADOS DO SKTIME BENCHMARK (SALES FORECAST)")
+    print(" 🚀 SKTIME BENCHMARK RESULTS (SALES FORECAST)")
     print("="*50)
-    print(f"Tempo total de FE: {pipeline.fe_time:.2f} segundos")
-    print(f"Tempo total de Treinamento: {total_time - pipeline.fe_time:.2f} segundos")
-    print(f"MAE no Teste (Semana 48+): {mae:.4f}")
+    print(f"Total FE time: {pipeline.fe_time:.2f} seconds")
+    print(f"Total training time: {total_time - pipeline.fe_time:.2f} seconds")
+    print(f"MAE on Test (Week 48+): {mae:.4f}")
     print("="*50)
 
 if __name__ == "__main__":

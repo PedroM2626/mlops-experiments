@@ -1,14 +1,14 @@
-"""Cold-start com metadados: prever series novas SEM historico.
+"""Cold-start with metadata: forecast new series WITHOUT history.
 
-Trabalho futuro do README do sales-forecast: embeddings de series exigiam
-historico (vazamento/causalidade). Aqui a via e outra — so metadados
-categoricos (pdv/produto) + calendario, sem nenhum lag. Split por COMBO
-(pdv x produto): 80% dos combos treinam, 20% sao "novos" (cold).
+Future work from the sales-forecast README: series embeddings required
+history (leakage/causality). Here the approach is different — only
+categorical metadata (pdv/produto) + calendar, with no lags at all. Split by COMBO
+(pdv x produto): 80% of the combos train, 20% are "new" (cold).
 
-Baselines: media global, media por (categoria_pdv, categoria).
-Modelo: LightGBM com categoricas nativas, objective L1 (MAE).
+Baselines: global mean, mean per (categoria_pdv, categoria).
+Model: LightGBM with native categoricals, objective L1 (MAE).
 
-Salva metricas em `experiments/artifacts/sales_coldstart_<ts>/metrics.json`.
+Saves metrics in `experiments/artifacts/sales_coldstart_<ts>/metrics.json`.
 """
 from __future__ import annotations
 
@@ -36,8 +36,8 @@ def load_panel():
     prods = pd.read_parquet(DATA / "dim_produtos.parquet")
     df = fato.merge(pdvs, left_on="internal_store_id", right_on="pdv", how="left")
     df = df.merge(prods, left_on="internal_product_id", right_on="produto", how="left")
-    assert df["categoria"].notna().mean() > 0.9, "join de produtos falhou"
-    assert df["categoria_pdv"].notna().mean() > 0.9, "join de pdvs falhou"
+    assert df["categoria"].notna().mean() > 0.9, "the products join failed"
+    assert df["categoria_pdv"].notna().mean() > 0.9, "the pdvs join failed"
     dt = pd.to_datetime(df["transaction_date"])
     iso = dt.dt.isocalendar()
     df["semana"] = iso.week.astype(int)
@@ -61,13 +61,13 @@ def main() -> int:
     tr_combos, cold_combos = train_test_split(combos, test_size=0.2, random_state=SEED)
     tr = panel[panel["combo"].isin(tr_combos)].copy()
     te = panel[panel["combo"].isin(cold_combos)].copy()
-    print(f"[cold] combos treino={len(tr_combos)} cold={len(cold_combos)}", flush=True)
+    print(f"[cold] combos train={len(tr_combos)} cold={len(cold_combos)}", flush=True)
 
     feats = CATS + ["sem_sin", "sem_cos", "preco", "semana"]
     for c in CATS:
         tr[c] = tr[c].astype("category")
         te[c] = pd.Categorical(te[c], categories=tr[c].cat.categories)
-    # categorias nao vistas no cold -> NaN -> categoria 'desconhecida'
+    # categories unseen in the cold split -> NaN -> 'unknown' category
     for c in CATS:
         if te[c].isna().any():
             tr[c] = tr[c].cat.add_categories("__novo__")
@@ -106,7 +106,7 @@ def main() -> int:
     (d / "metrics.json").write_text(json.dumps(res, indent=2, ensure_ascii=False),
                                     encoding="utf-8")
     print(json.dumps(res, indent=2, ensure_ascii=False))
-    print("artefatos em", d)
+    print("artifacts in", d)
     return 0
 
 

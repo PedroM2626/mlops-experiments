@@ -2,18 +2,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Instala bibliotecas do sistema necessárias para compilar dependências (como lightgbm)
+# Install the system libraries required to compile dependencies (such as lightgbm)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia os requirements e instala
+# Copy the requirements file and install them
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o restante do código para o container
+# Copy the rest of the code into the container
 COPY . .
 
-# Comando padrão
+# Default command
 CMD ["python", "scripts/train.py", "--n_trials", "20"]

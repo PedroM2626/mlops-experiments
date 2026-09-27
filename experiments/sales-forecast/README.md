@@ -1,106 +1,106 @@
-# Modelo Preditivo de Vendas - Hackathon 2025
+# Sales Forecasting Model - Hackathon 2025
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Completo-success)
 ![MLflow](https://img.shields.io/badge/MLOps-MLflow-0194E2.svg)
 
-Este repositório contém a solução completa para o desafio de previsão de vendas do Hackathon 2025. O projeto implementa um pipeline de Machine Learning de ponta para prever a demanda semanal de produtos por ponto de venda, utilizando um modelo Gradient Boosting (LightGBM) meticulosamente otimizado para máxima precisão e robustez.
+This repository contains the complete solution for the sales forecasting challenge of Hackathon 2025. The project implements a state-of-the-art Machine Learning pipeline to forecast weekly product demand per store, using a Gradient Boosting model (LightGBM) meticulously optimized for maximum accuracy and robustness.
 
 ---
 
-## Objetivo do Projeto
+## Project Objective
 
-O objetivo principal deste projeto é desenvolver um sistema de previsão de vendas (`forecast`) para as primeiras cinco semanas de 2023, com base no histórico de transações de 2022. A solução visa otimizar a reposição de estoque, minimizando rupturas e excessos, e fornecendo uma base de dados sólida para a tomada de decisões estratégicas da empresa.
-
----
-
-## Metodologia Aplicada (Arquitetura V2.2 com MLOps)
-
-A solução foi desenvolvida de forma iterativa, evoluindo de um modelo base para um pipeline sofisticado que incorpora as melhores práticas da indústria de Data Science:
-
-1.  **Engenharia de Features Abrangente (32 features):** Foram criadas 32 features a partir dos dados brutos, explorando exaustivamente todas as tabelas dimensionais disponíveis:
-    * **Features Categóricas Dimensionais (10):** `pdv`, `sku`, `categoria_pdv`, `premise` (On/Off), `categoria`, `subcategoria`, `tipos`, `label`, `marca`, `fabricante`.
-    * **Features Cíclicas e de Calendário (4):** `semana`, `trimestre`, `seno_semana`, `cosseno_semana`.
-    * **Features de Lag Temporal (7):** Lags de quantidade em 1, 2, 3, 4, 12 e 52 semanas, e lag do preço médio unitário.
-    * **Features de Tendência (2):** Diferença de lags consecutivos (`lag_diff_1`) para captura de momentum de curto prazo, e coeficiente de variação (`coef_variacao_4`) para volatilidade relativa.
-    * **Features de Janela Móvel (11):** Média, desvio padrão, máximo e mínimo móveis em janelas de 4, 12 e 52 semanas, com `min_periods=1` para evitar perda de dados.
-    * **Feature de Valor Monetário (1):** `preco_medio_unitario` -- receita bruta dividida pela quantidade vendida, capturando o posicionamento de preço do produto.
-
-2.  **Rastreabilidade MLOps (MLflow):** Todo o ciclo de treinamento é registrado no MLflow, incluindo:
-    * Hiperparâmetros individuais (tipo do modelo, learning rate, num_leaves, etc.).
-    * Métricas de performance (MAE, tempo de treinamento, tamanho do dataset).
-    * Artefatos (modelo `.joblib`, gráfico de feature importance `.png`).
-
-3.  **Otimização Bayesiana com Early Pruning (Optuna):** Busca Bayesiana com `MedianPruner` e `LightGBMPruningCallback`. Trials não promissores são abortados após 5 iterações, economizando drasticamente tempo computacional. Na V2.2, 20 dos 30 trials foram podados automaticamente, completando a busca em ~6 minutos (vs ~6 minutos do treinamento final).
-
-4.  **Conteinerização e Testes Automatizados:** Pipeline empacotado em Docker e coberto por 10 testes unitários via Pytest, abrangendo: engenharia de features, treinamento, previsão, persistência (round-trip) e geração de gráficos.
-
-5.  **Estratégia de Submissão Preditiva:** O arquivo final respeita o limite de 1.5 milhão de linhas selecionando as combinações (PDV, Produto) com base no maior potencial de vendas futuras previsto pelo próprio modelo otimizado.
+The main objective of this project is to develop a sales forecasting system (`forecast`) for the first five weeks of 2023, based on the 2022 transaction history. The solution aims to optimize stock replenishment, minimizing stockouts and excess, and to provide a solid data basis for the company's strategic decision-making.
 
 ---
 
-## Estrutura do Repositório
+## Applied Methodology (V2.2 Architecture with MLOps)
 
-O projeto está organizado da seguinte forma para garantir modularidade e clareza:
+The solution was developed iteratively, evolving from a base model into a sophisticated pipeline that incorporates best practices from the Data Science industry:
+
+1.  **Comprehensive Feature Engineering (32 features):** 32 features were created from the raw data, exhaustively exploring all available dimensional tables:
+    * **Dimensional Categorical Features (10):** `pdv`, `sku`, `categoria_pdv`, `premise` (On/Off), `categoria`, `subcategoria`, `tipos`, `label`, `marca`, `fabricante`.
+    * **Cyclic and Calendar Features (4):** `semana`, `trimestre`, `seno_semana`, `cosseno_semana`.
+    * **Temporal Lag Features (7):** Quantity lags at 1, 2, 3, 4, 12 and 52 weeks, and a lag of the average unit price.
+    * **Trend Features (2):** Difference between consecutive lags (`lag_diff_1`) to capture short-term momentum, and the coefficient of variation (`coef_variacao_4`) for relative volatility.
+    * **Rolling Window Features (11):** Moving mean, standard deviation, maximum and minimum over windows of 4, 12 and 52 weeks, with `min_periods=1` to avoid data loss.
+    * **Monetary Value Feature (1):** `preco_medio_unitario` -- gross revenue divided by quantity sold, capturing the product's price positioning.
+
+2.  **MLOps Traceability (MLflow):** The entire training cycle is logged in MLflow, including:
+    * Individual hyperparameters (model type, learning rate, num_leaves, etc.).
+    * Performance metrics (MAE, training time, dataset size).
+    * Artifacts (`.joblib` model, feature importance chart `.png`).
+
+3.  **Bayesian Optimization with Early Pruning (Optuna):** Bayesian search with `MedianPruner` and `LightGBMPruningCallback`. Unpromising trials are aborted after 5 iterations, drastically saving computational time. In V2.2, 20 of the 30 trials were pruned automatically, completing the search in ~6 minutes (vs ~6 minutes of the final training).
+
+4.  **Containerization and Automated Tests:** Pipeline packaged in Docker and covered by 10 unit tests via Pytest, covering: feature engineering, training, forecasting, persistence (round-trip) and chart generation.
+
+5.  **Predictive Submission Strategy:** The final file respects the 1.5 million row limit by selecting the (store, product) combinations with the highest future sales potential predicted by the optimized model itself.
+
+---
+
+## Repository Structure
+
+The project is organized as follows to guarantee modularity and clarity:
 
 ```
 /
-├── artifacts/                  # Modelo treinado (.joblib) e gráficos (.png)
-├── mlruns/                     # Metadados e logs do MLflow
+├── artifacts/                  # Trained model (.joblib) and charts (.png)
+├── mlruns/                     # MLflow metadata and logs
 ├── data/
-│   ├── raw/                    # Dados brutos de entrada (.parquet)
-│   └── processed/              # Previsões finais geradas (.parquet)
+│   ├── raw/                    # Raw input data (.parquet)
+│   └── processed/              # Generated final forecasts (.parquet)
 ├── scripts/
-│   ├── forecaster_class.py     # Classe principal do pipeline (SalesForecasterV2)
-│   ├── train.py                # Script de treinamento com Optuna e MLflow
-│   ├── predict.py              # Script de geração de previsões
-│   ├── ae_valid.py             # Exp. AE: baseline vs embeddings naive
-│   ├── ae_valid2.py            # Exp. AE: baseline vs naive vs causal
-│   └── ae_cluster.py           # Exp. AE: clustering de séries (k=3,5,8)
-├── ae_embedding_experiments.ipynb  # Documentação dos experimentos AE
+│   ├── forecaster_class.py     # Main pipeline class (SalesForecasterV2)
+│   ├── train.py                # Training script with Optuna and MLflow
+│   ├── predict.py              # Forecast generation script
+│   ├── ae_valid.py             # AE exp.: baseline vs naive embeddings
+│   ├── ae_valid2.py            # AE exp.: baseline vs naive vs causal
+│   └── ae_cluster.py           # AE exp.: clustering of series (k=3,5,8)
+├── ae_embedding_experiments.ipynb  # Documentation of the AE experiments
 ├── tests/
-│   └── test_forecaster.py      # 10 testes automatizados com Pytest
-├── Dockerfile                  # Imagem Docker para isolamento de ambiente
-└── requirements.txt            # Dependências com versões exatas
+│   └── test_forecaster.py      # 10 automated tests with Pytest
+├── Dockerfile                  # Docker image for environment isolation
+└── requirements.txt            # Dependencies with exact versions
 ```
 
 ---
 
-## Como Executar o Pipeline
+## How to Run the Pipeline
 
-O processo é dividido em duas etapas principais: treinamento e previsão. Execute os scripts a partir do terminal, na pasta raiz do projeto.
+The process is divided into two main stages: training and forecasting. Run the scripts from the terminal, in the project root folder.
 
-**1. Instalar Dependências:**
+**1. Install Dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-**2. Rodar Testes Automatizados:**
+**2. Run Automated Tests:**
 ```bash
 pytest tests/ -v
 ```
 
-**3. Treinar o Modelo:**
+**3. Train the Model:**
 ```bash
-# Treine o LightGBM com Optuna (30 trials com Pruning)
+# Train the LightGBM model with Optuna (30 trials with Pruning)
 python scripts/train.py --n_trials 30
 ```
-Ao final, o arquivo `sales_forecaster_v2_final.joblib` e o gráfico `feature_importance.png` serão criados na pasta `artifacts/`.
+At the end, the `sales_forecaster_v2_final.joblib` file and the `feature_importance.png` chart will be created in the `artifacts/` folder.
 
-**4. Gerar o Arquivo de Submissão Final:**
+**4. Generate the Final Submission File:**
 
-* **Para gerar o arquivo de SUBMISSÃO (limitado a 1.5M de linhas):**
+* **To generate the SUBMISSION file (limited to 1.5M rows):**
     ```bash
     python scripts/predict.py
     ```
 
-* **Para gerar a previsão COMPLETA (Opcional):**
+* **To generate the COMPLETE forecast (Optional):**
     ```bash
     python scripts/predict.py --full_forecast
     ```
 
-**5. (Opcional) Executar via Docker:**
+**5. (Optional) Run via Docker:**
 ```bash
 docker build -t sales-forecaster .
 docker run -v $(pwd)/data:/app/data -v $(pwd)/artifacts:/app/artifacts sales-forecaster
@@ -108,130 +108,130 @@ docker run -v $(pwd)/data:/app/data -v $(pwd)/artifacts:/app/artifacts sales-for
 
 ---
 
-## Resultados e Comparativo Acadêmico (V2 vs V2.1 vs V2.2)
+## Results and Academic Comparison (V2 vs V2.1 vs V2.2)
 
-O modelo foi avaliado em um conjunto de validação hold-out temporal (semanas >= 48 de 2022), simulando a previsão de dados futuros desconhecidos. A tabela abaixo documenta a evolução quantitativa ao longo das três versões da arquitetura:
+The model was evaluated on a temporal hold-out validation set (weeks >= 48 of 2022), simulating the forecast of unknown future data. The table below documents the quantitative evolution across the three versions of the architecture:
 
-| Métrica / Arquitetura | V2 (Base) | V2.1 (MLOps) | V2.2 (Atual) |
+| Metric / Architecture | V2 (Base) | V2.1 (MLOps) | V2.2 (Current) |
 |---|---|---|---|
 | **MAE (Loss)** | 2.5769 | 2.2340 | **1.4218** |
-| **Redução relativa do MAE** | -- | -13.3% vs V2 | **-44.8% vs V2** |
-| **Redução incremental** | -- | -- | **-36.3% vs V2.1** |
-| **Número de features** | ~21 | 23 | **32** |
-| **Features categóricas** | 2 (pdv, sku) | 5 (+categ, marca, categ_pdv) | **10** (+subcateg, tipos, label, premise, fabricante) |
-| **Features de preço** | 0 | 0 | **2** (preco_medio_unitario, lag_1_preco) |
-| **Features de tendência** | 0 | 0 | **2** (lag_diff_1, coef_variacao_4) |
-| **n_estimators (final)** | 1000 | 500 | **1000** (com early_stopping=50) |
-| **Tempo de treinamento** | Horas | ~10 min | **~12 min** |
-| **Trials Optuna** | 100 (sem pruning) | 20 (com pruning) | **30** (com pruning, 20 podados) |
-| **Tracking MLflow** | Não | Básico | **Completo** (params, metrics, artifacts, plots) |
-| **Testes automatizados** | 0 | 2 | **10** |
+| **Relative MAE reduction** | -- | -13.3% vs V2 | **-44.8% vs V2** |
+| **Incremental reduction** | -- | -- | **-36.3% vs V2.1** |
+| **Number of features** | ~21 | 23 | **32** |
+| **Categorical features** | 2 (pdv, sku) | 5 (+categ, marca, categ_pdv) | **10** (+subcateg, tipos, label, premise, fabricante) |
+| **Price features** | 0 | 0 | **2** (preco_medio_unitario, lag_1_preco) |
+| **Trend features** | 0 | 0 | **2** (lag_diff_1, coef_variacao_4) |
+| **n_estimators (final)** | 1000 | 500 | **1000** (with early_stopping=50) |
+| **Training time** | Hours | ~10 min | **~12 min** |
+| **Optuna trials** | 100 (no pruning) | 20 (with pruning) | **30** (with pruning, 20 pruned) |
+| **MLflow tracking** | No | Basic | **Complete** (params, metrics, artifacts, plots) |
+| **Automated tests** | 0 | 2 | **10** |
 
-### Análise dos Fatores de Melhoria
+### Analysis of the Improvement Factors
 
-A redução de **44.8%** no MAE entre V2 e V2.2 é atribuída aos seguintes fatores, em ordem estimada de impacto:
+The **44.8%** MAE reduction between V2 and V2.2 is attributed to the following factors, in estimated order of impact:
 
-1. **Features categóricas dimensionais completas** (~40% do ganho): A inclusão de `subcategoria` (42 valores), `tipos` (22 valores), `label` (14 valores), `premise` (On/Off) e `fabricante` (343 valores) permitiu ao LightGBM aprender padrões de demanda específicos por segmento de produto e tipo de ponto de venda. O LightGBM trata categóricas nativamente via histogram-based splitting, evitando a necessidade de one-hot encoding.
+1. **Complete dimensional categorical features** (~40% of the gain): the inclusion of `subcategoria` (42 values), `tipos` (22 values), `label` (14 values), `premise` (On/Off) and `fabricante` (343 values) allowed LightGBM to learn demand patterns specific to each product segment and store type. LightGBM handles categoricals natively via histogram-based splitting, avoiding the need for one-hot encoding.
 
-2. **Feature de preço médio unitário** (~25% do ganho): A variável `preco_medio_unitario` (gross_value / quantity) captura o posicionamento de preço do produto, um forte preditor de volume de vendas segundo a teoria de elasticidade-preço da demanda.
+2. **Average unit price feature** (~25% of the gain): the `preco_medio_unitario` variable (gross_value / quantity) captures the product's price positioning, a strong predictor of sales volume according to the price elasticity of demand theory.
 
-3. **Features de tendência e volatilidade** (~20% do ganho): `lag_diff_1` (momentum de curto prazo) e `coef_variacao_4` (volatilidade relativa) fornecem ao modelo informação sobre a direção e estabilidade da demanda recente, complementando as features de nível (lags e médias móveis).
+3. **Trend and volatility features** (~20% of the gain): `lag_diff_1` (short-term momentum) and `coef_variacao_4` (relative volatility) give the model information about the direction and stability of recent demand, complementing the level features (lags and moving averages).
 
-4. **Espaço de busca expandido do Optuna** (~15% do ganho): A inclusão de `min_split_gain` como hiperparâmetro e o aumento do intervalo de `n_estimators` (200-800) e `max_depth` (5-15) permitiram ao Optuna encontrar configurações mais adequadas ao novo espaço de features.
+4. **Expanded Optuna search space** (~15% of the gain): the inclusion of `min_split_gain` as a hyperparameter and the wider range of `n_estimators` (200-800) and `max_depth` (5-15) allowed Optuna to find configurations better suited to the new feature space.
 
-### O Experimento Frustrado da Transformação Logarítmica (log1p)
+### The Failed Experiment with the Logarithmic Transformation (log1p)
 
-Durante os experimentos rumo à V2.3, testamos a aplicação da transformação `log1p` (logaritmo natural de 1 + x) no `target` (`quantidade`), uma técnica comum para dados extremamente assimétricos (mediana=2, mas max>90000). A ideia era estabilizar o gradiente.
+During the experiments toward V2.3, we tested applying the `log1p` transformation (natural logarithm of 1 + x) to the `target` (`quantidade`), a common technique for extremely skewed data (median=2, but max>90000). The idea was to stabilize the gradient.
 
-Contudo, ao avaliar o modelo na escala original (via `expm1`), observamos que o MAE saltou drasticamente (piorou) de ~1.42 para **2.7094**. 
-**Por que isso acontece?** Ao otimizar `regression_l1` (MAE) sobre `log(y)`, o modelo minimiza essencialmente o *Erro Percentual* (MAPE). Isso faz com que o modelo seja extremamente conservador, punindo desvios em vendas pequenas, mas subestimando as vendas grandes (ex: errar de 1000 para 900 gera um desvio de log pequeno, mas um desvio absoluto gigante de 100). Como a métrica oficial é MAE absoluto, essa transformação foi testada, mapeada e deliberadamente **excluída** da solução final. A flag `use_log_target=False` garante que o modelo treine sempre na escala original.
+However, when evaluating the model on the original scale (via `expm1`), we observed that the MAE jumped drastically (worsened) from ~1.42 to **2.7094**. 
+**Why does this happen?** When optimizing `regression_l1` (MAE) over `log(y)`, the model essentially minimizes the *Percentage Error* (MAPE). This makes the model extremely conservative, punishing deviations on small sales while underestimating large sales (e.g.: an error from 1000 to 900 yields a small log deviation, but a giant absolute deviation of 100). Since the official metric is absolute MAE, this transformation was tested, mapped and deliberately **excluded** from the final solution. The flag `use_log_target=False` guarantees that the model always trains on the original scale.
 
-### O Gargalo do CatBoost e o Foco no LightGBM (V2.2)
+### The CatBoost Bottleneck and the Focus on LightGBM (V2.2)
 
-Foi realizada uma tentativa de escalar o modelo para um Ensemble misturando o **LightGBM** com o **CatBoost** (V2.3). Contudo, a inclusão do CatBoost provou-se inviável para um pipeline sem aceleração de hardware (GPU). Devido ao enorme volume de dados (5.6 milhões de linhas) e à alta cardinalidade de 10 variáveis categóricas (ex: `fabricante` tem 343 categorias únicas), o CatBoost consumiu **mais de 23 GB de RAM** e monopolizou a CPU por mais de 30 horas/core sem sequer terminar o baseline inicial.
+An attempt was made to scale the model into an Ensemble mixing **LightGBM** with **CatBoost** (V2.3). However, including CatBoost proved unfeasible for a pipeline without hardware acceleration (GPU). Due to the enormous data volume (5.6 million rows) and the high cardinality of 10 categorical variables (e.g.: `fabricante` has 343 unique categories), CatBoost consumed **more than 23 GB of RAM** and monopolized the CPU for more than 30 hours/core without even finishing the initial baseline.
 
-Por essa razão, o processo foi abortado em favor do nosso modelo V2.2 (puramente LightGBM). O LightGBM demonstrou uma superioridade assustadora em eficiência computacional neste projeto, conseguindo processar as mesmas categóricas espessas via *histogram-based splitting* e gerar um modelo 100% otimizado com Optuna em apenas **~12 a 15 minutos**, mantendo o estado da arte e salvando infraestrutura.
+For this reason, the process was aborted in favor of our V2.2 model (purely LightGBM). LightGBM demonstrated a daunting superiority in computational efficiency in this project, managing to process the same thick categoricals via *histogram-based splitting* and to generate a 100% optimized model with Optuna in only **~12 to 15 minutes**, keeping the state of the art and saving infrastructure.
 
-### O Embate Arquitetural: Sktime vs Alta Cardinalidade (OOM Crash)
+### The Architectural Showdown: Sktime vs High Cardinality (OOM Crash)
 
-Durante a fase de testes e avaliação de frameworks, conduzimos um experimento rigoroso para comparar a nossa Feature Engineering manual baseada em `pandas.groupby().rolling()` (nativa em C/Cython) contra a solução automatizada `WindowSummarizer` da aclamada biblioteca **`sktime`**.
+During the testing and framework evaluation phase, we conducted a rigorous experiment to compare our manual Feature Engineering based on `pandas.groupby().rolling()` (native in C/Cython) against the automated `WindowSummarizer` solution from the acclaimed **`sktime`** library.
 
-**O Teste de Estresse (Panel Data):**
-O `sktime` foi instanciado utilizando a estrutura de MultiIndex Hierárquico (`['pdv', 'sku', 'semana']`) em nossa base de 5.6 milhões de registros transacionais de 2022. O resultado empírico revelou uma vulnerabilidade crítica da biblioteca para dados de alta cardinalidade:
-1. **Out Of Memory (OOM) Crash:** O método de *split-apply-combine* interno do `sktime` multiplica e infla matrizes em memória ao instanciar cada agrupamento temporal. A execução consumiu 100% da RAM (superando limites do Hypervisor e colapsando o Python instantaneamente) tentando processar as centenas de milhares de combinações de lojas e produtos, provando-se **Não-Escalável**.
-2. **Avaliação de Tempo:** Sob uma subamostragem artificial severa de **apenas 50.000 linhas**, o `sktime` exigiu ~3 minutos para extrair as features. Extrapolando linearmente (embora a complexidade na memória seja superlinear), a base total de 5.6M exigiria mais de 5,5 horas ininterruptas apenas na etapa de Feature Engineering, contrastando com os poucos minutos da nossa solução em Pandas.
-3. **Equivalência Matemática:** Extraindo apenas o "PDV Campeão de Vendas" (uma única loja gerando ~6.554 registros perfeitamente seriais), o embate foi justo. O Sktime foi muito rápido (1.37s) e gerou o mesmo resultado estatístico que o Pandas (MAE de **2.516** no Pandas vs **2.544** no Sktime), provando que o bottleneck é puramente arquitetural (gestão de memória de High-Cardinality Panel Data), e não algorítmico.
+**The Stress Test (Panel Data):**
+`sktime` was instantiated using the hierarchical MultiIndex structure (`['pdv', 'sku', 'semana']`) on our base of 5.6 million transactional records from 2022. The empirical result revealed a critical vulnerability of the library for high-cardinality data:
+1. **Out Of Memory (OOM) Crash:** the internal *split-apply-combine* method of `sktime` multiplies and inflates matrices in memory when instantiating each temporal grouping. The execution consumed 100% of the RAM (exceeding Hypervisor limits and collapsing Python instantly) while trying to process the hundreds of thousands of store and product combinations, proving itself **Not-Scalable**.
+2. **Time Assessment:** under a severe artificial subsampling of **only 50.000 rows**, `sktime` required ~3 minutes to extract the features. Extrapolating linearly (although the memory complexity is superlinear), the full 5.6M base would require more than 5,5 uninterrupted hours just for the Feature Engineering stage, contrasting with the few minutes of our Pandas solution.
+3. **Mathematical Equivalence:** extracting only the "Best-Selling Store" (a single store generating ~6.554 perfectly serial records), the showdown was fair. Sktime was very fast (1.37s) and produced the same statistical result as Pandas (MAE of **2.516** in Pandas vs **2.544** in Sktime), proving that the bottleneck is purely architectural (memory management of High-Cardinality Panel Data), and not algorithmic.
 
-**Conclusão Acadêmica:** O `sktime` é o estado da arte para séries temporais univariadas e de baixa cardinalidade. No entanto, para Dataframes Transacionais massivos e hierárquicos (MLOps em produção corporativa), a rotina otimizada de vetores C/Cython do Pandas que arquitetamos na **V2.2** é indiscutivelmente superior e blindada contra gargalos de hardware.
+**Academic Conclusion:** `sktime` is the state of the art for univariate, low-cardinality time series. However, for massive hierarchical Transactional Dataframes (MLOps in corporate production), the optimized C/Cython vector routine of Pandas that we architected in **V2.2** is unquestionably superior and shielded against hardware bottlenecks.
 
-### Experimentos com Autoencoder (V2.4 - exploração)
+### Autoencoder Experiments (V2.4 - exploration)
 
-Testamos o uso de **Autoencoders (AE)** para extrair representações latentes das séries temporais e usá-las como features ou para clustering. O objetivo era avaliar se uma compressão não-linear do perfil temporal de cada série (pdv, sku) agregaria informação preditiva ao LightGBM. Detalhes completos no notebook `ae_embedding_experiments.ipynb`.
+We tested the use of **Autoencoders (AE)** to extract latent representations of the time series and use them as features or for clustering. The objective was to assess whether a non-linear compression of the temporal profile of each series (pdv, sku) would add predictive information to LightGBM. Full details in the `ae_embedding_experiments.ipynb` notebook.
 
-**Arquitetura do AE:** Matriz de séries (709.667 séries × 47 semanas) de `log1p(quantidade)` → StandardScaler → MLP (47 → 32 → 8 → 32 → 47), bottleneck de 8 dimensões extraído manualmente via forward pass.
+**AE Architecture:** series matrix (709.667 series × 47 weeks) of `log1p(quantidade)` → StandardScaler → MLP (47 → 32 → 8 → 32 → 47), 8-dimensional bottleneck extracted manually via forward pass.
 
-**Resultados (baseline reproduzido: MAE = 1.4247):**
+**Results (reproduced baseline: MAE = 1.4247):**
 
-| Abordagem | MAE val | Δ vs baseline |
+| Approach | MAE val | Δ vs baseline |
 |-----------|---------|---------------|
-| + AE naive (leaky) | 1.7131 | **+20.24%** (pior) |
-| + AE causal | 1.4227 | -0.14% (neutro) |
-| k=3 global+cluster_id | 1.5087 | +5.89% (pior) |
-| k=5 global+cluster_id | 1.4653 | +2.85% (pior) |
-| k=8 global+cluster_id | 1.4786 | +3.78% (pior) |
-| k=3 per-cluster | 1.5188 | +6.60% (pior) |
-| k=5 per-cluster | 1.5276 | +7.22% (pior) |
-| k=8 per-cluster | 1.5376 | +7.92% (pior) |
+| + AE naive (leaky) | 1.7131 | **+20.24%** (worse) |
+| + AE causal | 1.4227 | -0.14% (neutral) |
+| k=3 global+cluster_id | 1.5087 | +5.89% (worse) |
+| k=5 global+cluster_id | 1.4653 | +2.85% (worse) |
+| k=8 global+cluster_id | 1.4786 | +3.78% (worse) |
+| k=3 per-cluster | 1.5188 | +6.60% (worse) |
+| k=5 per-cluster | 1.5276 | +7.22% (worse) |
+| k=8 per-cluster | 1.5376 | +7.92% (worse) |
 
-**Por que não funcionou:**
+**Why it did not work:**
 
-1. **Vazamento de dados na variante naive:** Ao usar o embedding das semanas 1-47 completas como feature para todas as linhas, uma linha da semana 30 passou a "ver" as semanas 31-47 (futuro). O `best_iter` colapsou de ~1000 para 38 — sinal clássico de modelo aprendendo informação do futuro no treino. **Lições: embeddings temporais exigem máscara causal para serem features legítimas.**
-2. **Redundância com features existentes:** Com a variante causal (correta, sem vazamento), o resultado foi neutro (-0.14%). O LightGBM campeão já captura o perfil temporal via `lag_4`, `lag_52`, `rolling_mean_4/12/52` — o AE apenas comprime a mesma informação.
-3. **Clustering não agrega:** Em todas as configurações testadas (k=3, 5, 8 × cluster_id feature ou modelos por cluster), o resultado piorou. O `cluster_id` é redundante com as categóricas dimensionais já presentes (`categoria`, `marca`, etc.), e modelos por cluster fragmentam a amostra de treino — clusters pequenos (ex: 1.849 séries em k=8) produziram modelos fracos (MAE 8.91 no pior cluster).
+1. **Data leakage in the naive variant:** using the embedding of the complete weeks 1-47 as a feature for all rows meant that a week-30 row started to "see" weeks 31-47 (the future). `best_iter` collapsed from ~1000 to 38 — a classic sign of a model learning future information during training. **Lessons: temporal embeddings require a causal mask to be legitimate features.**
+2. **Redundancy with existing features:** with the causal variant (correct, without leakage), the result was neutral (-0.14%). The champion LightGBM already captures the temporal profile via `lag_4`, `lag_52`, `rolling_mean_4/12/52` — the AE only compresses the same information.
+3. **Clustering adds nothing:** in all configurations tested (k=3, 5, 8 × cluster_id feature or per-cluster models), the result worsened. `cluster_id` is redundant with the dimensional categoricals already present (`categoria`, `marca`, etc.), and per-cluster models fragment the training sample — small clusters (e.g.: 1.849 series in k=8) produced weak models (MAE 8.91 in the worst cluster).
 
-**Conclusão:** AE embeddings não agregam valor preditivo a um modelo já bem feature-engineered. O caminho promissor restante é o uso de AE sobre **metadados categóricos** para **cold-start** (prever séries novas sem histórico) — implementado abaixo.
+**Conclusion:** AE embeddings add no predictive value to an already well feature-engineered model. The promising path that remains is the use of AEs on **categorical metadata** for **cold-start** (forecasting new series with no history) — implemented below.
 
-### Cold-start com metadados (`scripts/coldstart_metadata.py`, 08/09/2026)
+### Cold-start with metadata (`scripts/coldstart_metadata.py`, 08/09/2026)
 
-Sem lags, sem histórico: split por combo (835k treino / 209k combos novos), só
-categóricas + calendário + preço. MAE nos combos novos (1,25M linhas):
+No lags, no history: split by combo (835k training / 209k new combos), only
+categoricals + calendar + price. MAE on the new combos (1,25M rows):
 
-| Abordagem | MAE cold |
+| Approach | MAE cold |
 |---|---|
-| Média global | 11,07 |
-| Média por (categoria_pdv, categoria) | 9,68 |
-| **LightGBM metadados** | **5,87** |
+| Global average | 11,07 |
+| Average per (categoria_pdv, categoria) | 9,68 |
+| **LightGBM metadata** | **5,87** |
 
-−47% vs média global; longe do campeão com lags (1,42) — esperado, é outra
-tarefa (série nova, zero histórico). Top features: `marca`, `preco`,
-`categoria_pdv`. Uso: estimativa inicial p/ SKU/PDV sem histórico até acumular
-lags (depois migra p/ V2.2). Limite: `best_iter` atingiu o cap (2000, ainda
-melhorando devagar). Artefatos: `experiments/artifacts/sales_coldstart_20260908_131710/metrics.json`.
-
----
-
-## Tecnologias Utilizadas
-
-* **Linguagem:** Python 3.8+
-* **Ambiente de Empacotamento:** Docker & Pytest
-* **Bibliotecas Principais:**
-    * Pandas 2.0.3 (Manipulação de Dados Vetorizada)
-    * **LightGBM 4.6.0** (Gradient Boosting principal e otimizado)
-    * **Optuna 4.5.0 & PruningCallback** (Otimização Bayesiana com poda)
-    * **MLflow 2.17.2** (Rastreamento, Gestão do Modelo e Governança MLOps)
-    * Scikit-learn 1.3.2 (Métricas)
-    * Matplotlib 3.7.2 (Visualização de Feature Importance)
-    * Joblib 1.4.2 (Serialização de Artefatos)
+−47% vs the global average; far from the champion with lags (1,42) — expected, it is another
+task (new series, zero history). Top features: `marca`, `preco`,
+`categoria_pdv`. Use: initial estimate for a SKU/store with no history until it accumulates
+lags (then it migrates to V2.2). Limit: `best_iter` hit the cap (2000, still
+improving slowly). Artifacts: `experiments/artifacts/sales_coldstart_20260908_131710/metrics.json`.
 
 ---
 
-## Autores - Equipe: BSB Data 01
+## Technologies Used
 
-* **Erick Cardoso Mendes (desenvolvedor)**
-* **Pedro Morato Lahoz (relator)**
+* **Language:** Python 3.8+
+* **Packaging Environment:** Docker & Pytest
+* **Main Libraries:**
+    * Pandas 2.0.3 (Vectorized Data Manipulation)
+    * **LightGBM 4.6.0** (main and optimized Gradient Boosting)
+    * **Optuna 4.5.0 & PruningCallback** (Bayesian Optimization with pruning)
+    * **MLflow 2.17.2** (Tracking, Model Management and MLOps Governance)
+    * Scikit-learn 1.3.2 (Metrics)
+    * Matplotlib 3.7.2 (Feature Importance Visualization)
+    * Joblib 1.4.2 (Artifact Serialization)
 
 ---
 
-## Licença
+## Authors - Team: BSB Data 01
 
-Este projeto está licenciado sob a Licença MIT.
+* **Erick Cardoso Mendes (developer)**
+* **Pedro Morato Lahoz (reporter)**
+
+---
+
+## License
+
+This project is licensed under the MIT License.

@@ -14,10 +14,10 @@ from optuna.integration import LightGBMPruningCallback
 
 
 class SalesForecasterV2:
-    """Classe principal do pipeline de previsao de vendas (Arquitetura V2.2).
+    """Main class of the sales forecasting pipeline (Architecture V2.2).
 
-    Encapsula carregamento de dados, engenharia de features, treinamento
-    com otimizacao Bayesiana (Optuna) e geracao de forecasts semanais.
+    Encapsulates data loading, feature engineering, training
+    with Bayesian optimization (Optuna) and weekly forecast generation.
     """
 
     def __init__(self):
@@ -29,17 +29,17 @@ class SalesForecasterV2:
         self.use_log_target: bool = False
 
     # ------------------------------------------------------------------
-    # 1. CARREGAMENTO E ENRIQUECIMENTO DE DADOS
+    # 1. DATA LOADING AND ENRICHMENT
     # ------------------------------------------------------------------
     def load_data(self, file_paths: Dict[str, str]) -> pd.DataFrame:
-        """Carrega, funde e agrega os dados brutos em granularidade semanal."""
-        logging.info("Iniciando o carregamento dos dados normalizados.")
+        """Load, merge and aggregate the raw data at weekly granularity."""
+        logging.info("Starting the load of the normalized data.")
         try:
             df_vendas = pd.read_parquet(file_paths['vendas'])
             df_pdvs = pd.read_parquet(file_paths['pdvs'])
             df_produtos = pd.read_parquet(file_paths['produtos'])
         except (FileNotFoundError, KeyError) as e:
-            logging.error(f"Erro ao carregar os arquivos. Erro: {e}")
+            logging.error(f"Error loading the files. Error: {e}")
             raise
 
         df_merged = pd.merge(
@@ -55,7 +55,7 @@ class SalesForecasterV2:
         df_merged['ano'] = df_merged['transaction_date'].dt.isocalendar().year
         df_merged['semana'] = df_merged['transaction_date'].dt.isocalendar().week
 
-        logging.info("Agregando dados de vendas por semana/pdv/produto com dimensoes enriquecidas.")
+        logging.info("Aggregating sales data by week/pdv/produto with enriched dimensions.")
 
         dim_cols = [
             'categoria_pdv', 'premise',
@@ -80,14 +80,14 @@ class SalesForecasterV2:
         )
         agg_vendas.drop(columns=['total_gross_value'], inplace=True)
 
-        logging.info(f"Dados agregados e enriquecidos. DataFrame final com {agg_vendas.shape[0]} registros.")
+        logging.info(f"Data aggregated and enriched. Final DataFrame with {agg_vendas.shape[0]} records.")
         return agg_vendas
 
     # ------------------------------------------------------------------
-    # 2. ENGENHARIA DE FEATURES
+    # 2. FEATURE ENGINEERING
     # ------------------------------------------------------------------
     def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Gera features temporais, ciclicas e de tendencia a partir do historico."""
+        """Generate time-based, cyclic and trend features from the history."""
         df_featured = df.copy()
         df_featured.sort_values(['pdv', 'sku', 'ano', 'semana'], inplace=True)
         df_featured.reset_index(drop=True, inplace=True)
@@ -133,10 +133,10 @@ class SalesForecasterV2:
         return df_featured
 
     # ------------------------------------------------------------------
-    # 3. PREPARACAO PARA O MODELO
+    # 3. PREPARATION FOR THE MODEL
     # ------------------------------------------------------------------
     def _prepare_data_for_model(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
-        """Seleciona features, define tipos categoricos e separa X/y."""
+        """Select features, set categorical types and split X/y."""
         df_model = df.copy()
 
         self.categorical_features = [
@@ -168,14 +168,14 @@ class SalesForecasterV2:
         return X, y
 
     # ------------------------------------------------------------------
-    # 4. TREINAMENTO
+    # 4. TRAINING
     # ------------------------------------------------------------------
     def train(self, df: pd.DataFrame, validation_split_week: int = 48,
               use_optuna: bool = True, n_trials: int = 100):
-        """Treina o modelo LightGBM com otimizacao Bayesiana via Optuna."""
+        """Train the LightGBM model with Bayesian optimization via Optuna."""
         df_train_raw = df[df['ano'] == 2022].copy()
         if df_train_raw.empty:
-            raise ValueError("Nao ha dados historicos de 2022 para treinar o modelo.")
+            raise ValueError("There is no 2022 historical data to train the model.")
 
         df_featured = self.feature_engineering(df_train_raw)
         train_set = df_featured[df_featured['semana'] < validation_split_week]
@@ -248,7 +248,7 @@ class SalesForecasterV2:
             )
             study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
             self.best_params = study.best_params
-            logging.info(f"Melhores hiperparametros encontrados: {self.best_params}")
+            logging.info(f"Best hyperparameters found: {self.best_params}")
 
             final_params = {k: v for k, v in self.best_params.items()}
             final_params['n_estimators'] = 1000
@@ -285,15 +285,15 @@ class SalesForecasterV2:
         self.performance_metrics['train_size'] = len(X_train)
         self.performance_metrics['val_size'] = len(X_val)
         self.performance_metrics['best_iteration'] = self.model.best_iteration_
-        logging.info(f"Treinamento concluido. MAE no set de validacao: {mae:.4f}")
+        logging.info(f"Training complete. MAE on the validation set: {mae:.4f}")
 
     # ------------------------------------------------------------------
     # 5. FEATURE IMPORTANCE PLOT
     # ------------------------------------------------------------------
     def plot_feature_importance(self, output_path: str) -> str:
-        """Gera e salva grafico de importancia de features."""
+        """Generate and save the feature importance plot."""
         if not self.model:
-            raise RuntimeError("O modelo nao foi treinado.")
+            raise RuntimeError("The model has not been trained.")
 
         importance = self.model.feature_importances_
         feature_imp = pd.DataFrame({
@@ -310,16 +310,16 @@ class SalesForecasterV2:
         os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else '.', exist_ok=True)
         fig.savefig(output_path, dpi=150, bbox_inches='tight')
         plt.close(fig)
-        logging.info(f"Grafico de feature importance salvo em: '{output_path}'")
+        logging.info(f"Feature importance plot saved to: '{output_path}'")
         return output_path
 
     # ------------------------------------------------------------------
-    # 6. PREVISAO
+    # 6. FORECASTING
     # ------------------------------------------------------------------
     def generate_forecasts(self, df_historical: pd.DataFrame, weeks_to_forecast: int) -> pd.DataFrame:
-        """Gera previsoes iterativas semana a semana."""
+        """Generate iterative week-by-week forecasts."""
         if not self.model:
-            raise RuntimeError("O modelo nao foi treinado.")
+            raise RuntimeError("The model has not been trained.")
 
         forecast_df = df_historical.copy()
         all_forecasts = []
@@ -378,12 +378,12 @@ class SalesForecasterV2:
         return pd.concat(all_forecasts, ignore_index=True) if all_forecasts else pd.DataFrame()
 
     # ------------------------------------------------------------------
-    # 7. PERSISTENCIA
+    # 7. PERSISTENCE
     # ------------------------------------------------------------------
     def save_model(self, path: str):
-        """Salva modelo treinado e todos os metadados associados."""
+        """Save the trained model and all associated metadata."""
         if not self.model:
-            raise RuntimeError("O modelo nao foi treinado. Impossivel salvar.")
+            raise RuntimeError("The model has not been trained. Impossible to save.")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         artifacts = {
             "model": self.model,
@@ -394,4 +394,4 @@ class SalesForecasterV2:
             "use_log_target": self.use_log_target,
         }
         joblib.dump(artifacts, path)
-        logging.info(f"Modelo e artefatos V2.2 salvos em: '{path}'")
+        logging.info(f"Model and V2.2 artifacts saved to: '{path}'")

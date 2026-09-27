@@ -1,12 +1,12 @@
 # Big Data Hackathon Forecast 2025 - GitIgnore
 
 # ============================================
-# DADOS ORIGINAIS (MUITO GRANDES PARA GIT)
+# RAW DATA (TOO LARGE FOR GIT)
 # ============================================
 data/raw/*.parquet
 
 # ============================================
-# ARQUIVOS ESPECÍFICOS DO PROJETO
+# PROJECT-SPECIFIC FILES
 # ============================================
 WARP.md
 
@@ -102,21 +102,21 @@ $RECYCLE.BIN/
 *~
 
 # ============================================
-# LOGS E TEMPORÁRIOS
+# LOGS AND TEMPORARY FILES
 # ============================================
 *.log
 *.tmp
 *.temp
 
 # ============================================
-# DADOS PROCESSADOS OPCIONAIS
+# OPTIONAL PROCESSED DATA
 # ============================================
-# Manter alguns CSVs de exemplo mas não todos
+# Keep some example CSVs but not all
 data/processed/backup_*
 data/processed/temp_*
 
 # ============================================
-# DOCUMENTAÇÃO TEMPORÁRIA
+# TEMPORARY DOCUMENTATION
 # ============================================
 REORGANIZACAO_COMPLETA.md
 ALTERACOES_FINAIS.md
