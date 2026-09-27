@@ -1,17 +1,17 @@
-"""TS+NLP com dados REAIS: 8-K filings (SEC EDGAR) + precos (yfinance).
+"""TS+NLP with REAL data: 8-K filings (SEC EDGAR) + prices (yfinance).
 
-Desenho: cada 8-K e um evento datado com texto real e relevante ao mercado.
-Alvo: direcao do ticker no pregao seguinte ao filing. Comparacao TS-only /
-NLP-only / TS+NLP (LogReg + LightGBM), mesmo protocolo do notebook sintetico.
+Design: each 8-K is a dated event with real text that is relevant to the market.
+Target: ticker direction on the trading day after the filing. Comparison TS-only /
+NLP-only / TS+NLP (LogReg + LightGBM), same protocol as the synthetic notebook.
 
-Texto: corpo do .htm principal do filing (BeautifulSoup, truncado em 512
-tokens p/ FinBERT — documentado como limite). Sentimento: ProsusAI/finbert.
-Precos: yfinance (ticker + ^GSPC como mercado).
+Text: body of the filing's main .htm (BeautifulSoup, truncated at 512
+tokens for FinBERT — documented as a limit). Sentiment: ProsusAI/finbert.
+Prices: yfinance (ticker + ^GSPC as the market).
 
-Sem auth, rate policido (0.5 s/req) + cache incremental em JSONL (resume).
- tickers default: AAPL MSFT NVDA AMZN META TSLA JPM (2024-01-01 a 2026-08-31).
+No auth, polite rate (0.5 s/req) + incremental cache in JSONL (resumes).
+ default tickers: AAPL MSFT NVDA AMZN META TSLA JPM (2024-01-01 to 2026-08-31).
 
-Uso:
+Usage:
     pip install yfinance  # + torch transformers lightgbm scikit-learn bs4
     python run_tsnlp_edgar.py [--tickers AAPL,MSFT] [--start 2024-01-01]
 """
@@ -108,7 +108,7 @@ def main() -> int:
                     txt = filing_text(t, acc)
                     time.sleep(0.5)
                 except Exception as e:
-                    print(f"[edgar] {k} falhou: {str(e)[:100]}", flush=True)
+                    print(f"[edgar] {k} failed: {str(e)[:100]}", flush=True)
                     continue
                 if txt:
                     texts[k] = {"date": dt, "ticker": t, "text": txt}
@@ -117,9 +117,9 @@ def main() -> int:
                                            ensure_ascii=False) + "\n")
             if k in texts and texts[k]:
                 events.append((t, dt, texts[k]["text"]))
-    print(f"[edgar] eventos com texto: {len(events)}", flush=True)
+    print(f"[edgar] events with text: {len(events)}", flush=True)
     if len(events) < 30:
-        print("[edgar] poucos eventos — abortando.")
+        print("[edgar] too few events — aborting.")
         return 2
 
     # --- FinBERT ---
@@ -141,7 +141,7 @@ def main() -> int:
                 continue
     todo = [(t, dt, tx) for t, dt, tx in events
             if f"{t}|{dt}|{hash(tx)}" not in scores]
-    print(f"[finbert] device={device} novos={len(todo)}", flush=True)
+    print(f"[finbert] device={device} new={len(todo)}", flush=True)
     with torch.no_grad():
         for i in range(0, len(todo), 32):
             chunk = todo[i:i + 32]
@@ -154,7 +154,7 @@ def main() -> int:
                 with open(spath, "a", encoding="utf-8") as f:
                     f.write(json.dumps({"k": k, "v": scores[k]}) + "\n")
 
-    # --- Precos + painel ---
+    # --- Prices + panel ---
     import yfinance as yf
     px = yf.download(tickers + ["^GSPC"], start="2023-12-01", end=args.end,
                      progress=False, auto_adjust=True)["Close"]
@@ -180,10 +180,10 @@ def main() -> int:
         except Exception:
             continue
     panel = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
-    print(f"[tsnlp] eventos validos: {len(panel)} "
+    print(f"[tsnlp] valid events: {len(panel)} "
           f"(base up={panel['target'].mean():.3f})", flush=True)
     if len(panel) < 40:
-        print("[tsnlp] poucos eventos — abortando.")
+        print("[tsnlp] too few events — aborting.")
         return 2
 
     TS, NLP = ["mom5", "vol20", "mkt_mom5"], ["sent", "doclen"]
@@ -213,7 +213,7 @@ def main() -> int:
     (d / "metrics.json").write_text(json.dumps({
         "n_events": len(panel), "features": {"TS": TS, "NLP": NLP},
         "results": res}, indent=2), encoding="utf-8")
-    print("artefatos em", d)
+    print("artifacts at", d)
     return 0
 
 

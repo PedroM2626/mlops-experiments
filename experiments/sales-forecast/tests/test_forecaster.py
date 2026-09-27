@@ -11,7 +11,7 @@ from scripts.forecaster_class import SalesForecasterV2
 
 @pytest.fixture
 def dummy_data():
-    """Gera DataFrame sintetico que reproduz a estrutura completa de load_data."""
+    """Generates a synthetic DataFrame that reproduces the full structure of load_data."""
     n = 10
     df = pd.DataFrame({
         'ano': [2022] * n,

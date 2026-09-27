@@ -6,7 +6,7 @@
 > **Status:** Completed
 > **Datasets:** Twitter Entity Sentiment Analysis (73.995 training / 999 validation), AG News (4 classes), Google `go_emotions`, 20 Newsgroups and a sentiment dataset of assorted texts (7.500 rows, 15 columns) as a transfer reference.
 
-## 1. Resumo
+## 1. Abstract
 
 This folder gathers the repository's line of NLP experiments: a comparison of representation paradigms (sparse TF-IDF, frozen embeddings and contextualized transformers), hierarchical ensembles (Ensemble Pyramid), optimization of a social-network sentiment pipeline (Twitter/Facebook/X) and topic classification on AG News. The main result is that, for high-dimensional sparse sentiment analysis (TF-IDF + n-grams), linear models and randomized ensembles beat fine-tuned transformers in most scenarios (F1 ~0.98), whereas regularized transformer fine-tuning only wins in low-sample regimes. Feature engineering (text cleaning, n-grams, vocabulary) proved more decisive than the choice of model.
 
@@ -35,7 +35,7 @@ The hypotheses investigated were:
 - **MMoE** — *Multi-gate Mixture of Experts*: multiple shared expert networks with per-task gates; it aims to mitigate Negative Transfer, but is sensitive to the scale of data/features.
 - **Focal Loss** — cross-entropy variant that dynamically penalizes hard samples over the easy ones; useful for the imbalanced task.
 
-## 4. Metodologia
+## 4. Methodology
 
 ### 4.1 Data
 
@@ -54,7 +54,7 @@ Text cleaning evolved along the series (detail in §5.3). Variations evaluated b
 
 | Component | Pipeline A | Pipeline B |
 |---|---|---|
-| Hashtags | Removes the whole `#palavra` (`@\w+\|#\w+`) | Keeps the content (`#great` → `great`) |
+| Hashtags | Removes the whole `#word` (`@\w+\|#\w+`) | Keeps the content (`#great` → `great`) |
 | Punctuation | Removes all of it (`[^\w\s]`) | Preserves `!?.,'"` and hyphens |
 | Numbers | Removes (`\d+`) | Keeps numbers (`0-9`) |
 | Stopwords | Removed (F1) / kept (following phases) | Kept |
@@ -183,7 +183,7 @@ The configurations are registered in MLflow automatically for comparison between
 
 ### 5.4. Engineering duel: Pipeline A vs. Pipeline B vs. Pipeline C (Senti-Pred-remake2)
 
-- Pipeline B: replaces `#palavra` by `palavra`, keeps punct. `!?.`, hyphens and contractions (`don't`), keeps numbers.
+- Pipeline B: replaces `#word` by `word`, keeps punct. `!?.`, hyphens and contractions (`don't`), keeps numbers.
 - Pipeline A: removes hashtags entirely, removes all punctuation (`dont` from `don't`), excludes digits.
 - Pipeline C (Senti-Pred-remake2): extreme vectorization (TF-IDF 100k, 4-grams), cleaning with
   lemmatization, stopwords (with `not`/`no` preserved) and contraction expansion; voting
@@ -394,7 +394,7 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hypothesis: correlated tasks (J
 
 ## 7. Conclusions and Recommendations
 
-- **Fast baseline:** TF-IDF (70k, bigram, sublinear) + LinearSVC — 0.98 sentiment classification in 4; for Ao e-tralização pointer.
+- **Fast baseline:** TF-IDF (70k, bigram, sublinear) + LinearSVC — 0.98 sentiment classification in 4; for the e-tralização pointer.
 - **When computational cost matters:** LinearSVC/ExtraTrees over sparse TF-IDF — no GPU, seconds of training.
 - **When accuracy is a requirement (>0.98):** fine-tune DistilBERT on the full dataset (40 min of GPU, at 0.9710) or Ensemble Pyramid (~0.98+).
 - **No GPU / moderate budget:** TextCNN (0.9530 in 13s).

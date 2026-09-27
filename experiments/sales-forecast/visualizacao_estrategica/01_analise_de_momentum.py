@@ -61,7 +61,7 @@ def main(forecast_path: str, historical_path: str, products_path: str, output_pa
         logging.error(f"File not found. Check the paths. Error: {e}")
         return
 
-    # 1. Compute the FORECAST sales average per produto
+    # 1. Compute the FORECAST sales average per product
     media_prevista = df_forecast.groupby('produto')['quantidade'].mean().reset_index()
     media_prevista.rename(columns={'quantidade': 'media_prevista'}, inplace=True)
     

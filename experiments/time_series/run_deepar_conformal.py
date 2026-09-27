@@ -1,15 +1,15 @@
-"""Recalibracao conformal dos intervalos do DeepAR (series reais, §5.12 do README).
+"""Conformal recalibration of the DeepAR intervals (real series, README §5.12).
 
-Re-treina o DeepAR por dataset (mesma config do notebook
-`deepar-probabilistic-forecast.ipynb`), coleta as 100 trajetorias e aplica
-split-conformal: metade final do treino como calibracao (residuos
-padronizados pelo desvio das trajetorias), q_hat global e por horizonte,
-avaliados no holdout. Salva JSON em
+Re-trains DeepAR per dataset (same config as the notebook
+`deepar-probabilistic-forecast.ipynb`), collects the 100 trajectories and applies
+split-conformal: the last half of the training data as calibration (residuals
+standardized by the deviation of the trajectories), global q_hat and per-horizon q_hat,
+evaluated on the holdout. Saves JSON at
 `experiments/artifacts/deepar_conformal_<ts>/metrics.json`.
 
-~5 min de CPU no total.
+~5 min of CPU in total.
 
-Dependencias (pip): gluonts torch statsmodels scikit-learn pandas numpy
+Dependencies (pip): gluonts torch statsmodels scikit-learn pandas numpy
 """
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--windows", type=int, default=6,
-                    help="origens rolling p/ calibracao (default 6)")
+                    help="rolling origins for calibration (default 6)")
     args = ap.parse_args()
 
     out = {"seed": SEED, "nominal": 0.9, "windows": args.windows, "datasets": {}}
@@ -121,9 +121,9 @@ def main() -> int:
         dates = df["date"].values
         N = len(y)
         y_test = y[-horizon:]
-        # Pool de calibracao: W origens rolling antes do holdout. Cada origem
-        # treina em y[:end], prevê `horizon` e coleta resíduos padronizados.
-        pool = []  # lista de (residuos_padronizados [horizon])
+        # Calibration pool: W rolling origins before the holdout. Each origin
+        # trains on y[:end], forecasts `horizon` and collects standardized residuals.
+        pool = []  # list of (standardized_residuals [horizon])
         context_length = max(horizon * 2, 10)
         for w in range(args.windows, 0, -1):
             end = N - horizon * w
@@ -132,12 +132,12 @@ def main() -> int:
             try:
                 s = run_deepar_samples(y[:end], dates[:end], horizon, freq)
             except Exception as e:
-                print(f"[{name}] janela w={w} pulada: {str(e)[:100]}", flush=True)
+                print(f"[{name}] window w={w} skipped: {str(e)[:100]}", flush=True)
                 continue
             mu_c, sd_c = s.mean(0), s.std(0).clip(min=1e-9)
             pool.append(np.abs(y[end:end + horizon] - mu_c) / sd_c)
         if not len(pool):
-            print(f"[{name}] sem janelas de calibracao — pulando dataset", flush=True)
+            print(f"[{name}] no calibration windows — skipping dataset", flush=True)
             continue
         pool = np.array(pool)
         s_test = run_deepar_samples(y, dates, horizon, freq)
@@ -164,13 +164,13 @@ def main() -> int:
             "largura_depois_por_h": round(float((2 * q_h * sd).mean()), 4),
             "treino_s": round(time.time() - t0, 1),
         }
-        print(f"[{name}] antes={cov_before:.3f} -> global={cov_g:.3f} "
+        print(f"[{name}] before={cov_before:.3f} -> global={cov_g:.3f} "
               f"por_h={cov_h:.3f} | {time.time()-t0:.0f}s", flush=True)
 
     d = ART / f"deepar_conformal_{datetime.now():%Y%m%d_%H%M%S}"
     d.mkdir(parents=True, exist_ok=True)
     (d / "metrics.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
-    print("artefatos em", d)
+    print("artifacts at", d)
     return 0
 
 

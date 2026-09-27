@@ -1,14 +1,14 @@
-"""TS+NLP com dados REAIS: S&P 500 (yfinance) + manchetes (GDELT DOC 2.1).
+"""TS+NLP with REAL data: S&P 500 (yfinance) + headlines (GDELT DOC 2.1).
 
-Mesmo desenho do notebook sintetico (`stock-sentiment-ts-nlp.ipynb`):
-direcao do dia seguinte (up/down) com LightGBM/LogReg em 3 conjuntos
-(TS-only, NLP-only, TS+NLP). Sentimento via FinBERT (ProsusAI/finbert).
+Same design as the synthetic notebook (`stock-sentiment-ts-nlp.ipynb`):
+next-day direction (up/down) with LightGBM/LogReg on 3 feature sets
+(TS-only, NLP-only, TS+NLP). Sentiment via FinBERT (ProsusAI/finbert).
 
-Janela default: 2026-03-02 a 2026-08-31 (~130 pregoes). GDELT tem rate
-limit agressivo: 20 s entre requests + cache incremental em JSONL (resume
-seguro se interrompido).
+Default window: 2026-03-02 to 2026-08-31 (~130 trading days). GDELT has an
+aggressive rate limit: 20 s between requests + incremental cache in JSONL (resumes
+safely if interrupted).
 
-Uso:
+Usage:
     python run_tsnlp_real.py [--start 2026-03-02] [--end 2026-08-31]
 """
 from __future__ import annotations
@@ -53,7 +53,7 @@ def append_jsonl(path, k, v):
 
 
 def gdelt_day(day: str) -> list:
-    """Manchetes de um dia (YYYY-MM-DD). Lista de (seendate, title)."""
+    """Headlines of one day (YYYY-MM-DD). List of (seendate, title)."""
     q = urllib.parse.urlencode({
         "query": "stock market", "mode": "artlist", "maxrecords": 50,
         "format": "json", "startdatetime": day.replace("-", ""),
@@ -70,7 +70,7 @@ def gdelt_day(day: str) -> list:
         except Exception as e:
             last = e
             time.sleep(15 * (attempt + 1))
-    print(f"[gdelt] {day} falhou apos retries: {str(last)[:100]}", flush=True)
+    print(f"[gdelt] {day} failed after retries: {str(last)[:100]}", flush=True)
     return []
 
 
@@ -90,23 +90,23 @@ def main() -> int:
         px.columns = px.columns.get_level_values(0)
     px = px[["Close"]].dropna()
     days = [d.strftime("%Y-%m-%d") for d in px.index]
-    print(f"[tsnlp] pregoes: {len(days)} ({days[0]}..{days[-1]})", flush=True)
+    print(f"[tsnlp] trading days: {len(days)} ({days[0]}..{days[-1]})", flush=True)
 
     for i, day in enumerate(days):
         if day not in headlines or not headlines[day]:
             fetched = gdelt_day(day)
-            if fetched:  # nao cacheia falha/vazio: permite retry futuro
+            if fetched:  # does not cache failures/empty results: allows a later retry
                 headlines[day] = fetched
                 append_jsonl(hpath, day, fetched)
             else:
                 headlines[day] = []
-            print(f"[gdelt] {day}: {len(headlines[day])} manchetes "
+            print(f"[gdelt] {day}: {len(headlines[day])} headlines "
                   f"({i+1}/{len(days)})", flush=True)
             time.sleep(20)
     n_titles = sum(len(v) for v in headlines.values())
-    print(f"[tsnlp] total manchetes: {n_titles}", flush=True)
+    print(f"[tsnlp] total headlines: {n_titles}", flush=True)
 
-    # --- FinBERT (cache por titulo) ---
+    # --- FinBERT (cache by title) ---
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -115,7 +115,7 @@ def main() -> int:
     mdl.eval()
     all_titles = sorted({t for v in headlines.values() for _, t in v if t})
     todo = [t for t in all_titles if t not in cached_scores]
-    print(f"[finbert] device={device} titulos={len(all_titles)} novos={len(todo)}", flush=True)
+    print(f"[finbert] device={device} titles={len(all_titles)} new={len(todo)}", flush=True)
     import torch.nn.functional as F
     BS = 64
     with torch.no_grad():
@@ -151,13 +151,13 @@ def main() -> int:
     panel["ret_std5"] = panel["ret"].rolling(5).std()
     panel["dow"] = pd.to_datetime(panel["date"]).dt.dayofweek
     panel = panel.dropna().reset_index(drop=True)
-    print(f"[tsnlp] painel: {len(panel)} dias", flush=True)
+    print(f"[tsnlp] panel: {len(panel)} days", flush=True)
 
     TS = [c for c in panel.columns if c.startswith(("ret_lag", "ret_ma", "ret_std"))] + ["dow"]
     NLP = ["sent"] + [c for c in panel.columns if c.startswith("sent_lag")] + ["n_news"]
     y = panel["target"].values
     cut = int(len(panel) * 0.7)
-    print(f"[tsnlp] split temporal: treino={cut} teste={len(panel)-cut} "
+    print(f"[tsnlp] temporal split: train={cut} test={len(panel)-cut} "
           f"(base={y[cut:].mean():.3f})", flush=True)
 
     from sklearn.linear_model import LogisticRegression
@@ -186,7 +186,7 @@ def main() -> int:
         "start": args.start, "end": args.end, "n_days": len(panel),
         "n_headlines": n_titles, "features": {"TS": TS, "NLP": NLP},
         "results": res}, indent=2), encoding="utf-8")
-    print("artefatos em", d)
+    print("artifacts at", d)
     return 0
 
 
