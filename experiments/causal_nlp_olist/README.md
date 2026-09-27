@@ -1,127 +1,127 @@
-# Causal ML em NLP com Dados Reais — Efeito do Atraso na Entrega sobre o Sentimento do Cliente (Olist)
+# Causal ML in NLP with Real Data — Effect of Delivery Delay on Customer Sentiment (Olist)
 
-> **Área:** Inferência Causal + NLP
-> **Tarefa:** Estimação de efeito causal (ATE/CATE) de tratamento binário sobre texto
-> **Métrica principal:** ATE em diferença de risco (pontos percentuais de P(sentimento negativo))
-> **Status:** Concluído
-> **Dataset:** Brazilian E-Commerce Public Dataset by Olist (2016–2018, ~100 mil pedidos, licença CC BY-NC-SA 4.0) — 7 tabelas linkadas; espelho público `github.com/Mylinear/Brazilian_E_Commerce_Public_Dataset_by_Olist` (download automático pelo notebook).
+> **Domain:** Causal inference + NLP
+> **Task:** Causal effect estimation (ATE/CATE) of a binary treatment on text
+> **Primary metric:** ATE as a risk difference (percentage points of P(negative sentiment))
+> **Status:** Completed
+> **Dataset:** Brazilian E-Commerce Public Dataset by Olist (2016–2018, ~100k orders, CC BY-NC-SA 4.0 license) — 7 linked tables; public mirror `github.com/Mylinear/Brazilian_E_Commerce_Public_Dataset_by_Olist` (downloaded automatically by the notebook).
 
-## 1. Resumo
+## 1. Abstract
 
-Pergunta **causal** (não preditiva): entregar após a data estimada **causa** sentimento negativo no texto da avaliação? Formalizamos em Resultados Potenciais (Rubin) + DAG (Pearl): tratamento $T$ = atraso (`delay_days > 0`), outcome $Y$ = sentimento negativo extraído do texto por léxico PT-BR (validado contra a nota humana), confundidores $X$ estritamente pré-tratamento (preço, frete, categoria, UF, pagamento, peso, prazo prometido, mês). Em N = 39.068 pedidos com texto, a associação bruta é enorme (+43,5 p.p., RR 3,3×) e **sobrevive a todos os ajustes**: LPM +44,4 p.p., Logit (AME) +32,5 p.p., Matching +44,0, IPW-Hájek +43,3, AIPW +41,7, S-learner +35,9, T-learner +41,8. A árvore causal honesta confirma efeito positivo em **todas** as folhas. Conclusão: o atraso é alavanca causal (não mera correlação) do sentimento negativo textual.
+A **causal** (not predictive) question: does delivering after the estimated date **cause** negative sentiment in the review text? We formalize it with Potential Outcomes (Rubin) + a DAG (Pearl): treatment $T$ = delivery delay (`delay_days > 0`), outcome $Y$ = negative sentiment extracted from the text by a PT-BR lexicon (validated against the human rating), confounders $X$ strictly pre-treatment (price, freight, category, UF, payment, weight, promised delivery window, month). On N = 39,068 orders with text, the raw association is enormous (+43.5 p.p., RR 3.3×) and **survives every adjustment**: LPM +44.4 p.p., Logit (AME) +32.5 p.p., Matching +44.0, IPW-Hajek +43.3, AIPW +41.7, S-learner +35.9, T-learner +41.8. The honest causal tree confirms a positive effect in **all** leaves. Conclusion: the delivery delay is a causal lever of textual negative sentiment (not mere correlation).
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-Experimentos de NLP do repositório tratam de **predição** de sentimento; aqui a pergunta é **intervencionista**: se a operação logística eliminar o atraso, quanto cai a probabilidade de review negativo? É o primeiro experimento do repositório inteiramente dedicado a inferência causal sobre dados públicos reais, sem *ground truth* contrafactual — a credibilidade vem de triangulação de métodos, diagnósticos e refutações.
+The NLP experiments in this repository address sentiment **prediction**; here the question is **interventionist**: if logistics operations eliminate the delay, by how much does the probability of a negative review fall? This is the repository's first experiment devoted entirely to causal inference on real public data, with no counterfactual *ground truth* — credibility comes from the triangulation of methods, diagnostics and refutations.
 
-Questões de pesquisa:
+Research questions:
 
-- **RQ1:** o contraste naive (+43,5 p.p.) é confundido por preço/categoria/UF? (Sim parcialmente — mas o efeito ajustado permanece ≥ +32 p.p. em todos os estimadores.)
-- **RQ2:** o efeito se reproduz em outcomes independentes do léxico (`review_score ≤ 2`, `sent_score` contínuo)? (Sim.)
-- **RQ3:** há heterogeneidade (CATE) por categoria, UF, faixa de preço e período? (Sim, moderada.)
-- **RQ4:** as refutações (placebo, trimming, definição alternativa de T, sensibilidade a confundidor omitido) derrubam a conclusão? (Não.)
+- **RQ1:** is the naive contrast (+43.5 p.p.) confounded by price/category/UF? (Partly yes — but the adjusted effect stays ≥ +32 p.p. across all estimators.)
+- **RQ2:** does the effect replicate on outcomes independent of the lexicon (`review_score ≤ 2`, continuous `sent_score`)? (Yes.)
+- **RQ3:** is there heterogeneity (CATE) by category, UF, price band and period? (Yes, moderate.)
+- **RQ4:** do the refutations (placebo, trimming, alternative definition of T, sensitivity to an omitted confounder) overturn the conclusion? (No.)
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Foundation (brief)
 
-- **Resultados potenciais (Rubin):** $Y_i = T_iY_i(1) + (1-T_i)Y_i(0)$; alvo $\tau = E[Y(1)-Y(0)]$ em escala de diferença de risco (p.p.). Hipóteses: SUTVA/consistência, ignorabilidade dado $X$, positividade $0 < e(X) < 1$, temporalidade (atraso precede o review — verificado: entrega ≤ review em 88,6% dos casos).
-- **Back-door (Pearl):** ajustar por $X$ pré-tratamento bloqueia $T \leftarrow X \to Y$; pós-tratamento (datas de review, tamanho do texto) propositalmente excluídos.
-- **Estimadores:** LPM (OLS com SE robusto HC1), Logit com efeito marginal médio (AME), propensity score + Matching 1-NN no logit, IPW-Hájek, AIPW (duplamente robusto, nuisances via RandomForest), S/T-learners (Künzel et al., 2019).
-- **Heterogeneidade:** CATE via T-learner e **árvore causal honesta** (Athey & Imbens, 2016) implementada manualmente: pseudo-outcomes DR + split honesto 50/50 (amostra A constrói a estrutura, amostra B estima por folha).
-- **Credibilidade sem ground truth:** bootstrap B=200, placebo (T permutado), dummy outcome (`n_palavras`), trimming de propensity, definição alternativa de T (>1 dia) e sensibilidade a confundidor omitido simulado.
+- **Potential outcomes (Rubin):** $Y_i = T_iY_i(1) + (1-T_i)Y_i(0)$; target $\tau = E[Y(1)-Y(0)]$ on the risk-difference scale (p.p.). Assumptions: SUTVA/consistency, ignorability given $X$, positivity $0 < e(X) < 1$, temporality (the delay precedes the review — verified: delivery ≤ review in 88.6% of cases).
+- **Back-door (Pearl):** adjusting for pre-treatment $X$ blocks $T \leftarrow X \to Y$; post-treatment variables (review dates, text length) deliberately excluded.
+- **Estimators:** LPM (OLS with HC1 robust SE), Logit with average marginal effect (AME), propensity score + 1-NN Matching on the logit, IPW-Hajek, AIPW (doubly robust, nuisances via RandomForest), S/T-learners (Kunzel et al., 2019).
+- **Heterogeneity:** CATE via the T-learner and an **honest causal tree** (Athey & Imbens, 2016) implemented by hand: DR pseudo-outcomes + honest 50/50 split (sample A builds the structure, sample B estimates per leaf).
+- **Credibility without ground truth:** bootstrap B=200, placebo (permuted T), dummy outcome (`n_palavras`), propensity trimming, alternative definition of T (>1 day) and sensitivity to a simulated omitted confounder.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
+### 4.1 Data
 
-Sete tabelas Olist linkadas por `order_id`/`customer_id`/`product_id` (reviews ⨝ orders ⨝ itens agregados ⨝ primeiro produto ⨝ tradução de categoria ⨝ clientes ⨝ pagamentos agregados): base merged 99.224 × 25. Distribuição de `review_score`: 5★ 57,8%, 4★ 19,3%, 3★ 8,2%, 2★ 3,2%, 1★ 11,5%. **Amostra de análise:** `order_status = delivered` + `delay_days` conhecido + texto não-vazio → **N = 39.068** (tratados = 4.275, 10,9%).
+Seven Olist tables linked by `order_id`/`customer_id`/`product_id` (reviews ⨝ orders ⨝ aggregated items ⨝ first product ⨝ category translation ⨝ customers ⨝ aggregated payments): merged frame 99,224 × 25. Distribution of `review_score`: 5★ 57.8%, 4★ 19.3%, 3★ 8.2%, 2★ 3.2%, 1★ 11.5%. **Analysis sample:** `order_status = delivered` + known `delay_days` + non-empty text → **N = 39,068** (treated = 4,275, 10.9%).
 
-### 4.2 Construção de T, Y e X
+### 4.2 Building T, Y and X
 
-- **T** = `1{delay_days > 0}` (dias entre entrega e estimativa; tolerância zero; sensibilidade com >1 dia no Cap. 8 do notebook).
-- **Y_neg** = `1{sent_score < 0}`; `sent_score = (p − n)/max(1, p+n)` via léxico PT-BR de substring (auditável, ~80 termos); outcomes secundários: `sent_score` contínuo e `Y_low = 1{review_score ≤ 2}` (rótulo humano).
-- **X (22 colunas após dummies):** `log_price`, `log_freight`, `n_items`, `log_weight`, `installments`, `est_days` (prazo prometido), `purchase_yearmonth_int` (tendência), `cat_group` (top-8 + outros), `uf_group` (top-5 + outros), `pay_group`.
+- **T** = `1{delay_days > 0}` (days between delivery and the estimate; zero tolerance; sensitivity with >1 day in Section 8 of the notebook).
+- **Y_neg** = `1{sent_score < 0}`; `sent_score = (p − n)/max(1, p+n)` via a PT-BR substring lexicon (auditable, ~80 terms); secondary outcomes: continuous `sent_score` and `Y_low = 1{review_score ≤ 2}` (human label).
+- **X (22 columns after dummies):** `log_price`, `log_freight`, `n_items`, `log_weight`, `installments`, `est_days` (promised delivery window), `purchase_yearmonth_int` (trend), `cat_group` (top-8 + others), `uf_group` (top-5 + others), `pay_group`.
 
-### 4.3 Validação do NLP
+### 4.3 NLP Validation
 
-Léxico × nota humana: correlação **0,661**; acurácia de `Y_neg` contra `score ≤ 2` = **0,8375**; classificador TF-IDF → `Y_neg` atinge AUC **0,985** (sinal linguístico forte). TF-IDF descritivo mostra o vocabulário do atraso ("não recebi", "ainda não", "atraso", "não chegou") vs. sem atraso ("antes do prazo", "recomendo", "muito bom").
+Lexicon × human rating: correlation **0.661**; accuracy of `Y_neg` against `score ≤ 2` = **0.8375**; a TF-IDF classifier → `Y_neg` reaches AUC **0.985** (strong linguistic signal). Descriptive TF-IDF shows the vocabulary of delay (Portuguese phrases meaning "I did not receive it", "still not", "delay", "it did not arrive") vs. without delay ("ahead of the deadline", "I recommend", "very good").
 
-### 4.4 Avaliação e Reprodução
+### 4.4 Evaluation and Reproduction
 
-- Seed 42 global; probabilidade via `cross_val_predict` para AUC de propensity; bootstrap não-paramétrico B=200 com estimadores rápidos (logit).
-- Hardware da execução de referência: CPU x86-64, Python 3.13, scikit-learn 1.7.1, statsmodels 0.14.5 (17/09/2026).
-- Reproduzir:
+- Global seed 42; probabilities via `cross_val_predict` for the propensity AUC; non-parametric bootstrap B=200 with fast estimators (logit).
+- Hardware of the reference run: CPU x86-64, Python 3.13, scikit-learn 1.7.1, statsmodels 0.14.5 (17/09/2026).
+- To reproduce:
 
 ```bash
 cd experiments/causal_nlp_olist
 python -m nbconvert --to notebook --execute causal_nlp_olist.ipynb --inplace
 ```
 
-Os 7 CSVs (~65 MB) são baixados automaticamente para `data/` na primeira execução (espelho público GitHub; licença CC BY-NC-SA 4.0 — uso não-comercial com atribuição). Para dados já existentes, o notebook também procura em `../datasets/olist/`.
+The 7 CSVs (~65 MB) are downloaded automatically into `data/` on the first run (public GitHub mirror; CC BY-NC-SA 4.0 license — non-commercial use with attribution). For data already present, the notebook also looks in `../datasets/olist/`.
 
-## 5. Resultados
+## 5. Results
 
-### 5.1 Seleção (quem escreve review difere)
+### 5.1 Selection (who writes a review differs)
 
-| Grupo | Score médio | P(score ≤ 2) | P(atraso) | Preço médio | n |
+| Group | Mean score | P(score ≤ 2) | P(delay) | Mean price | n |
 |---|---|---|---|---|---|
-| Sem texto (59,5%) | 4,417 | 0,053 | 0,060 | R$ 130,26 | 57.285 |
-| Com texto (40,5%) | 3,773 | 0,238 | 0,109 | R$ 146,03 | 39.068 |
+| No text (59.5%) | 4.417 | 0.053 | 0.060 | R$ 130.26 | 57,285 |
+| With text (40.5%) | 3.773 | 0.238 | 0.109 | R$ 146.03 | 39,068 |
 
-Quem escreve tem mais extremos e mais atraso → estimamos **SATE** (efeito na subpopulação com texto), não PATE.
+Those who write have more extremes and more delay → we estimate the **SATE** (effect on the subpopulation with text), not the PATE.
 
-### 5.2 Efeito causal estimado (outcome primário `Y_neg`)
+### 5.2 Estimated causal effect (primary outcome `Y_neg`)
 
-Execução 17/09/2026, seed 42:
+Run 17/09/2026, seed 42:
 
-| Estimador | ATE (diferença de risco) |
+| Estimator | ATE (risk difference) |
 |---|---|
-| Naive (sem ajuste) | 0,4348 |
-| LPM ajustado (OLS + HC1) | 0,4441 (IC95% [0,4289; 0,4594]) |
-| Logit — efeito marginal médio | 0,3249 (IC95% [0,3155; 0,3343]) |
-| Matching 1-NN (propensity) | 0,4399 |
-| IPW-Hájek | 0,4332 |
-| **AIPW duplamente robusto (RF)** | **0,4175** |
-| S-learner (RF) | 0,3591 |
-| T-learner (RF) | 0,4179 |
+| Naive (unadjusted) | 0.4348 |
+| Adjusted LPM (OLS + HC1) | 0.4441 (95% CI [0.4289; 0.4594]) |
+| Logit — average marginal effect | 0.3249 (95% CI [0.3155; 0.3343]) |
+| 1-NN Matching (propensity) | 0.4399 |
+| IPW-Hajek | 0.4332 |
+| **Doubly robust AIPW (RF)** | **0.4175** |
+| S-learner (RF) | 0.3591 |
+| T-learner (RF) | 0.4179 |
 
-**Replicação independente do léxico:** `Y_low = score ≤ 2` (rótulo humano): naive 0,4878 → AIPW **0,4749**; `sent_score` contínuo: naive −0,7975 → AIPW **−0,7598** (piora de sentimento).
+**Independent replication of the lexicon:** `Y_low = score ≤ 2` (human label): naive 0.4878 → AIPW **0.4749**; continuous `sent_score`: naive −0.7975 → AIPW **−0.7598** (worse sentiment).
 
-### 5.3 Diagnósticos e refutações
+### 5.3 Diagnostics and refutations
 
-| Checagem | Resultado |
+| Check | Result |
 |---|---|
-| Propensity AUC (in-sample / CV-5) | 0,687 / 0,683 (discriminação moderada = sem separação perfeita) |
-| Overlap (e_hat ∈ [0,02; 0,5]) | 98,2% da amostra |
-| SMD médio \|·\| bruto → IPW | 0,085 → 0,024 (Love plot) |
-| Bootstrap B=200 (AIPW-logit) | média 0,4367, IC95% [0,4208; 0,4547] — exclui 0 |
-| Placebo (T permutado) | +0,0007 (p = 0,922) — nulo como esperado |
-| Dummy outcome (`n_palavras`) | +3,36 palavras (14,9 vs 11,5) — efeito pequeno de estilo |
-| Trimming e ∈ [0,02; 0,98] / [0,05; 0,95] | IPW 0,4343 / 0,4428 (estável) |
-| T alternativo (> 1 dia) | naive 0,4800 (efeito cresce com a definição mais estrita) |
-| Confundidor omitido simulado (γ = 0,05) | τ sobe p/ 0,5044 vs corrigido 0,4486 — seria preciso U muito forte p/ anular |
+| Propensity AUC (in-sample / CV-5) | 0.687 / 0.683 (moderate discrimination = no perfect separation) |
+| Overlap (e_hat ∈ [0.02; 0.5]) | 98.2% of the sample |
+| Mean SMD \|·\| raw → IPW | 0.085 → 0.024 (Love plot) |
+| Bootstrap B=200 (AIPW-logit) | mean 0.4367, 95% CI [0.4208; 0.4547] — excludes 0 |
+| Placebo (permuted T) | +0.0007 (p = 0.922) — null as expected |
+| Dummy outcome (`n_palavras`) | +3.36 words (14.9 vs 11.5) — small style effect |
+| Trimming e ∈ [0.02; 0.98] / [0.05; 0.95] | IPW 0.4343 / 0.4428 (stable) |
+| Alternative T (> 1 day) | naive 0.4800 (the effect grows under the stricter definition) |
+| Simulated omitted confounder (γ = 0.05) | τ rises to 0.5044 vs 0.4486 corrected — it would take a very strong U to nullify it |
 
-### 5.4 Heterogeneidade (CATE, T-learner)
+### 5.4 Heterogeneity (CATE, T-learner)
 
-- **Categoria:** sports_leisure 0,446 > ... > telephony 0,366 — amplitude ~8 p.p. entre categorias.
-- **UF:** RJ 0,456 > RS 0,432 > MG 0,419 > SP 0,394 / PR 0,393.
-- **Faixa de preço:** Q2 0,432 ≈ Q3 0,430 > Q4 0,409 > Q1 0,401 — efeito em todas as faixas.
-- **Árvore causal honesta** (profundidade 3, 7 folhas, split honesto 50/50): efeito **positivo em todas as folhas** (0,302 a 0,467; amplitude 0,1644); média ponderada 0,4228; correlação com T-learner por folha = 0,759. Split raiz: `purchase_yearmonth_int` (período), seguido de `pay_group`/`est_days`/`log_freight`/`n_items`.
+- **Category:** sports_leisure 0.446 > ... > telephony 0.366 — a span of ~8 p.p. across categories.
+- **UF:** RJ 0.456 > RS 0.432 > MG 0.419 > SP 0.394 / PR 0.393.
+- **Price band:** Q2 0.432 ≈ Q3 0.430 > Q4 0.409 > Q1 0.401 — an effect in every band.
+- **Honest causal tree** (depth 3, 7 leaves, honest 50/50 split): effect **positive in all leaves** (0.302 to 0.467; range 0.1644); weighted mean 0.4228; correlation with the per-leaf T-learner = 0.759. Root split: `purchase_yearmonth_int` (period), followed by `pay_group`/`est_days`/`log_freight`/`n_items`.
 
-## 6. Discussão
+## 6. Discussion
 
-- **Associação ≠ confundimento aqui:** em dados com seleção forte (SMD brutos até 0,285 em UF), o ajuste mal desloca o efeito (43,5 → 42–44 p.p. em IPW/Matching) porque o atraso é pouco prevalente (10,9%) e o outcome é extremamente reativo a ele. O Logit-AME (+32,5) e o S-learner (+35,9) são mais conservadores por suavização do modelo de resultado.
-- **Atenuação por erro de medida:** o léxico erra de forma plausivelmente não-diferencial (não "vê" a data de entrega), logo o viés esperado é de **atenuação** — o efeito real tende a ser ≥ o estimado. A triangulação com `review_score` (rótulo humano, AIPW +47,5 p.p.) confirma magnitude e direção.
-- **Seleção:** SATE ≠ PATE; quem não escreve tem nota média 4,42 e atraso 6% — plausivelmente efeito menor na população total. Extensão natural: IPW de seleção / Heckman.
-- **Limitações:** sem ground truth contrafactual; SUTVA aproximada (atraso binário colapsa 1 vs 30 dias; interferência regional possível); confundidores não observados (qualidade do produto, expectativa, greves); agregação por primeiro item em pedidos multi-item; anonimização GoT e período 2016–2018 limitam generalização; tamanho do texto (possível mediador) excluído de X.
+- **Association ≠ confounding here:** in data with strong selection (raw SMDs up to 0.285 on UF), adjustment barely moves the effect (43.5 → 42–44 p.p. under IPW/Matching) because the delay has low prevalence (10.9%) and the outcome is extremely reactive to it. Logit-AME (+32.5) and the S-learner (+35.9) are more conservative because of smoothing by the outcome model.
+- **Attenuation from measurement error:** the lexicon errs in a plausibly non-differential way (it does not "see" the delivery date), so the expected bias is **attenuation** — the real effect tends to be ≥ the estimated one. Triangulation with `review_score` (human label, AIPW +47.5 p.p.) confirms magnitude and direction.
+- **Selection:** SATE ≠ PATE; those who do not write have a mean rating of 4.42 and 6% delay — plausibly a smaller effect in the total population. Natural extension: selection IPW / Heckman.
+- **Limitations:** no counterfactual ground truth; approximate SUTVA (a binary delay collapses 1 vs 30 days; possible regional interference); unobserved confounders (product quality, expectation, strikes); aggregation by the first item in multi-item orders; GoT anonymization and the 2016–2018 period limit generalization; text length (a possible mediator) excluded from X.
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- **Cumprir o prazo estimado é alavanca causal de sentimento:** eliminar o atraso na subpopulação que escreve reviews reduziria a probabilidade de review negativo em ~32–44 pontos percentuais (estimador central AIPW: ~42 p.p.).
-- **Priorização operacional:** CATE maior em RJ, categorias sports_leisure/watches_gifts e pedidos não-pagos com cartão; folhas da árvore honesta sugerem período e prazo prometido como moderadores.
-- **Para pesquisa:** dose-resposta contínua (GPS) em `delay_days`; Double ML + Causal Forest (EconML) com cross-fitting; BERTimbau para sentimento calibrado por aspecto (atraso vs qualidade vs atendimento); correção de seleção de texto.
+- **Meeting the estimated delivery date is a causal lever on sentiment:** eliminating the delay in the subpopulation that writes reviews would reduce the probability of a negative review by ~32–44 percentage points (central estimator AIPW: ~42 p.p.).
+- **Operational prioritization:** larger CATE in RJ, in the sports_leisure/watches_gifts categories and in orders not paid with a card; the leaves of the honest tree suggest period and promised delivery window as moderators.
+- **For research:** continuous dose-response (GPS) in `delay_days`; Double ML + Causal Forest (EconML) with cross-fitting; BERTimbau for sentiment calibrated by aspect (delay vs quality vs service); correction for text selection.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- Notebook executado: [`./causal_nlp_olist.ipynb`](./causal_nlp_olist.ipynb) (37 células originais + bootstrap de dados; figuras e saídas incluídas).
-- Dados: `data/` (ignorado no git; download automático pelo notebook a partir do espelho `github.com/Mylinear/Brazilian_E_Commerce_Public_Dataset_by_Olist`).
-- Referências: Rubin (1974); Rosenbaum & Rubin (1983); Pearl (2009); Künzel et al. (2019, metalearners); Athey & Imbens (2016, honest trees); Chernozhukov et al. (2018, Double ML); Austin (2009, balanceamento); Egami et al. (2018, text-as-outcome); Feder et al. (2022, causal inference in NLP); Olist (2018, dataset, CC BY-NC-SA 4.0).
+- Executed notebook: [`./causal_nlp_olist.ipynb`](./causal_nlp_olist.ipynb) (37 original cells + data bootstrap; figures and outputs included).
+- Data: `data/` (ignored in git; downloaded automatically by the notebook from the `github.com/Mylinear/Brazilian_E_Commerce_Public_Dataset_by_Olist` mirror).
+- References: Rubin (1974); Rosenbaum & Rubin (1983); Pearl (2009); Kunzel et al. (2019, metalearners); Athey & Imbens (2016, honest trees); Chernozhukov et al. (2018, Double ML); Austin (2009, balancing); Egami et al. (2018, text-as-outcome); Feder et al. (2022, causal inference in NLP); Olist (2018, dataset, CC BY-NC-SA 4.0).
