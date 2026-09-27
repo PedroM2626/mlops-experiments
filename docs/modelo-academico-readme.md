@@ -1,86 +1,86 @@
-# Modelo de README Acadêmico por Experimento
+# Academic Per-Experiment README Template
 
-> Modelo de referência para documentação de experimentos. Cada experimento
-> deve ter o seu próprio `README.md` imediatamente dentro da sua pasta em
-> `experiments/<experimento>/`, seguindo a estrutura abaixo (artigo compacto,
-> em português).
+> Reference template for experiment documentation. Each experiment
+> must have its own `README.md` immediately inside its folder in
+> `experiments/<experiment>/`, following the structure below (compact
+> article, in Portuguese).
 
 ---
 
-## Estrutura obrigatória
+## Required structure
 
 ```markdown
-# <Título do Experimento>
+# <Experiment Title>
 
-> **Área:** <NLP | Séries Temporais | Computer Vision | Regressão | RecSys | ...>
-> **Tarefa:** <Classificação | Regressão | ...>
-> **Métrica principal:** <F1-macro, R², MAE, AUC-ROC, ...>
-> **Status:** <Concluído | Em andamento>
-> **Datasets:** <origem e tamanho>
+> **Area:** <NLP | Time Series | Computer Vision | Regression | RecSys | ...>
+> **Task:** <Classification | Regression | ...>
+> **Primary metric:** <F1-macro, R², MAE, AUC-ROC, ...>
+> **Status:** <Completed | In progress>
+> **Datasets:** <source and size>
 
-## 1. Resumo
-<3-5 linhas: problema investigado, método proposto, resultado principal e
-conclusão em uma frase. Sem tabelas.>
+## 1. Abstract
+<3-5 lines: the problem investigated, the proposed method, the main result
+and a one-sentence conclusion. No tables.>
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-<O que motivou o estudo; questões de pesquisa; hipóteses (se houver);
-referência a trabalhos/problemas anteriores que motivaram.>
+<What motivated the study; research questions; hypotheses (if any);
+reference to earlier work/problems that motivated it.>
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-<conceitos-chave para entender o experimento: representações, algoritmos,
-métricas. Sem extensões; apenas ligar teoria à decisão do estudo.>
+<key concepts needed to understand the experiment: representations, algorithms,
+metrics. No extensions; only connecting theory to the study's decision.>
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
-- Fonte, tamanho, nº de classes/features, split validação.
+### 4.1 Data
+- Source, size, number of classes/features, validation split.
 
-### 4.2 Pré-processamento
-- Limpeza, transformações, engenharia de features, tratamento de outliers.
+### 4.2 Preprocessing
+- Cleaning, transformations, feature engineering, outlier handling.
 
-### 4.3 Métodos comparados
-- Tabela com modelo/paradigma, estratégia e configuração relevantes.
+### 4.3 Compared methods
+- Table with the model/paradigm, strategy and relevant configuration.
 
-### 4.4 Avaliação
-- Métricas, protocolo de validação (holdout/CV/temporal), seeds, hardware.
+### 4.4 Evaluation
+- Metrics, validation protocol (holdout/CV/temporal), seeds, hardware.
 
-### 4.5 Reprodução
-- Comando(s) e/ou caminho dos notebooks.
-- Padrão de saída: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+### 4.5 Reproduction
+- Command(s) and/or path to the notebooks.
+- Output pattern: `experiments/artifacts/<experiment>_<timestamp>_<sha>/`.
 
-## 5. Resultados
+## 5. Results
 
-<tabelas comparativas e figuras com valores REAIS obtidos; mencione seed e
-data da execução. Nunca inventar valores.>
+<comparative tables and figures with the REAL values obtained; state the seed
+and the run date. Never invent values.>
 
-## 6. Discussão
+## 6. Discussion
 
-<interpretação dos resultados, comparação entre métodos, limitações e
-possíveis fontes de viés.>
+<interpretation of the results, comparison between methods, limitations and
+possible sources of bias.>
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-<bullet points práticos + recomendação de escolha para cenários de uso.>
+<practical bullet points + a choice recommendation for usage scenarios.>
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- Link para notebook/scripts/artefatos (caminhos relativos).
-- Referências bibliográficas quando aplicável (APIBT/APA curto).
+- Link to the notebook/scripts/artifacts (relative paths).
+- Bibliographic references where applicable (short APIBT/APA).
 ```
 
 ---
 
-## Regras de composição
+## Composition rules
 
-1. **Veracidade**: números/figuras devem refletir execuções reais presentes
-   nos notebooks/outputs. Se um valor não estiver disponível, escreva "a
-   medir/TBD" e **nunca** invente.
-2. **Idioma**: português do Brasil.
-3. **Caminhos**: sempre relativos ao diretório do README (ex. `por-ramal: ./feature_selection_ea.py`).
-4. **Tabelas**: use tabelas Markdown para resultados comparativos.
-5. **Reproducibilidade**: cuide da seção "Reproduzir" — deve permitir que
-   qualquer pessoa rode o experimento localmente.
-6. **Links do índice**: o README da raiz lista aponta para
-   `experiments/<experimento>/README.md`.
+1. **Truthfulness**: numbers/figures must reflect real runs present in the
+   notebooks/outputs. If a value is not available, write "to be
+   measured/TBD" and **never** invent one.
+2. **Language**: Brazilian Portuguese.
+3. **Paths**: always relative to the README's directory (e.g. `por-ramal: ./feature_selection_ea.py`).
+4. **Tables**: use Markdown tables for comparative results.
+5. **Reproducibility**: take care of the "Reproduce" section — it must let
+   anyone run the experiment locally.
+6. **Index links**: the root README index points to
+   `experiments/<experiment>/README.md`.
