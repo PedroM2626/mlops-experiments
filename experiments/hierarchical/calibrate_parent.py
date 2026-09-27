@@ -1,20 +1,20 @@
-"""Calibração do nível pai para classificação hierárquica (20 Newsgroups).
+"""Parent-level calibration for hierarchical classification (20 Newsgroups).
 
-Endereça os "próximos passos" do README: o pai é o gargalo (erro no pai
-perde a folha em cadeia). Este módulo varre um limiar de confiança sobre
-`decision_function`/`predict_proba` do classificador do pai:
+Addresses the README "next steps": the parent is the bottleneck (an error at
+the parent loses the leaf in cascade). This module sweeps a confidence threshold over
+the parent classifier `decision_function`/`predict_proba`:
 
-- confiança >= t → mantém predição do pai;
-- confiança < t → fallback (aqui: prediz a classe pai majoritária do treino,
-  configurável via `fallback_correct`, máscara booleana por amostra que diz
-  se o fallback acertaria).
+- confidence >= t → keep the parent prediction;
+- confidence < t → fallback (here: predict the majority parent class of the training
+  set, configurable via `fallback_correct`, a per-sample boolean mask saying
+  whether the fallback would be right).
 
-A métrica proxy de folha é:
+The leaf proxy metric is:
     leaf_proxy(t) = mean(parent_ok(t) * child_ok)
-onde `child_ok` = 1 se o classificador filho acertaria a folha dado o pai
-correto (medido no val). Retorna melhor t + curva completa.
+where `child_ok` = 1 if the child classifier would get the leaf right given the
+correct parent (measured on val). Returns best t + the full curve.
 
-Uso:
+Usage:
     from calibrate_parent import tune_parent_threshold
     best, curve = tune_parent_threshold(y_true, y_pred, conf, child_ok)
 """
@@ -31,11 +31,11 @@ def tune_parent_threshold(y_true, y_pred, conf, child_ok, fallback_correct=None,
     conf = np.asarray(conf, dtype=float)
     child_ok = np.asarray(child_ok, dtype=float)
     if not (len(y_true) == len(y_pred) == len(conf) == len(child_ok)):
-        raise ValueError("entradas com tamanhos divergentes")
+        raise ValueError("inputs with divergent sizes")
     if len(y_true) == 0:
-        raise ValueError("entradas vazias")
+        raise ValueError("empty inputs")
     if fallback_correct is None:
-        # fallback burro: sempre erra o pai (limite inferior honesto)
+        # dumb fallback: always misses the parent (honest lower bound)
         fallback_correct = np.zeros_like(y_true, dtype=float)
     fallback_correct = np.asarray(fallback_correct, dtype=float)
     if thresholds is None:
