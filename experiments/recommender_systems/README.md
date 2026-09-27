@@ -74,7 +74,7 @@ The experiment seeks to answer which recommendation paradigm predicts ratings be
   - `./movielens-autorec.ipynb` — adds Item-/User-AutoRec (the 9th and 10th approaches), compares the 10 models and registers them in MLflow
   - `./image_recommender.ipynb` — visual recommendation pipeline (CLI + interactive demo)
 - Dependencies: `surprise` (MovieLens data), PyTorch, LightGBM, pandas, numpy, MLflow.
-- Artifact pattern: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+- Artifact pattern: `experiments/artifacts/<experiment>_<timestamp>_<sha>/`.
 
 ## 5. Results
 

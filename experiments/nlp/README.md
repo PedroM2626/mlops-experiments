@@ -84,7 +84,7 @@ Metrics: Accuracy, F1-Macro, F1-Weighted (changed between phases), Precision/Rec
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task on `go_emotions`.
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (layer/strategy parameters documented in §5.2; run via notebook).
 
-Artifact output pattern: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+Artifact output pattern: `experiments/artifacts/<experiment>_<timestamp>_<sha>/`.
 
 ## 5. Results
 
