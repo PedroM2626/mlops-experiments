@@ -18,7 +18,7 @@ For the documentation standard, see
 |---|---|---|---|
 | **NLP group** (senti-pred, A/B/C pipelines, Twitter Methods, multiclass Logistic, MMoE, AG News, FE NLP) | Sentiment/topic classification and text representations | TF-IDF + n-grams ~0.98 F1; transformers win in low-data | [see README](experiments/nlp/README.md) |
 | **NLP in Regression — Wine (Kaggle)** | wine scoring from text | Ridge MAE 1.33 / R² 0.69 vs LightGBM 1.47 / 0.63 | [see](experiments/nlp-regression-wine/README.md) |
-| **Senti-Pred variations** | Variations of the sentiment pipeline | record 97.80% (TF-IDF 100k, 4-grams) | [see](experiments/senti-pred-variations/README.md) |
+| **Senti-Pred variations** | Variations of the sentiment pipeline | record 97.80% (TF-IDF 100k, 4-grams) | [see](experiments/nlp/twitter-entity-sentiment/senti-pred-variations/README.md) |
 | **Hierarchical 20 Newsgroups** | flat vs hierarchical classification, clustering | flat acc 0.7188 vs hierarchical 0.6953 | [see](experiments/hierarchical/README.md) |
 
 ### 🤖 Reinforcement Learning / AutoML
