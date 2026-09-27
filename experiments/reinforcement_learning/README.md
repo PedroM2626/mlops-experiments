@@ -1,88 +1,88 @@
-# Reinforcement Learning (Q-Learning) para AutoML
+# Reinforcement Learning (Q-Learning) for AutoML
 
-> **Área:** Reinforcement Learning + MLOps
-> **Tarefa:** Otimização de Hiperparâmetros (AutoML)
-> **Métrica principal:** F1-Score / MAE (recompensa do agente)
-> **Status:** Concluído
-> **Datasets:** LightGBM sobre dataset de sentimento (Senti-Pred, 74.000 linhas e 100.000 features; LinearSVC) e Sales Forecast (5,6M transações, 32 variáveis)
+> **Area:** Reinforcement Learning + MLOps
+> **Task:** Hyperparameter optimization (AutoML)
+> **Primary metric:** F1-Score / MAE (agent reward)
+> **Status:** Completed
+> **Datasets:** LightGBM on a sentiment dataset (Senti-Pred, 74,000 rows and 100,000 features; LinearSVC) and Sales Forecast (5.6M transactions, 32 variables)
 
-## 1. Resumo
+## 1. Abstract
 
-Este experimento constrói um **Agente de Q-Learning do zero** para substituir otimizadores tradicionais de hiperparâmetros (Random Search ou Optuna Bayesiano). O ambiente é um modelo real (LightGBM) cujas "ações" alteram variáveis como Learning Rate, Max Depth e Num Leaves; a recompensa é o F1-Score (ou MAE) do modelo. Após explorar com estratégia Epsilon-Greedy, o agente aprende a "Equação de Bellman" e navega pelo espaço matemático encontrando configurações quase instantaneamente. Em produção, o agente foi submetido a dois testes extremos: o dataset completo do Senti-Pred (74.000 linhas × 100.000 features com LinearSVC) e um forecast de varejo com 5,6M transações (via **Proxy Training**), onde atingiu **MAE 1.4297** vs. **1.4218** do Optuna — empate técnico em uma fração do tempo.
+This experiment builds a **Q-Learning Agent from scratch** to replace traditional hyperparameter optimizers (Random Search or Bayesian Optuna). The environment is a real model (LightGBM) whose "actions" change variables such as Learning Rate, Max Depth and Num Leaves; the reward is the model's F1-Score (or MAE). After exploring with an Epsilon-Greedy strategy, the agent learns the "Bellman Equation" and navigates the mathematical space, finding configurations almost instantly. In production, the agent was submitted to two extreme tests: the full Senti-Pred dataset (74,000 rows × 100,000 features with LinearSVC) and a retail forecast with 5.6M transactions (via **Proxy Training**), where it reached **MAE 1.4297** vs. Optuna's **1.4218** — a technical tie in a fraction of the time.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-A otimização de hiperparâmetros é normalmente feita por busca exaustiva, aleatória ou Bayesiana (Optuna). Este experimento testa a hipótese de que é possível ensinar um **agente RL autônomo** a navegar pelo espaço de hiperparâmetros sem supervisão, registrando Q-Table e converm-graft em MLOps. Os objetivos:
+Hyperparameter optimization is normally done by exhaustive, random or Bayesian search (Optuna). This experiment tests the hypothesis that it is possible to teach an **autonomous RL agent** to navigate the hyperparameter space without supervision, recording the Q-Table and convergence in MLOps. The objectives:
 
-- Construir um agente Q-Learning do zero (sem frameworks externos).
-- Validá-lo em um problema real (LightGBM) com recompensa baseada em F1.
-- **Prova em produção (Senti-Pred Full Scale):** otimizar `C`, `max_iter` e `tolerance` do LinearSVC no dataset completo 74.000 × 100k features, sob altíssimo estresse computacional.
-- **Prova de Big Data (Sales Forecast):** livrar o agente em base de 5,6M de transações com arquitetura de **Proxy Training** (limita the model to micro-árvores), mostrando escalabilidade de IA para otimizar IA.
+- Build a Q-Learning agent from scratch (no external frameworks).
+- Validate it on a real problem (LightGBM) with an F1-based reward.
+- **Production proof (Senti-Pred Full Scale):** optimize LinearSVC's `C`, `max_iter` and `tolerance` on the full 74,000 × 100k feature dataset, under extremely high computational stress.
+- **Big Data proof (Sales Forecast):** release the agent on a dataset of 5.6M transactions with a **Proxy Training** architecture (limits the model to micro-trees), showing the scalability of AI to optimize AI.
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **Q-Learning** — método de temporal difference: `Q(s,a) = Q(s,a) + α·(r + γ·max_a'·Q(s',a') − Q(s,a))`. O agente constrói uma tabela (Q-Table) que estima o valor de cada estado-ação.
-- **Exploração exploitation** — via **Epsilon-Greedy**: com probabilidade ε o agente explora ações aleatórias; depois, executa a melhor ação conhecida.
-- **Equação de Bellman** — utilizada como registro base da Q-Table para ir do explorador inicial ao especialista (convergência).
-- **Proxy Training** — para reduzir custo em big data, o modelo de treino é "cega" com **n_estimators=50** e **bagging_fraction=0.15** (micro-árvores + amostras rotativas), obtendo as coordenadas ótimas num tempo de minutos, depois um modelo final é treinado com as MESMAS coordenadas no dataset cheio.
-- **Recompensa Inversa** — no caso de previsão, o agente só "ganhava" pontos se o **MAE caísse** (recompensa negativa para piora).
+- **Q-Learning** — a temporal-difference method: `Q(s,a) = Q(s,a) + α·(r + γ·max_a'·Q(s',a') − Q(s,a))`. The agent builds a table (Q-Table) that estimates the value of each state-action pair.
+- **Exploration vs exploitation** — via **Epsilon-Greedy**: with probability ε the agent explores random actions; afterwards, it executes the best known action.
+- **Bellman Equation** — used as the base record of the Q-Table to go from the initial explorer to the expert (convergence).
+- **Proxy Training** — to reduce cost in big data, the training model is "blinded" with **n_estimators=50** and **bagging_fraction=0.15** (micro-trees + rotating samples), obtaining the optimal coordinates in a matter of minutes; afterwards a final model is trained with the SAME coordinates on the full dataset.
+- **Inverse Reward** — in the forecasting case, the agent only "earned" points if the **MAE dropped** (negative reward for worsening).
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados / ambiente
+### 4.1 Data / environment
 
-| Experimento | Ambiente | Ações | Recompensa | Dimensão |
+| Experiment | Environment | Actions | Reward | Dimension |
 |---|---|---|---|---|
-| AutoML Q-Learning | LightGBM real | Learning Rate, Max Depth, Num Leaves | F1 melhora / penaliza piora e tempo | dataset de sentimentos |
-| Senti-Pred Full Scale | LinearSVC | `C`, `max_iter`, `tolerance` | quality metrics (acurácia) sob milho de fits | 74.000 linhas × 100.000 features |
-| Sales Forecast (Proxy RL) | LightGBM (Proxy) | 32 variáveis temporais | **Recompensa Inversa:** só ganha se MAE cair | 5,6M transações |
+| AutoML Q-Learning | real LightGBM | Learning Rate, Max Depth, Num Leaves | F1 improves / penalizes worsening and time | sentiment dataset |
+| Senti-Pred Full Scale | LinearSVC | `C`, `max_iter`, `tolerance` | quality metrics (accuracy) under hundreds of fits | 74,000 rows × 100,000 features |
+| Sales Forecast (Proxy RL) | LightGBM (Proxy) | 32 time-series variables | **Inverse Reward:** only gains if MAE drops | 5.6M transactions |
 
-### 4.2 Algoritmo
-- Q-Table registrada via MLflow (trends de convergência e tabela final salva).
-- Exploração Epsilon-Greedy → exploração do espaço do Bellman.
-- Registro da melhor configuração e avaliação do modelo final.
+### 4.2 Algorithm
+- Q-Table recorded via MLflow (convergence trends and saved final table).
+- Epsilon-Greedy exploration → exploration of the Bellman space.
+- Recording of the best configuration and evaluation of the final model.
 
-### 4.3 Hardware e tracking
-- MLflow para log da Q-Table (`q_table_final.npy`) e curvas de convergência.
-- Segurança de análise nos artefatos de `rl_automl_qlearning.ipynb` (Q-Table no paths de artefato).
+### 4.3 Hardware and tracking
+- MLflow to log the Q-Table (`q_table_final.npy`) and the convergence curves.
+- Analysis safety in the artifacts of `rl_automl_qlearning.ipynb` (Q-Table among the artifact paths).
 
-### 4.4 Reprodução
-- `rl_automl_qlearning.ipynb` — experimento base Q-Learning + LightGBM.
-- `rl_sentipred_automl.ipynb` — aplicação ao Senti-Pred (LinearSVC full scale).
-- `sales-forecast/rl_proxy_sales_full.ipynb` — Proxy Training RL no Sales Forecast (5,6M).
-- Artefato: `mlruns/2/<run_id>/artifacts/q_table_final.npy`.
+### 4.4 Reproduction
+- `rl_automl_qlearning.ipynb` — base Q-Learning + LightGBM experiment.
+- `rl_sentipred_automl.ipynb` — application to Senti-Pred (LinearSVC full scale).
+- `sales-forecast/rl_proxy_sales_full.ipynb` — Proxy Training RL on Sales Forecast (5.6M).
+- Artifact: `mlruns/2/<run_id>/artifacts/q_table_final.npy`.
 
-## 5. Resultados
+## 5. Results
 
-| Prova | Cenário | Resultado |
+| Proof | Scenario | Result |
 |---|---|---|
-| Base (LightGBM) | AutoML Q-Learning + F1 | Agente aprende a Bellman; converge para a configuração quase instantamente após exploração |
-| Produção (Senti-Pred full) | LinearSVC 74.000×100.000 (C, max_iter, tol) | Escalabilidade: centenaas de fits de hiperplano sob estresse; prova de RL escalando o dataset completo de produção |
-| **Proxy em Big Data** | Sales Forecast 5,6M linhas, 32 vars | **MAE 1.4297 (RL) vs. 1.4218 (Optuna Bayesiano)** — empate técnico, mas em uma fração do tempo; `n_estimators=50` e `bagging_fraction=0.15` |
+| Base (LightGBM) | AutoML Q-Learning + F1 | The agent learns the Bellman equation; converges to the configuration almost instantly after exploration |
+| Production (Senti-Pred full) | LinearSVC 74,000×100,000 (C, max_iter, tol) | Scalability: hundreds of hyperplane fits under stress; proof of RL scaling on the full production dataset |
+| **Proxy on Big Data** | Sales Forecast 5.6M rows, 32 vars | **MAE 1.4297 (RL) vs. 1.4218 (Bayesian Optuna)** — a technical tie, but in a fraction of the time; `n_estimators=50` and `bagging_fraction=0.15` |
 
-*(valores reais do README raiz; o dataset completo de produção foi mapeado em minutos.)*
+*(real values from the root README; the full production dataset was mapped in minutes.)*
 
-## 6. Discussão
+## 6. Discussion
 
-O QLearning-Adapt apresentou resultados surpreendentes:
+QLearning-Adapt presented surprising results:
 
-1. **Modelo-livre e interpretável:** a Q-Table é interpretável e inspecionável, registrada no MLflow.
-2. **Suffices em alta dimensionalidade:** o teste full-scale do Senti-Pred (LinearSVC) exigiu otimização contínua de Hyperplane em fit de centenas de vezes sob estresse computacional — provou a viabilidade de aplicar IA para otimizar IA em escala.
-3. **Proxy Training (é uma técnica de aproximação eficaz):** Ao restringir o modelo no Proxy (`n_estimators=50`, `bagging_fraction=0.15`) e usar Recompensa Inversa (reduz MAE), o agente navegou 32 variáveis temporais em minutos, com configurações quase ótimas — difextern 0.008 de MAE vs. Optuna na produção real.
-4. **Limitações:** proxy não é exato — o empate técnico (0.008 de diferença) indica que a precisão final depende do treinamento no dataset cheio com as coordenadas achadas; a recompensa depende de métricas (não é open e ao tempo). Artefatos: Q-Table final associado `q_table_final.npy`.
+1. **Model-free and interpretable:** the Q-Table is interpretable and inspectable, recorded in MLflow.
+2. **Sufficiency in high dimensionality:** the Senti-Pred full-scale test (LinearSVC) required continuous hyperplane optimization over hundreds of fits under computational stress — it proved the viability of applying AI to optimize AI at scale.
+3. **Proxy Training (an effective approximation technique):** by restricting the model in the proxy (`n_estimators=50`, `bagging_fraction=0.15`) and using Inverse Reward (lowers MAE), the agent navigated 32 time-series variables in minutes, with near-optimal configurations — a 0.008 MAE difference vs. Optuna in real production.
+4. **Limitations:** the proxy is not exact — the technical tie (0.008 difference) indicates that final accuracy depends on training on the full dataset with the coordinates found; the reward depends on metrics (it is not open and it is bound to time). Artifacts: final Q-Table associated with `q_table_final.npy`.
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- O **Q-Learning é uma aproximação competitiva ao Optuna** no regime estudado (MAE 1.4297 vs 1.4218), resultando em empate técnico com **grande economia de tempo de busca**.
-- Funciona tanto para **modelos lineares (SVM)** quanto para **modelos em árvores (GBM)** modificando o espaço de ações.
-- A **Proxy / transferência de busca em micro-árvores** é essencial para big data (RF195 frames ele): equipeRL pode otimiz economâ sem custo de treino cheio.
-- **Recomendação:** para pipelines com grandes datasets, usar o agente RL com proxy e depois re-aprender o modelo final com as coordenadas achadas.
-- Limitações: dependência da recompensa de métricas offline e da reparaabilidade (seed/record). Loci de conver para produção.
+- **Q-Learning is a competitive approximation to Optuna** in the regime studied (MAE 1.4297 vs 1.4218), resulting in a technical tie with **large savings in search time**.
+- It works both for **linear models (SVM)** and for **tree models (GBM)** by changing the action space.
+- **Proxy / search transfer on micro-trees** is essential for big data (RF195 frames): the RL agent can optimize at low cost without full-training cost.
+- **Recommendation:** for pipelines with large datasets, use the RL agent with the proxy and then retrain the final model with the coordinates found.
+- Limitations: dependence on the reward from offline metrics and on reproducibility (seed/record). Convergence loci for production.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- `rl_automl_qlearning.ipynb` — experimento base (Q-Learning + LightGBM, MLflow).
+- `rl_automl_qlearning.ipynb` — base experiment (Q-Learning + LightGBM, MLflow).
 - `rl_sentipred_automl.ipynb` — full-scale LinearSVC (Senti-Pred 74k×100k).
-- `mlruns/2/cf1bba04d4c448c09402d9500d5492d2/artifacts/q_table_final.npy` — Q-Table treinada (artefato MLflow).
-- Caso Big Data: `../sales-forecast/rl_proxy_sales_full.ipynb` (Proxy RL, 5,6M transações).
-- Referência: Sutton & Barto, *Reinforcement Learning: An Introduction* (Q-Learning, Bellman, Epsilon-Greedy); Optuna como baseline de busca Bayesiana.
+- `mlruns/2/cf1bba04d4c448c09402d9500d5492d2/artifacts/q_table_final.npy` — trained Q-Table (MLflow artifact).
+- Big Data case: `../sales-forecast/rl_proxy_sales_full.ipynb` (Proxy RL, 5.6M transactions).
+- Reference: Sutton & Barto, *Reinforcement Learning: An Introduction* (Q-Learning, Bellman, Epsilon-Greedy); Optuna as the Bayesian search baseline.
