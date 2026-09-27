@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Gerador de frases por sentimento usando cadeias de Markov / n-gramas.
+"""Sentence generator by sentiment using Markov chains / n-grams.
 
-Treina um modelo de Markov separado para cada classe de sentimento
-(Positive, Negative, Neutral) e gera frases novas amostrando a proxima palavra.
+Trains a separate Markov model for each sentiment class
+(Positive, Negative, Neutral) and generates new sentences by sampling the next word.
 
-Datasets suportados:
-    b2w      B2W-Reviews01 (reviews da Americanas em PT-BR; nota 1-5 mapeada
-             em Negative <=2, Neutral ==3, Positive >=4)  [padrao]
-    twitter  Senti-Pred / Twitter Entity Sentiment Analysis (ingles)
+Supported datasets:
+    b2w      B2W-Reviews01 (Americanas reviews in PT-BR; rating 1-5 mapped
+             to Negative <=2, Neutral ==3, Positive >=4)  [default]
+    twitter  Senti-Pred / Twitter Entity Sentiment Analysis (English)
 
-Uso:
-    python markov_sentiment_generator.py                          # B2W, todas as categorias
-    python markov_sentiment_generator.py --dataset twitter        # dataset original (ingles)
-    python markov_sentiment_generator.py --sentiment negative     # so negativa
+Usage:
+    python markov_sentiment_generator.py                          # B2W, all categories
+    python markov_sentiment_generator.py --dataset twitter        # original dataset (English)
+    python markov_sentiment_generator.py --sentiment negative     # negative only
     python markov_sentiment_generator.py --ngram 3 --samples 5 --seed 42
 """
 import argparse
@@ -165,16 +165,16 @@ def sample_sentence(entry, max_words: int, attempts: int = 25):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Gera frases com Markov/n-gramas treinado em dataset de sentimentos.")
+    parser = argparse.ArgumentParser(description="Generates sentences with a Markov/n-grams model trained on a sentiment dataset.")
     parser.add_argument("--dataset", choices=list(LOADERS), default="b2w",
-                        help="Dataset de treino (padrao: b2w, reviews da Americanas em PT-BR).")
+                        help="Training dataset (default: b2w, Americanas reviews in PT-BR).")
     parser.add_argument("--sentiment", choices=[*SENTIMENTS, "all"], default="all",
-                        help="Categoria desejada (padrao: todas).")
+                        help="Desired category (default: all).")
     parser.add_argument("--ngram", type=int, choices=(2, 3, 4), default=3,
-                        help="Ordem do n-grama (2=bigrama, 3=trigrama). Padrao: 3.")
-    parser.add_argument("--samples", type=int, default=1, help="Frases geradas por categoria (padrao: 1).")
-    parser.add_argument("--max-words", type=int, default=25, help="Tamanho maximo da frase gerada.")
-    parser.add_argument("--seed", type=int, default=None, help="Seed para reprodutibilidade.")
+                        help="Order of the n-gram (2=bigram, 3=trigram). Default: 3.")
+    parser.add_argument("--samples", type=int, default=1, help="Sentences generated per category (default: 1).")
+    parser.add_argument("--max-words", type=int, default=25, help="Maximum size of the generated sentence.")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducibility.")
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -183,19 +183,19 @@ def main():
     targets = SENTIMENTS.keys() if args.sentiment == "all" else [args.sentiment]
     models = train_models(args.dataset, args.ngram)
 
-    print(f"Dataset: {args.dataset} | Modelo Markov de ordem {args.ngram} "
-          f"(contexto de {args.ngram - 1} palavra(s))")
+    print(f"Dataset: {args.dataset} | Markov model of order {args.ngram} "
+          f"(context of {args.ngram - 1} word(s))")
     print("=" * 70)
     for key in SENTIMENTS:
         info = models[key]
         status = "OK " if key in targets else "-- "
-        print(f"[{status}] {key:>8}: {info['n_tweets']:>6} textos | vocabulario de {info['vocab_size']:>6} palavras")
+        print(f"[{status}] {key:>8}: {info['n_tweets']:>6} texts | vocabulary of {info['vocab_size']:>6} words")
     print("=" * 70)
 
     for key in SENTIMENTS:
         if key not in targets:
             continue
-        print(f"\n--- Frase(s) gerada(s) [{key.upper()}] ---")
+        print(f"\n--- Generated sentence(s) [{key.upper()}] ---")
         for i in range(args.samples):
             print(f"  {i + 1}. {sample_sentence(models[key], args.max_words)}")
 

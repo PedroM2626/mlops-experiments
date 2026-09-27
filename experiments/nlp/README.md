@@ -1,256 +1,256 @@
-# Grupo de Experimentos NLP — Sentimento, Tópicos e Representações Textuais
+# NLP Experiment Group — Sentiment, Topics and Text Representations
 
-> **Área:** NLP
-> **Tarefa:** Classificação (sentimento, tópicos, multi-tarefa) e regressão textual
-> **Métrica principal:** F1-Macro / F1-Weighted / Acurácia
-> **Status:** Concluído
-> **Datasets:** Twitter Entity Sentiment Analysis (73.995 treino / 999 validação), AG News (4 classes), Google `go_emotions`, 20 Newsgroups e dataset de sentimento de textos diversos (7.500 linhas, 15 colunas) como referência de transferência.
+> **Area:** NLP
+> **Task:** Classification (sentiment, topics, multi-task) and text regression
+> **Main metric:** F1-Macro / F1-Weighted / Accuracy
+> **Status:** Completed
+> **Datasets:** Twitter Entity Sentiment Analysis (73.995 training / 999 validation), AG News (4 classes), Google `go_emotions`, 20 Newsgroups and a sentiment dataset of assorted texts (7.500 rows, 15 columns) as a transfer reference.
 
 ## 1. Resumo
 
-Esta pasta reúne a linha de experimentos de NLP do repositório: comparação de paradigms de representação (TF-IDF esparso, embeddings congelados e transformers contextualizados), ensembles hierárquicos (Ensemble Pyramid), otimização de um pipeline de sentimento em redes sociais (Twitter/Facebook/X) e classificação de tópicos em AG News. O resultado principal é que, para a sentiment análise esparsa de alta dimensionalidade (TF-IDF + n-grams), modelos lineares e ensembles randomizados superam transformers fine-tuned na maioria dos cenários (F1 ~0.98), enquanto o fine-tuning regularizado de transformers vence apenas em regimes de baixa amostragem. A engenharia de features (limpeza de texto, n-grams, vocabulário) mostrou-se mais decisiva do que a escolha do modelo.
+This folder gathers the repository's line of NLP experiments: a comparison of representation paradigms (sparse TF-IDF, frozen embeddings and contextualized transformers), hierarchical ensembles (Ensemble Pyramid), optimization of a social-network sentiment pipeline (Twitter/Facebook/X) and topic classification on AG News. The main result is that, for high-dimensional sparse sentiment analysis (TF-IDF + n-grams), linear models and randomized ensembles beat fine-tuned transformers in most scenarios (F1 ~0.98), whereas regularized transformer fine-tuning only wins in low-sample regimes. Feature engineering (text cleaning, n-grams, vocabulary) proved more decisive than the choice of model.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-O projeto surge do questionamento sobre qual representação e qual algoritmo produz o melhor custo-benefício para classificação de texto em produção, sob três pragmáticas pontos de vista:
+The project arises from the question of which representation and which algorithm produce the best cost-benefit trade-off for text classification in production, from three pragmatic points of view:
 
-1. **Custo computacional** — executar em hardware moderado (CPU/GPU de laptop) sem incorrer em semanas de treino.
-2. **Acurácia** — atingir estados da arte (F1 ≥ 0.95) em cenários onde os dados de treino são abundantes, e entender quando arquiteturas profundas são necessárias.
-3. **Interpretabilidade** — entender onde os erros ocorrem (limpeza do texto vs. vetorização vs. escolha do modelo).
+1. **Computational cost** — running on moderate hardware (laptop CPU/GPU) without incurring weeks of training.
+2. **Accuracy** — reaching state-of-the-art levels (F1 ≥ 0.95) in scenarios where the training data is abundant, and understanding when deep architectures are needed.
+3. **Interpretability** — understanding where the errors occur (text cleaning vs. vectorization vs. model choice).
 
-As hipóteses investigadas foram:
+The hypotheses investigated were:
 
-- `H1` — Para tweets (textos curtos), representações esparsas TF-IDF com bigramas + SVM linear rivalizam com transformers fine-tuned a uma fração do custo (em segundos vs. horas).
-- `H2` — Em regimes de baixa amostragem (N ≤ 1000), modelos clássicos tendem a superar transformers fine-tuned.
-- `H3` — Ensembles hierárquicos/meta-ensembles (Ensemble Pyramid) elevam progressivamente o F1 além do melhor modelo individual.
-- `H4` — A qualidade do pré-processamento de texto é mais decisiva do que a escolha do algoritmo.
+- `H1` — For tweets (short texts), sparse TF-IDF representations with bigrams + linear SVM rival fine-tuned transformers at a fraction of the cost (in seconds vs. hours).
+- `H2` — In low-sample regimes (N ≤ 1000), classic models tend to beat fine-tuned transformers.
+- `H3` — Hierarchical ensembles/meta-ensembles (Ensemble Pyramid) progressively raise F1 beyond the best individual model.
+- `H4` — The quality of text preprocessing is more decisive than the choice of algorithm.
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **TF-IDF** — *Term Frequency × Inverse Document Frequency*: matriz esparsa onde cada dimensão é um termo do vocabulário; o peso escala com a frequência no documento e é amortecido pela frequência no corpus (IDF). Com `sublinear_tf=True` aplica-se `1 + log(tf)`, atenuando palavras muito repetidas.
-- **n-grams** — unigramas/bigramas capturam sentidos de negação (`not good`, `very bad`); n-grams de caracteres (`char_wb` 2–5) capturam padrões morfológicos. Em geral, bigramas em sentimento são discriminativos e frequentes (~5–15% dos documentos), enquanto em tópicos são esparsos (<1%).
-- **LinearSVC** — SVM linear com penalidade L2 (parâmetro C); robusto em espaços esparsos de alta dimensionalidade.
-- **Transformers** — Self-attention com complexidade quadrática O(N²). **DistilBERT** (66M params): destilado do BERT.
-- **Ensembles** — Bagging, Voting (Soft/Hard) e Stacking com combinação de modelos. **Épsilon-Greedy** e **Thompson Sampling** usados no controle do RL do Versatile Ensemble Pyramid.
-- **MMoE** — *Multi-gate Mixture of Experts*: múltiplas redes especialistas compartilhadas com gates por tarefa; visa mitigar Transferência Negativa, mas é sensível à escala de dados/features.
-- **Focal Loss** — variante de entropia cruzada que penaliza dinamicamente amostras difíceis sobre as fáceis; útil para a tarefa desbalanceada.
+- **TF-IDF** — *Term Frequency × Inverse Document Frequency*: sparse matrix where each dimension is a vocabulary term; the weight scales with the frequency in the document and is damped by the frequency in the corpus (IDF). With `sublinear_tf=True`, `1 + log(tf)` is applied, attenuating very repeated words.
+- **n-grams** — unigrams/bigrams capture senses of negation (`not good`, `very bad`); character n-grams (`char_wb` 2–5) capture morphological patterns. In general, bigrams in sentiment are discriminative and frequent (~5–15% of the documents), while in topics they are sparse (<1%).
+- **LinearSVC** — linear SVM with L2 penalty (C parameter); robust in high-dimensional sparse spaces.
+- **Transformers** — Self-attention with quadratic complexity O(N²). **DistilBERT** (66M params): distilled from BERT.
+- **Ensembles** — Bagging, Voting (Soft/Hard) and Stacking with model combination. **Epsilon-Greedy** and **Thompson Sampling** used in the RL control of the Versatile Ensemble Pyramid.
+- **MMoE** — *Multi-gate Mixture of Experts*: multiple shared expert networks with per-task gates; it aims to mitigate Negative Transfer, but is sensitive to the scale of data/features.
+- **Focal Loss** — cross-entropy variant that dynamically penalizes hard samples over the easy ones; useful for the imbalanced task.
 
 ## 4. Metodologia
 
-### 4.1 Dados
+### 4.1 Data
 
 | Experiment | Dataset | Classes | Split |
 |---|---|---|---|
-| Pipeline A/B (Senti-Pred) | Twitter Entity Sentiment Analysis | 4 (Irrelevant, Negative, Neutral, Positive) | 73.995 treino / 999 validação |
-| Ag News | AG News | 4 (World, Sports, Business, Sci/Tech) | 1.000 treino / 200 teste (seed 42) |
-| Proportion of Grid | Twitter Entity Sentiment | 4 | 73.768 treino / 999 validação |
-| MMoE | Google `go_emotions` | multi-labels (Alegria, Tristeza, Raiva, ...) | até 43.000 amostras |
+| Pipeline A/B (Senti-Pred) | Twitter Entity Sentiment Analysis | 4 (Irrelevant, Negative, Neutral, Positive) | 73.995 training / 999 validation |
+| Ag News | AG News | 4 (World, Sports, Business, Sci/Tech) | 1.000 training / 200 test (seed 42) |
+| Proportion of Grid | Twitter Entity Sentiment | 4 | 73.768 training / 999 validation |
+| MMoE | Google `go_emotions` | multi-labels (Joy, Sadness, Anger, ...) | up to 43.000 samples |
 
 Hardware: NVIDIA GeForce RTX 4070 Laptop (CUDA 12.1) + Intel i7 / Python 3.8.10. Seeds 42 (numpy/torch).
 
-### 4.2. Pré-processamento
+### 4.2. Preprocessing
 
-A limpeza de texto evoluiu ao longo da série (detalhamento na §5.3). Variações avaliadas entre Pipeline A (agressivo) e Pipeline B (conservador):
+Text cleaning evolved along the series (detail in §5.3). Variations evaluated between Pipeline A (aggressive) and Pipeline B (conservative):
 
-| Componente | Pipeline A | Pipeline B |
+| Component | Pipeline A | Pipeline B |
 |---|---|---|
-| Hashtags | Remove `#palavra` inteira (`@\w+\|#\w+`) | Mantém o conteúdo (`#great` → `great`) |
-| Pontuação | Remove toda (`[^\w\s]`) | Preserva `!?.,'"` e hífens |
-| Números | Remove (`\d+`) | Mantém números (`0-9`) |
-| Stopwords | Removidas (F1) / mantidas (fases seguintes) | Mantidas |
-| Lematização | WordNet com POS em Fase 1, depois desativada | Não usada |
+| Hashtags | Removes the whole `#palavra` (`@\w+\|#\w+`) | Keeps the content (`#great` → `great`) |
+| Punctuation | Removes all of it (`[^\w\s]`) | Preserves `!?.,'"` and hyphens |
+| Numbers | Removes (`\d+`) | Keeps numbers (`0-9`) |
+| Stopwords | Removed (F1) / kept (following phases) | Kept |
+| Lemmatization | WordNet with POS in Phase 1, then disabled | Not used |
 
-### 4.3. Métodos comparados
+### 4.3. Methods compared
 
-| Experimento | Modelos/ParadDirigidos | Estrutura |
+| Experiment | Models/Paradigms | Structure |
 |---|---|---|
-| Ensemble Pyramid (6 camadas) | LR, LinearSVC, NB, CNB, Ridge, RF, ET + Bagging/Voting/Stacking | Pirâmide hierárquica de meta-ensembles |
-| Versatile Ensemble Pyramid | RL Meta-Learner escolhe nº de modelos e estratégia | AutoML com `--layers` variável |
+| Ensemble Pyramid (6 layers) | LR, LinearSVC, NB, CNB, Ridge, RF, ET + Bagging/Voting/Stacking | Hierarchical pyramid of meta-ensembles |
+| Versatile Ensemble Pyramid | RL Meta-Learner chooses the number of models and the strategy | AutoML with variable `--layers` |
 | Pipeline A / B | Extra Trees, LinearSVC(C=1/10/19), LR, MNB | TF-IDF 15k→70k features |
-| Twitter Methods | TF-IDF+LinearSVC, Sentence-BERT frozen, DistilBERT, BiLSTM, TextCNN | 74k amostras |
-| Logística multiclasse | Multinomial(lbfgs), OvR(lbfgs/liblinear/saga), OvO(liblinear) | C ∈ {0.1 … 100} |
-| Feature Engineering | TF-IDF vs. hashing trick, word+char n-grams | varias transformed |
+| Twitter Methods | TF-IDF+LinearSVC, Sentence-BERT frozen, DistilBERT, BiLSTM, TextCNN | 74k samples |
+| Multiclass logistic | Multinomial(lbfgs), OvR(lbfgs/liblinear/saga), OvO(liblinear) | C ∈ {0.1 … 100} |
+| Feature Engineering | TF-IDF vs. hashing trick, word+char n-grams | several transformations |
 | AG News | DistilBERT (fine-tune) vs. TF-IDF+LinearSVC / +ExtraTrees | Low-data 1k |
-| MMoE | Single-Task vs. Multi-Abiação MMoE (DistilBERT embeddings vs. TF-IDF) | 4 tags emotion | — |
+| MMoE | Single-Task vs. Multi-task MMoE (DistilBERT embeddings vs. TF-IDF) | 4 emotion tags | — |
 
-### 4.4 Avaliação
+### 4.4 Evaluation
 
-Métricas: Acurácia, F1-Macro, F1-Weighted (mudadas entre fases), Precision/Recall. Protocolo: holdout treino/validação fixo do dataset; grid search no AG News (max_features 500–5.000); tracking via MLflow + DagsHub (mesma execução agrupada, métricas prefixadas).
+Metrics: Accuracy, F1-Macro, F1-Weighted (changed between phases), Precision/Recall. Protocol: fixed training/validation holdout from the dataset; grid search on AG News (max_features 500–5.000); tracking via MLflow + DagsHub (same grouped run, prefixed metrics).
 
-### 4.5 Reprodução
+### 4.5 Reproduction
 
-- `ag-news-classification.ipynb` — Exp1 AG News (1000 treino / 200 teste, seed 42).
-- **Twitter Entity Sentiment Analysis**: Todos os experimentos e pipelines originais (A, B, C) envolvendo este dataset foram centralizados na subpasta `twitter-entity-sentiment/`. Isso inclui `twitter-sentiment-analysis.ipynb`, `senti-pred_pipeline.ipynb`, `logistic-regression-multiclass.ipynb`, `feature-engineering-nlp.ipynb` e `NLP-twitter-methods-comparasion.ipynb`.
-- `nlp-multi-task-classification.ipynb` — MMoE multi-task em `go_emotions`.
-- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parâmetros de camadas/estratégia documentados na §5.2; execução via notebook).
+- `ag-news-classification.ipynb` — Exp1 AG News (1000 training / 200 test, seed 42).
+- **Twitter Entity Sentiment Analysis**: all experiments and original pipelines (A, B, C) involving this dataset were centralized in the `twitter-entity-sentiment/` subfolder. This includes `twitter-sentiment-analysis.ipynb`, `senti-pred_pipeline.ipynb`, `logistic-regression-multiclass.ipynb`, `feature-engineering-nlp.ipynb` and `NLP-twitter-methods-comparasion.ipynb`.
+- `nlp-multi-task-classification.ipynb` — MMoE multi-task on `go_emotions`.
+- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (layer/strategy parameters documented in §5.2; run via notebook).
 
-Padrão de saída de artefatos: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+Artifact output pattern: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
 
-## 5. Resultados
+## 5. Results
 
-### 5.1. Ensemble Pyramid — 6 Camadas de Ensembles sobre Ensembles
+### 5.1. Ensemble Pyramid — 6 Layers of Ensembles over Ensembles
 
-Arquitetura em pirâmide combinando Bagging, Voting e Stacking hierarquicamente:
+Pyramid architecture combining Bagging, Voting and Stacking hierarchically:
 
-- **Camada 1**: Base Learners (LR, LinearSVC, NB, CNB, Ridge, RF, ET)
-- **Camada 2**: Ensembles dos Base Learners (Bagging + Voting + Stacking)
-- **Camada 3**: Ensembles de Ensembles (Stacking + Bagging sobre Stacking + Voting)
-- **Camada 4**: Meta-Ensemble Final (Meta Voting Soft + Meta Stacking + Meta Voting Hard)
-- **Camada 5**: Meta-Ensemble Intermediário (Meta2 Voting Soft + Meta2 Stacking + Meta2 Voting Hard)
-- **Camada 6**: Meta-Ensemble Final Aprimorado (Final Stacking + Final Voting Soft + Final Voting Hard)
+- **Layer 1**: Base Learners (LR, LinearSVC, NB, CNB, Ridge, RF, ET)
+- **Layer 2**: Ensembles of the Base Learners (Bagging + Voting + Stacking)
+- **Layer 3**: Ensembles of Ensembles (Stacking + Bagging over Stacking + Voting)
+- **Layer 4**: Final Meta-Ensemble (Meta Voting Soft + Meta Stacking + Meta Voting Hard)
+- **Layer 5**: Intermediate Meta-Ensemble (Meta2 Voting Soft + Meta2 Stacking + Meta2 Voting Hard)
+- **Layer 6**: Improved Final Meta-Ensemble (Final Stacking + Final Voting Soft + Final Voting Hard)
 
-Características:
-- Manutenção em formato esparso: TF-IDF com 70k features ocupa ~15 MB.
-- Classes leves (`PreFittedSoftVoting`, `PreFittedHardVoting`, `MetaStackingLR`) evitam re-treino desnecessário.
-- Combina predições probabilísticas de múltiplos níveis hierárquicos.
+Characteristics:
+- Maintenance in sparse format: TF-IDF with 70k features occupies ~15 MB.
+- Light classes (`PreFittedSoftVoting`, `PreFittedHardVoting`, `MetaStackingLR`) avoid unnecessary re-training.
+- Combines probabilistic predictions from multiple hierarchical levels.
 
-Resultado principal: **F1-score ~0.98+ na validação**, com ganhos progressivos por camada (ruar, Soti embarcados).
+Main result: **F1-score ~0.98+ on validation**, with progressive gains per layer (ruar, Soti embedded).
 
-### 5.2. Versatile Ensemble Pyramid (script AutoML personalizável)
+### 5.2. Versatile Ensemble Pyramid (customizable AutoML script)
 
-Motor de AutoML que usa RL para decidir dinamicamente a arquitetura da pirâmide:
+AutoML engine that uses RL to decide the pyramid architecture dynamically:
 
-- **Quantidade de Modelos Variável** — o RL Meta-Learner decide quantos e quais modelos por camada (ex.: Camada 1 com 3 modelos, Camada 2 com 2), maximizando diversidade e eficiência.
-- **Seleção Estocástica (Thompson Variation)** — o agente mantém um ranking de performance, mas introduz ruído planejado para testar novas sinergias entre as meta-features.
+- **Variable Number of Models** — the RL Meta-Learner decides how many and which models per layer (e.g.: Layer 1 with 3 models, Layer 2 with 2), maximizing diversity and efficiency.
+- **Stochastic Selection (Thompson Variation)** — the agent keeps a performance ranking, but introduces planned noise to test new synergies between the meta-features.
 
-Parâmetros CLI (sem alterar código):
+CLI parameters (without changing code):
 
-| Parâmetro | Descrição | Exemplo |
+| Parameter | Description | Example |
 |---|---|---|
-| `--layers` | Profundidade total da pirâmide | `--layers 15` |
-| `--min_models` / `--max_models` | Largura e diversidade por camada | `--min_models 3 --max_models 6` |
-| `--epsilon` | Exploração do RL (0.1 focado, 0.5 explorador) | `--epsilon 0.5` |
-| `--metric` | Métrica do agente | `f1` ou `accuracy` |
-| `--strategy` | Conexão entre camadas | `dense`, `residual`, `simple` |
-| `--jitter` | Variação aleatória de hiperparâmetros | `True/False` |
-| `--patience` | Camadas sem melhora antes do early stopping | `--patience 3` |
-| `--seed` | Reproducibilidade 100% (seeding global) | `--seed 42` |
-| `--tfidf_max` / `--tfidf_ngrams` | Customização da extração de features | `--tfidf_max 75000` |
+| `--layers` | Total depth of the pyramid | `--layers 15` |
+| `--min_models` / `--max_models` | Width and diversity per layer | `--min_models 3 --max_models 6` |
+| `--epsilon` | RL exploration (0.1 focused, 0.5 exploring) | `--epsilon 0.5` |
+| `--metric` | Agent's metric | `f1` or `accuracy` |
+| `--strategy` | Connection between layers | `dense`, `residual`, `simple` |
+| `--jitter` | Random variation of hyperparameters | `True/False` |
+| `--patience` | Layers without improvement before early stopping | `--patience 3` |
+| `--seed` | 100% reproducibility (global seeding) | `--seed 42` |
+| `--tfidf_max` / `--tfidf_ngrams` | Customization of the feature extraction | `--tfidf_max 75000` |
 
-Execução com customização extrema (flags da tabela acima = parâmetros do notebook):
+Run with extreme customization (flags of the table above = notebook parameters):
 
 ```bash
 jupyter nbconvert --to notebook --execute ../ensemble_pyramid.ipynb --inplace
 ```
 
-As configurações são registradas no MLflow automaticamente para comparação entre estratégias de evolução.
+The configurations are registered in MLflow automatically for comparison between evolution strategies.
 
-### 5.3. Trajetória de evolução do Pipeline A (Senti-Pred)
+### 5.3. Evolution trajectory of Pipeline A (Senti-Pred)
 
-| Fase | Configuração | Melhor modelo | Acc/F1 |
+| Phase | Configuration | Best model | Acc/F1 |
 |---|---|---|---|
-| Fase 1 | TF-IDF 15k (unig+bigrama), lematização POS, stopwords removidas | Extra Trees | Acc 0.9750 / F1-macro 0.9744 |
-| Fase 2 | TF-IDF 70k (bigramas), sem stopwords, sem lematização | Extra Trees | Acc/F1 0.9820 |
-| Fase 3 | TF-IDF 70k + `sublinear_tf=True` + `strip_accents` | Extra Trees | F1 0.9810 (LR subiu p/ 0.9750) |
-| Fase 4 | Fase 3 + LinearSVC com C=10 e C=19 | LinearSVC (C=10.0/19.0) | Acc/F1 0.9820 |
+| Phase 1 | TF-IDF 15k (uni+bigram), POS lemmatization, stopwords removed | Extra Trees | Acc 0.9750 / F1-macro 0.9744 |
+| Phase 2 | TF-IDF 70k (bigrams), no stopwords, no lemmatization | Extra Trees | Acc/F1 0.9820 |
+| Phase 3 | TF-IDF 70k + `sublinear_tf=True` + `strip_accents` | Extra Trees | F1 0.9810 (LR rose to 0.9750) |
+| Phase 4 | Phase 3 + LinearSVC with C=10 and C=19 | LinearSVC (C=10.0/19.0) | Acc/F1 0.9820 |
 
-**Fase 1 detalhada (15k features, F1-Macro):**
+**Phase 1 detail (15k features, F1-Macro):**
 
-| Modelo | Accuracy | F1-Macro |
+| Model | Accuracy | F1-Macro |
 |---|---|---|
 | Extra Trees | **0.9750** | **0.9744** |
 | Linear SVC (C=1.0) | 0.9369 | 0.9362 |
 | Logistic Regression | 0.8989 | 0.8960 |
 | Multinomial NB | 0.7838 | 0.7753 |
 
-**Fase 2 detalhada (70k features, F1-weighted):**
+**Phase 2 detail (70k features, F1-weighted):**
 
-| Modelo | Acc / F1 |
+| Model | Acc / F1 |
 |---|---|
 | **Extra Trees** | **0.9820** |
 | Linear SVC (C=1.0) | 0.9800 |
 | Logistic Regression | 0.9730 |
 | Multinomial NB | 0.9150 |
 
-**Fase 3 detalhada:**
+**Phase 3 detail:**
 
-| Modelo | Acc / F1 |
+| Model | Acc / F1 |
 |---|---|
 | **Extra Trees** | **0.9810** |
 | Linear SVC (C=1.0) | 0.9800 |
-| Logistic Regression | 0.9750 (+0.20% com sublinear_tf) |
+| Logistic Regression | 0.9750 (+0.20% with sublinear_tf) |
 | Multinomial NB | 0.9140 |
 
-**Fase 4 detalhada (regularização do SVC):**
+**Phase 4 detail (SVC regularization):**
 
-| Modelo | Acc / F1 |
+| Model | Acc / F1 |
 |---|---|
-| **Linear SVC (C=10.0 ou C=19.0)** | **0.9820** |
+| **Linear SVC (C=10.0 or C=19.0)** | **0.9820** |
 | Extra Trees | 0.9810 |
 | Linear SVC (C=1.0) | 0.9800 |
 | Logistic Regression | 0.9750 |
 | Multinomial NB | 0.9140 |
 
-### 5.4. Duelo de engenharia: Pipeline A vs. Pipeline B vs. Pipeline C (Senti-Pred-remake2)
+### 5.4. Engineering duel: Pipeline A vs. Pipeline B vs. Pipeline C (Senti-Pred-remake2)
 
-- Pipeline B: substitui `#palavra` por `palavra`, conserva pont. `!?.`, hífens e contrações (`don't`), mantém números.
-- Pipeline A: remove hashtags por completo, remove toda a pontuação (vira `dont` a partir de `don't`), exclui dígitos.
-- Pipeline C (Senti-Pred-remake2): vetorização extrema (TF-IDF 100k, 4-grams), limpeza com
-  lematização, stopwords (com `not`/`no` preservados) e expansão de contrações; votação
+- Pipeline B: replaces `#palavra` by `palavra`, keeps punct. `!?.`, hyphens and contractions (`don't`), keeps numbers.
+- Pipeline A: removes hashtags entirely, removes all punctuation (`dont` from `don't`), excludes digits.
+- Pipeline C (Senti-Pred-remake2): extreme vectorization (TF-IDF 100k, 4-grams), cleaning with
+  lemmatization, stopwords (with `not`/`no` preserved) and contraction expansion; voting
   LinearSVC(C=0.5, balanced) + LR(C=10, balanced).
 
-Resultado final do duelo (reproduzido nesta execução, seed 42, holdout 1.000):
+Final result of the duel (reproduced in this run, seed 42, holdout 1.000):
 
-| Pipeline | Campeã | Acurácia | F1-Macro | F1-Weighted |
+| Pipeline | Winner | Accuracy | F1-Macro | F1-Weighted |
 |---|---|---|---|---|
-| **A** (agressiva) | ExtraTrees | 0.9850 | **0.9845** | 0.9850 |
-| **B** (conservadora) | LinearSVC C=19 | 0.9830 | 0.9833 | 0.9830 |
+| **A** (aggressive) | ExtraTrees | 0.9850 | **0.9845** | 0.9850 |
+| **B** (conservative) | LinearSVC C=19 | 0.9830 | 0.9833 | 0.9830 |
 | **C** (remake2) | LinearSVC C=0.5 | 0.9780 | 0.9782 | 0.9780 |
 
-**Conclusão da §5.4:** a engenharia de features (limpeza do texto) foi mais decisiva do que a
-escolha do modelo. Ao preservar exclamações, conteúdo de hashtags e contrações idiomáticas, o
-Pipeline B gera representações de sentimento mais ricas; a Pipeline A, agressiva, atinge o
-**melhor F1-Macro entre as canônicas** com ExtraTrees. O recorde da Pipeline C (~97.8%)
-reproduz-se, mas a análise rigorosa de ablações (`pipelines_abc_comparison/README.md`)
-mostra que o vetorizador (100k + bigramas) é o ativo mais valioso — não a limpeza: o melhor
-F1-Macro do estudo (**0.9857**) surge ao combinar **pré-processamento A + vetorizador C**.
-Diferenças < 1 pp entre as três são estatisticamente não-significativas (McNemar, p ≥ 0.33).
+**Conclusion of §5.4:** feature engineering (text cleaning) was more decisive than the
+choice of model. By preserving exclamation marks, hashtag content and idiomatic contractions,
+Pipeline B produces richer sentiment representations; the aggressive Pipeline A reaches the
+**best F1-Macro among the canonical ones** with ExtraTrees. The Pipeline C record (~97.8%)
+reproduces itself, but the rigorous ablation analysis (`pipelines_abc_comparison/README.md`)
+shows that the vectorizer (100k + bigrams) is the most valuable asset — not the cleaning: the best
+F1-Macro of the study (**0.9857**) appears when combining **pre-processing A + vectorizer C**.
+Differences < 1 pp between the three are statistically non-significant (McNemar, p ≥ 0.33).
 
-**What-ifs principais (detalhes e tabelas em `pipelines_abc_comparison/README.md`):**
-- **n-gramas:** remover os bigramas derruba −2.6 a −4.8 pp; a C melhora **+0.33 pp** ao
-  trocar 4-grams por bigramas; a B é a mais sensível a N>2 (até −0.61 pp).
-- **Vocabulário:** `max_features` 10k→100k na C custa −8.5 pp; 200k rende +0.41 pp; A/B sofrem
-  −4 a −4.6 pp se truncados a 10k.
-- **Limpeza:** manter hashtags/pontuação/dígitos na A rende ~+0.4 pp cada; manter stopwords na
-  C rende +0.30 pp; contrações e conteúdo de hashtags são sinal na C (+0.43/+0.32 pp).
-- **Modelo:** o Voting oficial da C é levemente inferior ao LinearSVC C=0.5 isolado;
-  `voting='soft'` degrada; `class_weight=balanced` sozinho não explica o ganho da C.
-- **Significância:** nenhuma diferença entre pipelines é estatisticamente significativa
-  (N=1.000; erros totais 15/17/22).
+**Main what-ifs (details and tables in `pipelines_abc_comparison/README.md`):**
+- **n-grams:** removing the bigrams drops −2.6 to −4.8 pp; C improves **+0.33 pp** when
+  switching 4-grams for bigrams; B is the most sensitive to N>2 (up to −0.61 pp).
+- **Vocabulary:** `max_features` 10k→100k on C costs −8.5 pp; 200k yields +0.41 pp; A/B suffer
+  −4 to −4.6 pp if truncated to 10k.
+- **Cleaning:** keeping hashtags/punctuation/digits on A yields ~+0.4 pp each; keeping stopwords on
+  C yields +0.30 pp; contractions and hashtag content are signal on C (+0.43/+0.32 pp).
+- **Model:** the official Voting of C is slightly worse than LinearSVC C=0.5 alone;
+  `voting='soft'` degrades it; `class_weight=balanced` alone does not explain the gain of C.
+- **Significance:** no difference between pipelines is statistically significant
+  (N=1.000; total errors 15/17/22).
 
-### Pipelines comparadoras — paths relativos:
+### Comparison pipelines — relative paths:
 
 - Pipeline A → `senti-pred_pipeline.ipynb`
 - Pipeline B → `twitter-sentiment-analysis.ipynb`
 - Pipeline C → `pipelines_abc_comparison/` + `../senti-pred-variations/Senti-Pred-remake2/`
 
-### 5.5. Twitter Methods Comparison — Paradigmas de Representação Textual
+### 5.5. Twitter Methods Comparison — Text Representation Paradigms
 
-Notebook: `../NLP-twitter-methods-comparasion.ipynb`. Cinco paradigmas no dataset completo (73.995 treino / 999 val, 4 classes).
+Notebook: `../NLP-twitter-methods-comparasion.ipynb`. Five paradigms on the complete dataset (73.995 training / 999 val, 4 classes).
 
-| Modelo | Acurácia | Tempo (s) | Paradigma | Parâmetros |
+| Model | Accuracy | Time (s) | Paradigm | Parameters |
 |---|---|---|---|---|
-| **TF-IDF + LinearSVC** | **0.9800** | **4,35** | BoW + SVM linear | ~70M features |
-| **DistilBERT** | **0.9710** | 2.421,08 | Transformer | 66M parámetros |
-| TextCNN | 0.9530 | 13,00 | CNN 1D em embeddings | ~2.6M |
-| BiLSTM | 0.8900 | 13,26 | LSTM bidirecional | ~1.1M |
-| Sentence-BERT | 0.6036 | 33,93 | Transformer congelado + LinearSVC | 22M congelados |
+| **TF-IDF + LinearSVC** | **0.9800** | **4,35** | BoW + linear SVM | ~70M features |
+| **DistilBERT** | **0.9710** | 2.421,08 | Transformer | 66M parameters |
+| TextCNN | 0.9530 | 13,00 | 1D CNN on embeddings | ~2.6M |
+| BiLSTM | 0.8900 | 13,26 | Bidirectional LSTM | ~1.1M |
+| Sentence-BERT | 0.6036 | 33,93 | Frozen transformer + LinearSVC | 22M frozen |
 
-Detalhe: TF-IDF+LinearSVC 0.9800 / 4.35s — acurácia com regularização L2 (C=1), dependendo do vocabulário. Percentagem das tabelas reais:
+Detail: TF-IDF+LinearSVC 0.9800 / 4.35s — accuracy with L2 regularization (C=1), depending on the vocabulary. Percentage of the real tables:
 
-**TF-IDF + LinearSVC descreve** (weighted 0.98). **DistilBERT** refosa de 0.8529 (30k) para **0.9710** (74k, +11.81 pp; 2.421s, 556× o tempo do TF-IDF). Época 1 do 74k: Loss 0.1962 → Acc 0.9409; Época 2: Loss 0.1003 → Acc 0.9710. **TextCNN** 0.9530/13s (melhor proporção acurácia/tempo entre neurais: 98,5% da performance do DistilBERT em 0,5% do tempo). **BiLSTM** 0.8809/13,26s. **Sentence-BERT** estagnado 0.6036 (ganho de +0,40 pp da subamostra 30k para a completa).
+**TF-IDF + LinearSVC is the reference** (weighted 0.98). **DistilBERT** jumps from 0.8529 (30k) to **0.9710** (74k, +11.81 pp; 2.421s, 556× the time of TF-IDF). Epoch 1 of the 74k: Loss 0.1962 → Acc 0.9409; Epoch 2: Loss 0.1003 → Acc 0.9710. **TextCNN** 0.9530/13s (best accuracy/time ratio among the neural ones: 98,5% of DistilBERT's performance in 0,5% of the time). **BiLSTM** 0.8809/13,26s. **Sentence-BERT** stalled at 0.6036 (gain of +0,40 pp from the 30k sub-sample to the full one).
 
-> **Mamba (SSM, 130M) — tentado e descartado.** Treino executado em RTX 3060
-> Laptop (subset estratificado 4k, 2 épocas, batch 16, max_len 32):
-> época 1 acc 0.328 / F1 0.30 (64 min), época 2 acc 0.440 / F1 0.406 (131 min
-> acumulados). Gargalo: `mamba-ssm` não instala no Windows (sem Triton), e o
-> fallback `slow_forward` do transformers mede **~8,3 s/step** — o full 74k
-> projetaria ~12 h/época (~38 h p/ 3 épocas). Recomendação: só retomar em
-> Linux + `mamba-ssm` (kernels fundidos), onde o mesmo treino cai p/ minutos.
+> **Mamba (SSM, 130M) — tried and discarded.** Training run on an RTX 3060
+> Laptop (stratified subset 4k, 2 epochs, batch 16, max_len 32):
+> epoch 1 acc 0.328 / F1 0.30 (64 min), epoch 2 acc 0.440 / F1 0.406 (131 min
+> accumulated). Bottleneck: `mamba-ssm` does not install on Windows (no Triton), and the
+> `slow_forward` fallback of transformers measures **~8,3 s/step** — the full 74k
+> would project ~12 h/epoch (~38 h for 3 epochs). Recommendation: only resume on
+> Linux + `mamba-ssm` (fused kernels), where the same training falls to minutes.
 
-**Efeito do dataset completo (30k → 74k):**
+**Effect of the complete dataset (30k → 74k):**
 
-| Modelo | Acurácia 30k | Acurácia 74k | Ganho (pp) | Tempo 74k (s) |
+| Model | Accuracy 30k | Accuracy 74k | Gain (pp) | Time 74k (s) |
 |---|---|---|---|---|
 | TF-IDF + LinearSVC | 0,9800 | 0,9800 | 0,00 | 4,35 |
 | DistilBERT | 0,8529 | **0,9710** | **+11,81** | 2.421,08 |
@@ -258,34 +258,34 @@ Detalhe: TF-IDF+LinearSVC 0.9800 / 4.35s — acurácia com regularização L2 (C
 | BiLSTM | 0,7187 | **0,8809** | **+16,22** | 13,26 |
 | Sentence-BERT | 0,5996 | 0,6036 | +0,40 | 33,93 |
 
-**Insight central:** o ganho com dataset completo é diretamente proporcional ao nº de parâmetros tweáveis e inversamente proporcional à qualidade da representação inicial. Com Sentence-BERT (0 treino de pesos p) o dataset não resolve (lin mosaic fechada). Com TextCNN/BiLSTM (todos os pesos novos) o ganho cresce +16–17pp.
+**Central insight:** the gain with the full dataset is directly proportional to the number of trainable parameters and inversely proportional to the quality of the initial representation. With Sentence-BERT (0 weight training) the dataset does not solve it (linear mosaic closed). With TextCNN/BiLSTM (all weights new) the gain grows +16–17pp.
 
-**Hierarquia de custo-benefício (dataset completo):**
+**Cost-benefit hierarchy (full dataset):**
 
-| Paradigo | Acurácia | Tempo (s) | Eficiência (Acc/s) | GPU? |
+| Paradigm | Accuracy | Time (s) | Efficiency (Acc/s) | GPU? |
 |---|---|---|---|---|
-| **TF-IDF + LinearSVC** | 0,9800 | 4,35 | **0,2253** | Não |
-| **TextCNN** | 0,9530 | 13,00 | **0,0733** | Recomendada |
-| BiLSTM | 0,8809 | 4,26 | 0,0664 | Recomendada |
-| DistilBERT | 0,9710 | 2.421,08 | 0,0004 | Sim |
-| Sentence-BERT | 0,6036 | 33,93 | 0,0178 | Sim |
+| **TF-IDF + LinearSVC** | 0,9800 | 4,35 | **0,2253** | No |
+| **TextCNN** | 0,9530 | 13,00 | **0,0733** | Recommended |
+| BiLSTM | 0,8809 | 4,26 | 0,0664 | Recommended |
+| DistilBERT | 0,9710 | 2.421,08 | 0,0004 | Yes |
+| Sentence-BERT | 0,6036 | 33,93 | 0,0178 | Yes |
 
-### 5.6. Logistic Regression: Estratégias Multiclasse
+### 5.6. Logistic Regression: Multiclass Strategies
 
-Notebook: `logistic-regression-multiclass.ipynb`. Dataset Twitter Sentiment (73.768 treino/999 val). 5 configurações de `multi_class`, `solver`, `C`.
+Notebook: `logistic-regression-multiclass.ipynb`. Twitter Sentiment dataset (73.768 training/999 val). 5 configurations of `multi_class`, `solver`, `C`.
 
-Estratégias:
+Strategies:
 
-| # | Estratégia | `multi_class` | `solver` | Mecanismo |
+| # | Strategy | `multi_class` | `solver` | Mechanism |
 |---|---|---|---|---|
-| 1 | Multinomial | `multinomial` | `lbfgs` | Softmax nativo (probs somam 1) |
-| 2 | OvR (lbfgs) | `ovr` | `lbfgs` | K binários, quasi-Newton |
-| 4 | OvR (saga) | `ovr` | `saga` | K binários, gradiente estocástico |
-| 5 | OvO (liblinear) | (wrap) | `liblinear` | K×(K−1)/2 binários de par, votação |
+| 1 | Multinomial | `multinomial` | `lbfgs` | Native softmax (probs sum to 1) |
+| 2 | OvR (lbfgs) | `ovr` | `lbfgs` | K binary models, quasi-Newton |
+| 4 | OvR (saga) | `ovr` | `saga` | K binary models, stochastic gradient |
+| 5 | OvO (liblinear) | (wrap) | `liblinear` | K×(K−1)/2 pairwise binary models, voting |
 
-Resultados por C (Acurácia / F1-weighted):
+Results per C (Accuracy / F1-weighted):
 
-| Estratégia | C=0.1 | C=1.0 | C=10.0 | C=100.0 | Melhor |
+| Strategy | C=0.1 | C=1.0 | C=10.0 | C=100.0 | Best |
 |---|---|---|---|---|---|
 | **Multinomial (lbfgs)** | 0,7598 / 0,7516 | 0,9750 / 0,9750 | 0,9820 / 0,9820 | 0,9780 / 0,9780 | 10 (59,93s) |
 | OvR (lbfgs) | 0,7137 / 0,6980 | 0,9630 / 0,9630 | 0,9780 / 0,9780 | **0,9800** / 0,9800 | 100 (37,14s) |
@@ -293,9 +293,9 @@ Resultados por C (Acurácia / F1-weighted):
 | OvR (saga) | 0,7137 / 0,6980 | 0,9630 / 0,9630 | 0,9780 / 0,9780 | **0,9790** / 0,9790 | 100 (41,66s) |
 | OvO (liblinear) | 0,6907 / 0,6668 | 0,9530 / 0,9529 | 0,9770 / 0,9770 | **0,9780** / 0,9780 | 100 (6,82s) |
 
-Detalhamento no C=10 (F1 por classe):
+Detail at C=10 (F1 per class):
 
-| Estratégia | Acurácia | F1-weighted | F1-macro | Tempo (s) | F1 Irrelevant | OGE Negative | F1 Neutral | F1 Positive |
+| Strategy | Accuracy | F1-weighted | F1-macro | Time (s) | F1 Irrelevant | OGE Negative | F1 Neutral | F1 Positive |
 |---|---|---|---|---|---|---|---|---|
 | **Multinomial (lbfgs)** | **0,9820** | **0,9820** | **0,9829** | 135,43 | 0,9853 | 0,9857 | 0,9798 | 0,9767 |
 | OvR (lbfgs) | 0,9780 | 0,9779 | 0,9777 | 22,39 | 0,9823 | 0,9809 | 0,9712 | 0,9635 |
@@ -303,42 +303,42 @@ Detalhamento no C=10 (F1 por classe):
 | OvR (saga) | 0,9780 | 0,9779 | 0,9777 | 10,07 | 0,9823 | 0,9809 | 0,9712 | 0,9635 |
 | OvO (liblinear) | 0,9770 | 0,9770 | 0,9768 | 3,89 | 0,9758 | 0,9810 | 0,9744 | 0,9738 |
 
-Recomendação prática:
+Practical recommendation:
 
-| Cenário | Configuração | Acurácia | Tempo |
+| Scenario | Configuration | Accuracy | Time |
 |---|---|---|---|
-| Máquina acurácia | `multinomial`, `lbfgs`, `C=10` | **0,9820** | ~60s |
-| Melhor custo-benefício | `ovr`, `saga`, `C=100` | **0,9790** | ~42s |
-| Mínimo tempo | `OneVsOneClassifier(LR(solver='liblinear', C=100))` | **0,9780** | ~7s |
+| Maximum accuracy | `multinomial`, `lbfgs`, `C=10` | **0,9820** | ~60s |
+| Best cost-benefit | `ovr`, `saga`, `C=100` | **0,9790** | ~42s |
+| Minimum time | `OneVsOneClassifier(LR(solver='liblinear', C=100))` | **0,9780** | ~7s |
 
-Diferença máxima entre estratégias otimizadas: apenas 0,4 pp (0,9780–0,9820).
+Maximum difference between optimized strategies: only 0,4 pp (0,9780–0,9820).
 
-### 5.7. Feature Engineering NLP — pontos-chave
+### 5.7. Feature Engineering NLP — key points
 
-Do estudo de feature engineering (notebook: `feature-engineering-nlp.ipynb`):
+From the feature engineering study (notebook: `feature-engineering-nlp.ipynb`):
 
-| Observação | Valor |
+| Observation | Value |
 |---|---|
-| **Hashing trick supera TF-IDF em NLP** | 0,9860 vs. 0,9770 (maior dimensionalidade ~262k e sem custo de IDF) |
-| **Combinar word + char n-grams dá ganho real** | +0,5 pp (informação morfológica complementar) |
-| Trees só se beneficiam de features de domain knowledge | Geo features, +1,5 pp (transforms matemáticos redundantes) |
-| Regra de estilo | Pior: `hashing trick 0.9860` — ver §5.5 para contexto de cada dataset |
+| **Hashing trick beats TF-IDF in NLP** | 0,9860 vs. 0,9770 (higher dimensionality ~262k and no IDF cost) |
+| **Combining word + char n-grams gives a real gain** | +0,5 pp (complementary morphological information) |
+| Trees only benefit from domain-knowledge features | Geo features, +1,5 pp (redundant mathematical transforms) |
+| Style rule | Worst: `hashing trick 0.9860` — see §5.5 for the context of each dataset |
 
-### 5.8. Exp1 AGNews: Classificação de Tópicos (low data)
+### 5.8. Exp1 AGNews: Topic Classification (low data)
 
-Notebooks: `ag-news-classification.ipynb`. Teste com amostragem fixa 1000 treino / 200 test (seed 42), TF-DF 70k, lituag 2.
+Notebooks: `ag-news-classification.ipynb`. Test with fixed sampling 1000 training / 200 test (seed 42), TF-IDF 70k, lituag 2.
 
-Resultados reais (02/07/2026, RTX 4070 ile + Intel i7):
+Real results (02/07/2026, RTX 4070 ile + Intel i7):
 
-| Modelo | Acurácia | F1 (weighted) | Precision | Recall | Tempo (s) |
+| Model | Accuracy | F1 (weighted) | Precision | Recall | Time (s) |
 |---|---|---|---|---|---|
 | **DistilBERT** | **0.8350** | **0.8356** | **0.8533** | **0.8350** | 75.4 (GPU) |
 | TF-IDF + LinearSVC | 0.7650 | 0.7594 | 0.7633 | 0.7650 | 0.1 (CPU) |
 | TF-IDF + ExtraTrees | 0.7250 | 0.7209 | 0.7451 | 0.7250 | 0.5 (CPU) |
 
-Early Stop (partience=2) interrompeu o treino na época 3. **DistilBERT venceu em low-data, refutando a hipótese clássica** (0.8355 vs. 0.765).
+Early Stop (partience=2) interrupted training at epoch 3. **DistilBERT won in low-data, refuting the classic hypothesis** (0.8355 vs. 0.765).
 
-Grid Search Fino (max_features 500 – 5.000):
+Fine Grid Search (max_features 500 – 5.000):
 
 | max_features | LinearSVC (Acc) | ExtraTrees (Acc) |
 |---|---|---|
@@ -349,68 +349,68 @@ Grid Search Fino (max_features 500 – 5.000):
 | **4.000** | **0.770** | 0.725 |
 | 5.000 | 0.765 | 0.740 |
 
-![Grid Search Fino](../artifacts/grid_search_fine.png)
+![Fine Grid Search](../artifacts/grid_search_fine.png)
 
-O ponto ótimo (1000 amostras) situa-se em **3.000–4.000 features**; valores < 1.000 perdem ~10pp (vocabulário insuficiente); valores > 4.000 adicionam ruído. LinearSVC é mais robusto a ruído (regularização L2); ExtraTrees degrada após 2.000 features (0.745→0.725) no AG News — comportamento oposto ao do Senti-Pred.
+The optimal point (1000 samples) lies at **3.000–4.000 features**; values < 1.000 lose ~10pp (insufficient vocabulary); values > 4.000 add noise. LinearSVC is more robust to noise (L2 regularization); ExtraTrees degrades after 2.000 features (0.745→0.725) on AG News — the opposite behavior to that of Senti-Pred.
 
-Por classe (DistilBERT): Sports F1 0.97 (fácil); World 0.85 (precisão 93% / recall 78%); Business 0.76 (recall 69%); Sci/Tech 0.75 (precision 65%, superprediz).
+Per class (DistilBERT): Sports F1 0.97 (easy); World 0.85 (precision 93% / recall 78%); Business 0.76 (recall 69%); Sci/Tech 0.75 (precision 65%, overpredicts).
 
-Análise comparativa sentir vs tópicos:
+Comparative analysis of sentiment vs topics:
 
-| Fator | Senti-1 (F1 ~0.98) | AG News (F1 ~0.74) |
+| Factor | Senti-1 (F1 ~0.98) | AG News (F1 ~0.74) |
 |---|---|---|
-| Tarefa | Sentimento (polaridade, vocabulário discriminativo) | Tópicos (vocabulário compartilhado: report, says, million) |
-| Cardinalidade | 2–3 pólos semáticos | 4 domínios com sobreposição vocabular |
-| Eficácia bigrama | 5–15% dos docs | < 1% dos docs |
-| Overfit das árvores | Arvores robustas (bad → negativo) | Splits espúrios (freq. de "the" → classe errada) |
-| Regularização | BO estocástica nativa | Preuseres mec global, splits binários |
+| Task | Sentiment (polarity, discriminative vocabulary) | Topics (shared vocabulary: report, says, million) |
+| Cardinality | 2–3 semantic poles | 4 domains with vocabulary overlap |
+| Bigram effectiveness | 5–15% of the docs | < 1% of the docs |
+| Tree overfit | Robust trees (bad → negative) | Spurious splits (freq. of "the" → wrong class) |
+| Regularization | Native stochastic BO | Mechanical global priors, binary splits |
 
-ExtraTrees/RFord brilham com sinais esparsos e independentes (sentimento, dados tabulares). Em News o LinearSVC explora diferenças de frequência com pesos contínuos (0.765–0.77). A escala: com 120k amostras, DistilBERT tende a ~0.94; TF-IDF+LinearSVC satura ~0.88–0.91.
+ExtraTrees/RFord shine with sparse and independent signals (sentiment, tabular data). In News the LinearSVC exploits frequency differences with continuous weights (0.765–0.77). On scale: with 120k samples, DistilBERT tends to ~0.94; TF-IDF+LinearSVC saturates ~0.88–0.91.
 
 ### 5.9. Multi-Task Learning (MMoE) — Google `go_emotions`
 
-Notebook: `nlp-multi-task-classification.ipynb`. Hipótese: tarefas correlatas (Alegria, Tristeza, Raiva) se ajudam mutuamente.
+Notebook: `nlp-multi-task-classification.ipynb`. Hypothesis: correlated tasks (Joy, Sadness, Anger) help each other mutually.
 
-- **Escassez/features fracas (TF-IDF reduzido):** compartilhar experts via MMoE eleva a performance (mitiga Transferência Negativa).
-- **Interferência catastrófica com DistilBERT (Todos 43.000 stems):** redes Single-Task tornam-se autossuficientes e o MMoE se torna gargalo — **perde -0.99%** para redes isoladas.
-- **Rollback tático para TF-IDF (5.000 features):** `features esparsas` como gatilhos; com F1 `macro`→`weighted`, MMoE quebrou a barreira do **0.8** → **0.9393** (+1.86% sobre Single-Task).
-- **`max_features` 5k→15k:** F1-weighted **0.9464**; ganho de arquitetura cai de +1.86% → +1.24% (features mais descritivas deixam as redes isoladas mais autossuficientes).
-- **`max_features` 20k:** ganho irrisório (+0.13% → 0.9477), Single-Track caiu (5k palavras extras = ruído). **Adotado 15.000 como "sweet spot".**
-- **Bigramas + retenção de stopwords + limpeza URLs/ menções (15k, bigr.):** MMoE → **0.9548** (+;) vs. Single-Task 0.9461 → +0.92%.
-- **Focal Loss binária:** F1-weighted MMoE → **0.9566** (T, occasionally 0.962+).
-- **Duelo final com Deep Learning clássico (features esparsas):** LightGBM 0.9473 (sofre com alta dimensionalidade), **LinearSVC 0.9572**, **vancedor ExtraTrees 0.9643 F1-weighted — árvores randomizadas vançam matriz sparsity esparsa** em alta dimensionalidade, sem GPU.
+- **Feature scarcity/weak features (reduced TF-IDF):** sharing experts via MMoE raises performance (mitigates Negative Transfer).
+- **Catastrophic interference with DistilBERT (All 43.000 stems):** Single-Task networks become self-sufficient and MMoE becomes the bottleneck — it **loses -0.99%** to the isolated networks.
+- **Tactical rollback to TF-IDF (5.000 features):** `features esparsas` as triggers; with F1 `macro`→`weighted`, MMoE broke the **0.8** barrier → **0.9393** (+1.86% over Single-Task).
+- **`max_features` 5k→15k:** F1-weighted **0.9464**; the architecture gain falls from +1.86% → +1.24% (more descriptive features make the isolated networks more self-sufficient).
+- **`max_features` 20k:** negligible gain (+0.13% → 0.9477), Single-Track dropped (5k extra words = noise). **15.000 adopted as the "sweet spot".**
+- **Bigrams + stopword retention + URL/ mention cleaning (15k, bigr.):** MMoE → **0.9548** (+;) vs. Single-Task 0.9461 → +0.92%.
+- **Binary Focal Loss:** F1-weighted MMoE → **0.9566** (T, occasionally 0.962+).
+- **Final duel with classic Deep Learning (sparse features):** LightGBM 0.9473 (suffers with high dimensionality), **LinearSVC 0.9572**, **winner ExtraTrees 0.9643 F1-weighted — randomized trees beat sparse matrix sparsity** at high dimensionality, without GPU.
 
-## 6. Discussão
+## 6. Discussion
 
-**A "relatividade" dos modelos (No Free Lunch):** não existe um modelo universal. O LinearSVC variou de **0.74** (F1-Macro) a **0.94** apenas por ajustes de vocabulário e n-grams; o KNN superou frameworks complexos de AutoML em um caso; o Ensemble Pyramid superou os individuais com 0.98+.
+**The "relativity" of the models (No Free Lunch):** there is no universal model. LinearSVC varied from **0.74** (F1-Macro) to **0.94** only through vocabulary and n-gram adjustments; KNN beat complex AutoML frameworks in one case; the Ensemble Pyramid surpassed the individual ones with 0.98+.
 
-**O poder da engenharia de features:** bigramas capturam a negação ("não é bom"), e vocabulário de equilíbrio (sweet spot do dataset) importa: 15k features no Senti- (mix large, corpus), 3–4k no AG News (1000 amostras). A regra empírica: **Σ documentsa ~ Σ termos candidatos ~ max_features ideal**.
+**The power of feature engineering:** bigrams capture negation ("not good"), and a balanced vocabulary (the dataset's sweet spot) matters: 15k features in the Senti- (large mix, corpus), 3–4k in AG News (1000 samples). The empirical rule: **Σ documents ~ Σ candidate terms ~ ideal max_features**.
 
-**Deep Learning vs. Clássicos:** em regimes de dados abundantes e features TF-IDF de alta dimensionalidade, modelos lineares/árêtes (Spark) superam transformers e redes profundas; em baixas amostragens, o tunig regularizado do transformer vence. Dados completos é obrigatório para redes neurais (Tensor network ganham +16–17pp de 30k→74k).
+**Deep Learning vs. Classics:** in regimes of abundant data and high-dimensional TF-IDF features, linear models and randomized ensembles (Spark) beat transformers and deep networks; in low samples, the regularized tuning of the transformer wins. Complete data is mandatory for neural networks (Tensor network gain +16–17pp from 30k→74k).
 
-**Preprocessamento e a "Data-Centric AI":** o duelo A vs B mostra que o tratamento de hashtags, pontuação e números é mais decisivo que o modelo — engenharia da limpeza ganhou **+0.40%**.
+**Preprocessing and "Data-Centric AI":** the duel A vs B shows that the handling of hashtags, punctuation and numbers is more decisive than the model — the cleaning engineering gained **+0.40%**.
 
-**Limitações/biases:** Sentence-BERT frozen é inadequado para polaridade (limite de representação, dados não resolvem); a exatidão dos valores depende da seed (42) e do hardware; o dataset go_emotions tem dominância da classe "Alegria". Mamba foi descartado após medição (ver §5.5).
+**Limitations/biases:** frozen Sentence-BERT is inadequate for polarity (representation limit, data does not solve it); the exactness of the values depends on the seed (42) and on the hardware; the go_emotions dataset has dominance of the "Joy" class. Mamba was discarded after measurement (see §5.5).
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- **Baseline rápida:** TF-IDF (70k, bigrama, sublinear) + LinearSVC — 0.98 classificação de sentimento em 4; para Ao e-tralização pointer.
-- **Quando o custo computacional importa:** LinearSVC/ExtraTrees sobre TF-IDF esparso — sem GPU, segundos de treino.
-- **Quando a precisão é requisito (>0.98):** fine-tune DistilBERT no dataset completo (40 min de GPU, às 0.9710) ou Ensemble Pyramid (~0.98+).
-- **Sem GPU / orçamento moderado:** TextCNN (0.9530 em 13s).
-- **Low-data (N≤1000):** fine-tune regularizado (early stopping activado) supera clássico — testar ambas abordagens.
-- **Multi-tarefa:** preferir TF-IDF 15k + bigramas + Focal Loss com MMoE quando features são fracas; evitar MMoE com embeddings densos "fartos" (interferência catastrófica).
-- **Engenharia de dados > modelo:** priorizar a limpeza (hashtags/pontuação/contrarições) e n-grams antes de trocar de arquitetura.
+- **Fast baseline:** TF-IDF (70k, bigram, sublinear) + LinearSVC — 0.98 sentiment classification in 4; for Ao e-tralização pointer.
+- **When computational cost matters:** LinearSVC/ExtraTrees over sparse TF-IDF — no GPU, seconds of training.
+- **When accuracy is a requirement (>0.98):** fine-tune DistilBERT on the full dataset (40 min of GPU, at 0.9710) or Ensemble Pyramid (~0.98+).
+- **No GPU / moderate budget:** TextCNN (0.9530 in 13s).
+- **Low-data (N≤1000):** regularized fine-tune (early stopping enabled) beats the classic — test both approaches.
+- **Multi-task:** prefer TF-IDF 15k + bigrams + Focal Loss with MMoE when features are weak; avoid MMoE with "rich" dense embeddings (catastrophic interference).
+- **Data engineering > model:** prioritize the cleaning (hashtags/punctuation/contractions) and n-grams before switching architecture.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
 - `ag-news-classification.ipynb` — Exp1 AG News (low data, grid search).
 - `twitter-sentiment-analysis.ipynb` — Pipeline B.
 - `senti-pred_pipeline.ipynb` — Pipeline A.
-- `pipelines_abc_comparison/` — comparativo A vs B vs C (remake2) com what-ifs (n-grams, vocabulário, pré-processamento, modelo; McNemar).
-- `logistic-regression-multiclass.ipynb` — estratégias multiclassific Logistics Regression.
-- `feature-engineering-nlp.ipynb` — feature engineering alguma NLP.
-- `nlp-multi-task-classification.ipynb` — MMoE multi-finition (go_emotions).
-- `../NLP-twitter-methods-comparasion.ipynb` — Twitter Methods Comparison (5 paradigmas).
-- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parâmetros documentados na §5.2).
-- Referências: Devlin et al. (BERT); Sanh et al. (DistilBERT); ver papers de MMoE (Ma et al., SIGIR 2018) e Lin et al. (Focal Loss, ICCV 2017).
+- `pipelines_abc_comparison/` — A vs B vs C (remake2) comparison with what-ifs (n-grams, vocabulary, pre-processing, model; McNemar).
+- `logistic-regression-multiclass.ipynb` — multiclass strategies for Logistic Regression.
+- `feature-engineering-nlp.ipynb` — feature engineering for NLP.
+- `nlp-multi-task-classification.ipynb` — MMoE multi-task (go_emotions).
+- `../NLP-twitter-methods-comparasion.ipynb` — Twitter Methods Comparison (5 paradigms).
+- `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parameters documented in §5.2).
+- References: Devlin et al. (BERT); Sanh et al. (DistilBERT); see the MMoE papers (Ma et al., SIGIR 2018) and Lin et al. (Focal Loss, ICCV 2017).
