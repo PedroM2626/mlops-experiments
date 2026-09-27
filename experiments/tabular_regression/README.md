@@ -1,70 +1,70 @@
-# Regressao Tabular: Feature Engineering e Predicao de Precos
+# Tabular Regression: Feature Engineering and Price Prediction
 
-> **Area:** Regressao tabular / AutoML local
-> **Tarefa:** Predicao de variavel continua (preco imobiliario, preco de automovel)
-> **Metrica principal:** R2, MAE, RMSE
-> **Status:** Concluido
-> **Datasets:** California Housing (20.640 amostras), price-prediction-multiple-linear-regression (205 amostras)
+> **Area:** Tabular regression / local AutoML
+> **Task:** Continuous-variable prediction (real-estate price, car price)
+> **Main metric:** R2, MAE, RMSE
+> **Status:** Completed
+> **Datasets:** California Housing (20.640 samples), price-prediction-multiple-linear-regression (205 samples)
 
 ---
 
-## 1. Resumo
+## 1. Abstract
 
-Este grupo reune tres estudos complementares de regressao tabular: (i) um
-estudo sistematico de **10 tecnicas de feature engineering** sobre California
-Housing com LinearRegression, LightGBM e RandomForest; (ii) a evolucao de um
-pipeline de **predicao de precos de automoveis** (v1 -> v2 -> v3) ate o
-plateau pratico de R² = 0,9489; e (iii) um equivalente local open-source ao
-AutoML da IBM Watsonx. A conclusao transversal: feature engineering tem
-**valor assimetrico por modelo** (grande em modelos lineares, marginal em
-modelos de arvore) e PCA foi amplamente prejudicial.
+This group brings together three complementary tabular regression studies:
+(i) a systematic study of **10 feature engineering techniques** on California
+Housing with LinearRegression, LightGBM and RandomForest; (ii) the evolution of
+a **car price prediction** pipeline (v1 -> v2 -> v3) up to the practical
+plateau of R² = 0,9489; and (iii) a local open-source equivalent to the
+IBM Watsonx AutoML. The cross-cutting conclusion: feature engineering has
+**model-specific value** (large for linear models, marginal for
+tree models) and PCA was largely harmful.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-- Quantificar o **efeito isolado** de feature engineering em modelos de
-  familias distintas (linear vs. arvore) no mesmo dataset.
-- Evidenciar a evolucao de um pipeline de preco simples até um pipeline com
-  regularizacao, encoding, transformacao do target e tunagem (v1 -> v3).
-- Prover uma alternativa 100% open-source ao AutoML da IBM Watsonx rodando
-  localmente.
+- Quantify the **isolated effect** of feature engineering on models from
+  different families (linear vs. tree) on the same dataset.
+- Show the evolution of a simple price pipeline into a pipeline with
+  regularization, encoding, target transformation and tuning (v1 -> v3).
+- Provide a 100% open-source alternative to the IBM Watsonx AutoML running
+  locally.
 
-## 3. Fundamentacao Teorica (curta)
+## 3. Theoretical Background (brief)
 
-- Modelos lineares (OLS, Ridge) capturam apenas relacoes lineares; features
-  polinomiais/transformacoes ampliam a expressividade sem trocar de modelo e,
-  por invariancia afim, scaling nao altera o resultado do OLS.
-- Arvores (RF/LightGBM) aprendem nao-linearidades nativamente e sao
-  invariantes a escala; features de domain knowledge (geo) agregam o que
-  splits univariados nao derivam.
-- PCA maximiza variancia, nao correlacao com o target -- risco de destruir
-  informacao direcional em features colineares.
+- Linear models (OLS, Ridge) capture only linear relationships; polynomial
+  features/transformations extend expressiveness without switching model and,
+  by affine invariance, scaling does not change the OLS result.
+- Trees (RF/LightGBM) learn nonlinearities natively and are scale
+  invariant; domain-knowledge (geo) features add what
+  univariate splits cannot derive.
+- PCA maximizes variance, not correlation with the target -- risk of destroying
+  directional information in collinear features.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Feature Engineering Tabular (California Housing)
+### 4.1 Tabular Feature Engineering (California Housing)
 
-| Fator | Detalhe |
+| Factor | Detail |
 |---|---|
 | Dataset | California Housing, 20.640 x 8 features |
-| Tecnicas | Raw, Standardized, MinMax, Polynomial(d=2), Interactions, Log, Binning, PCA(95%), Geo, Combined |
-| Modelos | LinearRegression, LightGBM, RandomForest |
-| Metricas | R², MAE |
+| Techniques | Raw, Standardized, MinMax, Polynomial(d=2), Interactions, Log, Binning, PCA(95%), Geo, Combined |
+| Models | LinearRegression, LightGBM, RandomForest |
+| Metrics | R², MAE |
 | Seed / HW | 42; Intel i7, 16 GB |
 
-### 4.2 Price Prediction (205 amostras)
+### 4.2 Price Prediction (205 samples)
 
-- v2: remove `ID`, one-hot de 9 categorias (23 -> 42 features), `log1p` do
-  target (assimetria 1,78 -> 0,46), winsorizacao, GridSearchCV em 6 modelos,
+- v2: drops `ID`, one-hot of 9 categories (23 -> 42 features), `log1p` of the
+  target (skewness 1,78 -> 0,46), winsorization, GridSearchCV on 6 models,
   CV 5-folds.
-- v3: polynomial (741 feats), ExtraTrees, RF variante, GradientBoosting para
-  tentar superar o plateau.
+- v3: polynomial (741 feats), ExtraTrees, RF variant, GradientBoosting to
+  try to beat the plateau.
 
 ### 4.3 IBM Watsonx local (California Housing, holdout 10%)
 
 - Baselines (Ridge, Lasso, ElasticNet, RF, ET, GB, AdaBoost, SVR, XGB) + FLAML
-  (AutoML Bayesiano) + TPOT (AutoML genetico).
+  (Bayesian AutoML) + TPOT (genetic AutoML).
 
-### 4.4 Reproducao
+### 4.4 Reproduction
 
 ```bash
 jupyter nbconvert --to notebook --execute feature-engineering-tabular.ipynb
@@ -72,11 +72,11 @@ jupyter nbconvert --to notebook --execute price-prediction-multiple-linear-regre
 jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb
 ```
 
-## 5. Resultados
+## 5. Results
 
-### 5.1 Feature Engineering - R² por modelo
+### 5.1 Feature Engineering - R² by model
 
-| Tecnica | LinearRegression | LightGBM | RandomForest |
+| Technique | LinearRegression | LightGBM | RandomForest |
 |---|:--:|:--:|:--:|
 | Raw | 0,5758 | 0,8360 | 0,8051 |
 | Polynomial (d=2) | 0,6457 | 0,8346 | 0,7968 |
@@ -85,9 +85,9 @@ jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb
 | Combined | **0,7112** | 0,8375 | 0,8045 |
 | PCA (95%) | 0,4877 | 0,6583 | 0,6422 |
 
-### 5.2 Price Prediction (teste)
+### 5.2 Price Prediction (test)
 
-| Modelo | R² Teste | MAE | CV R² | Overfit |
+| Model | Test R² | MAE | CV R² | Overfit |
 |---|---|--:|--:|--:|
 | Random Forest (GS) | **0,9489** | 1.043,7 | 0,8897 | 0,0372 |
 | XGBoost (GS) | 0,9391 | 1.316,2 | 0,8931 | 0,0576 |
@@ -95,43 +95,43 @@ jupyter nbconvert --to notebook --execute ibm-watsonx-local-automl.ipynb
 | Ridge (GS) | 0,8968 | 1.461,6 | 0,8823 | 0,0188 |
 | Linear Regression | 0,8900 | 1.676,8 | 0,8423 | 0,0478 |
 
-Evolucao v1 -> v2: R² 0,8517 -> 0,9489; MAE -56,7%. v3 (poly/ExtraTrees):
-nenhuma abordagem superou o plateau da v2 (limitante = tamanho do dataset).
+v1 -> v2 evolution: R² 0,8517 -> 0,9489; MAE -56,7%. v3 (poly/ExtraTrees):
+no approach beat the v2 plateau (limiting factor = dataset size).
 
 ### 5.3 IBM Watsonx local (holdout)
 
-| Metodo | RMSE | R² | Tempo |
+| Method | RMSE | R² | Time |
 |---|--:|--:|--:|
 | XGBoost | 0,4618 | 0,8401 | 1,58s |
 | FLAML (CatBoost) | 0,4780 | 0,8286 | 63,9s |
 | TPOT | 0,4817 | 0,8260 | 199,1s |
 | Extra Trees | 0,4997 | 0,8128 | 1,12s |
 
-## 6. Discussao
+## 6. Discussion
 
-- Feature engineering tem valor assimetrico: LinearRegression ganhou +13,5 pp
-  (R²) com Combined; LightGBM apenas +0,6 pp (Geo). Scaling nao altera o OLS
-  (invarianca afim). PCA perdeu 9-18 pp em todos os modelos.
-- Price prediction: log do target + encoding + CV levaram a Linear Regression
-  de 0,8517 para 0,8900; ensembles superam lineares em ~5 pp; v3 confirmou
-  que o limitante e o tamanho do dataset, nao a complexidade do modelo.
-  Residuos do RF normais (Shapiro p=0,09; Jarque-Bera p=0,48).
-- AutoML local: XGBoost manual superou FLAML/TPOT por margem pequena; AutoML
-  e uma boa baseline automatica.
+- Feature engineering has model-specific value: LinearRegression gained +13,5 pp
+  (R²) with Combined; LightGBM only +0,6 pp (Geo). Scaling does not change OLS
+  (affine invariance). PCA lost 9-18 pp on every model.
+- Price prediction: log of the target + encoding + CV took Linear Regression
+  from 0,8517 to 0,8900; ensembles beat linear models by ~5 pp; v3 confirmed
+  that the limiting factor is the dataset size, not model complexity.
+  The RF residuals are normal (Shapiro p=0,09; Jarque-Bera p=0,48).
+- Local AutoML: manual XGBoost beat FLAML/TPOT by a small margin; AutoML
+  is a good automatic baseline.
 
-## 7. Conclusoes e Recomendacoes
+## 7. Conclusions and Recommendations
 
-1. De o esforco de FE proporcional a familia do modelo: lineares justificam
-   horas, arvores minutos (foco em domain knowledge).
-2. Para price-prediction, Random Forest (v2) e o modelo final recomendado;
-   mais dados seriam o proximo passo.
-3. Use PCA com cautela: otimiza variancia, nao correlacao com o alvo.
-4. AutoML (FLAML/TPOT) e uma baseline automatica; um XGBoost bem parametrizado
-   continua competitivo e muito mais rapido.
+1. Make the FE effort proportional to the model family: linear models justify
+   hours, trees minutes (focus on domain knowledge).
+2. For price-prediction, Random Forest (v2) is the recommended final model;
+   more data would be the next step.
+3. Use PCA with caution: it optimizes variance, not correlation with the target.
+4. AutoML (FLAML/TPOT) is an automatic baseline; a well-tuned XGBoost remains
+   competitive and much faster.
 
-## 8. Referencias e Arquivos
+## 8. References and Files
 
-- `feature-engineering-tabular.ipynb` -- estudo de FE tabular.
-- `price-prediction-multiple-linear-regression.ipynb` -- pipeline v1->v3.
-- `ibm-watsonx-local-automl.ipynb` -- equivalente local ao AutoML da Watsonx.
-- Estudo cruzado modelo x FE no README raiz (secao Feature Engineering).
+- `feature-engineering-tabular.ipynb` -- tabular FE study.
+- `price-prediction-multiple-linear-regression.ipynb` -- v1->v3 pipeline.
+- `ibm-watsonx-local-automl.ipynb` -- local equivalent of the Watsonx AutoML.
+- Model x FE cross-study in the root README (Feature Engineering section).
