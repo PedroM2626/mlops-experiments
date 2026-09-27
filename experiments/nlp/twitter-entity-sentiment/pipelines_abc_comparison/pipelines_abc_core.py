@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Módulo central do estudo comparativo A vs B vs C (Senti-Pred-remake2).
+Central module of the comparative study A vs B vs C (Senti-Pred-remake2).
 
-Reimplementa fielmente as TRÊS pipelines de análise de sentimento do Twitter
-sobre o mesmo dataset (twitter_training / twitter_validation), com suporte a
-ablações (what-ifs) em: n-grams, tamanho de vocabulário, min_df, sublinear_tf,
-pré-processamento e modelo.
+Faithfully reimplements the THREE Twitter sentiment analysis pipelines
+on the same dataset (twitter_training / twitter_validation), with support for
+ablations (what-ifs) in: n-grams, vocabulary size, min_df, sublinear_tf,
+preprocessing and model.
 
 Pipelines:
-  A — senti-pred_pipeline.ipynb        (pré-processamento agressivo)
-  B — twitter-sentiment-analysis.ipynb (pré-processamento conservador)
-  C — Senti-Pred-remake2               (pré-processamento remake2 = Data-Centric)
+  A — senti-pred_pipeline.ipynb        (aggressive preprocessing)
+  B — twitter-sentiment-analysis.ipynb (conservative preprocessing)
+  C — Senti-Pred-remake2               (remake2 preprocessing = Data-Centric)
 
-Referências:
+References:
   - README experiments/nlp §5.3–5.4 (A vs B)
-  - README experiments/senti-pred-variations (remake2 = recorde 97.80%)
+  - README experiments/senti-pred-variations (remake2 = 97.80% record)
 """
 from __future__ import annotations
 
@@ -66,17 +66,17 @@ VALID_SENTIMENTS = ['Positive', 'Negative', 'Neutral', 'Irrelevant']
 N_CORES = 14
 
 
-# ====================================================== pré-processamento ====
+# ========================================================== preprocessing ====
 #
-# Cada pipeline é reimplementada como uma função com toggles explícitos para
-# permitir ablações controladas (o padrão "A" sempre reproduz o original).
+# Each pipeline is reimplemented as a function with explicit toggles to
+# allow controlled ablations (the "A" default always reproduces the original).
 # ----------------------------------------------------------------------------
 
 def clean_a(text: str, *, keep_hashtags: bool = False, keep_punct: bool = False,
             keep_digits: bool = False) -> str:
-    """Pipeline A — agressiva (senti-pred_pipeline.ipynb).
+    """Pipeline A — aggressive (senti-pred_pipeline.ipynb).
 
-    Default: remove URLs, menções, hashtags inteiras, pontuação e dígitos.
+    Default: removes URLs, mentions, whole hashtags, punctuation and digits.
     """
     if not isinstance(text, str):
         return ''
@@ -96,9 +96,9 @@ def clean_a(text: str, *, keep_hashtags: bool = False, keep_punct: bool = False,
 
 def clean_b(text: str, *, drop_hashtags: bool = False, drop_punct: bool = False,
             drop_digits: bool = False) -> str:
-    """Pipeline B — conservadora (twitter-sentiment-analysis.ipynb).
+    """Pipeline B — conservative (twitter-sentiment-analysis.ipynb).
 
-    Default: mantém conteúdo de hashtags (-> palavra), pontuação !?.,'"- e números.
+    Default: keeps hashtag content (-> word), punctuation !?.,'"- and numbers.
     """
     if not isinstance(text, str):
         return ''
@@ -135,16 +135,16 @@ def clean_c(text: str, *, remove_stopwords: bool = True, lemmatize: bool = True,
             keep_hashtag_word: bool = True) -> str:
     """Pipeline C — remake2 (Senti-Pred-remake2/src/data/preprocess.py).
 
-    Default: URLs/menções removidas, '#' removido mantendo palavra, contrações
-    expandidas, pontuação exceto '!' e '?' removida, stopwords removidas
-    (preservando 'not'/'no') e WordNet lemmatização.
+    Default: URLs/mentions removed, '#' removed keeping the word, contractions
+    expanded, punctuation except '!' and '?' removed, stopwords removed
+    (preserving 'not'/'no') and WordNet lemmatization.
     """
     if not isinstance(text, str):
         return ''
     text = text.lower()
     text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
     if keep_hashtag_word:
-        # remove a menção inteira e o símbolo '#', preservando o conteúdo do hashtag
+        # remove the whole mention and the '#' symbol, preserving the hashtag content
         text = re.sub(r'@\w+', '', text)
         text = text.replace('#', '')
     else:
@@ -170,10 +170,10 @@ CLEANERS = {
 }
 
 
-# ================================================================ dados =======
+# ================================================================= data =======
 
 def load_data(raw_dir: Path = RAW_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Carrega treino e validação crus (sem cabeçalho) e remove nulos."""
+    """Load raw training and validation data (no header) and drop nulls."""
     train = pd.read_csv(raw_dir / 'twitter_training.csv', names=COLUMNS, header=None)
     val = pd.read_csv(raw_dir / 'twitter_validation.csv', names=COLUMNS, header=None)
     train = train.dropna(subset=['text', 'sentiment'])
@@ -182,7 +182,7 @@ def load_data(raw_dir: Path = RAW_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def apply_cleaner(df: pd.DataFrame, cleaner: Callable, **kwargs) -> pd.DataFrame:
-    """Aplica um cleaner ao DataFrame e retorna só linhas não-vazias/valid sentimentos."""
+    """Apply a cleaner to the DataFrame and return only non-empty rows/valid sentiments."""
     out = df.copy()
     series = out['text'].astype(str)
     if cleaner.__name__ == 'clean_c':
@@ -207,7 +207,7 @@ VEC_CANONICAL: Dict[str, Dict] = {
               token_pattern=r'\w{1,}'),
 }
 
-# ================================================================ modelos ====
+# ================================================================= models ====
 
 def make_linear_svc_c19() -> LinearSVC:
     return LinearSVC(C=19.0, max_iter=20000, random_state=42)
@@ -256,11 +256,11 @@ MODELS_C: Dict[str, Callable[[], object]] = {
 }
 
 
-# ============================================================== avaliação ====
+# ============================================================= evaluation ====
 
 def evaluate(pipe: str, vec_params: Dict, model, tr: pd.DataFrame, va: pd.DataFrame,
              model_name: str, extra_meta: Optional[Dict] = None) -> Dict:
-    """Treina um modelo com o vetorizador dado e retorna um dicionário de métricas."""
+    """Train a model with the given vectorizer and return a dictionary of metrics."""
     t0 = time.time()
     X_tr = tr['clean'].tolist()
     y_tr = tr['sentiment'].values
@@ -343,7 +343,7 @@ def evaluate(pipe: str, vec_params: Dict, model, tr: pd.DataFrame, va: pd.DataFr
 
 
 def to_table(dframe: pd.DataFrame, subset: Optional[Iterable[str]] = None) -> pd.DataFrame:
-    """Converte df com y_true/y_pred em tabelas; mantém colunas de interesse."""
+    """Convert a df with y_true/y_pred into tables; keeps the columns of interest."""
     if subset is not None:
         dframe = dframe[subset]
     return dframe.reset_index(drop=True)
