@@ -13,7 +13,7 @@ def test_psi_zero_on_identical():
 def test_psi_grows_with_shift():
     rng = np.random.RandomState(1)
     ref = rng.normal(size=5000)
-    cur = ref + 1.0  # shift de média: drift inequívoco
+    cur = ref + 1.0  # Mean shift: unambiguous drift
     assert _psi(ref, cur) > 0.25
 
 

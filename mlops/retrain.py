@@ -1,9 +1,9 @@
-"""Retrain automatico: reusa o pipeline do campeao, registra nova versao MLflow
-e promove como Production (convertendo a versao auto-registrada do log_model).
+"""Automatic retrain: reuses the champion pipeline, registers a new MLflow version
+and promotes it as Production (converting the version auto-registered by log_model).
 
-Pode ser chamado:
-  - manualmente:  python -m mlops.retrain --reason manual
-  - pelo monitor: monitor.py --auto consome o gatilho e chama retrain(reason='drift')
+It can be called:
+  - manually:  python -m mlops.retrain --reason manual
+  - by the monitor: monitor.py --auto consumes the trigger and calls retrain(reason='drift')
 """
 import os
 import sys
@@ -27,16 +27,16 @@ def retrain(reason="manual"):
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     mlflow.set_experiment(config.MLFLOW_EXPERIMENT)
 
-    # consome gatilho (se existir) para nao re-acionar
+    # consumes the trigger (if it exists) so it does not fire again
     if config.RETRAIN_TRIGGER_FILE.exists():
         config.RETRAIN_TRIGGER_FILE.unlink()
 
-    print(f"[retrain] iniciando ({reason})...")
+    print(f"[retrain] starting ({reason})...")
     t0 = time.time()
     forecaster, df_full = train_champion()
     val_mae = forecaster.performance_metrics.get("validation_mae")
     elapsed = time.time() - t0
-    print(f"[retrain] concluido em {elapsed:.1f}s | val_mae={val_mae:.4f}")
+    print(f"[retrain] finished in {elapsed:.1f}s | val_mae={val_mae:.4f}")
 
     model_joblib = os.path.join(str(config.ARTIFACTS_DIR), f"champion_{int(time.time())}.joblib")
     forecaster.save_model(model_joblib)

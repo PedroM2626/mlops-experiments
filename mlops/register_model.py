@@ -1,10 +1,10 @@
-"""Registra o modelo campeao V2.2 (use_log_target=False) no MLflow registry.
+"""Registers the champion model V2.2 (use_log_target=False) in the MLflow registry.
 
-Retreina sem Optuna (rapido), loga, cria o model 'sales_forecaster_v22' no
-MLflow Tracking Server local, transfere a versao para Production e salva o
-dataset de referencia (features de treino) para o monitor de drift.
+Retrains without Optuna (fast), logs it, creates the model 'sales_forecaster_v22' in
+the local MLflow Tracking Server, moves the version to Production and saves the
+reference dataset (training features) for the drift monitor.
 
-Uso:
+Usage:
     python -m mlops.register_model
 """
 import os
@@ -38,7 +38,7 @@ def save_reference(forecaster, df_full):
     feats = forecaster.feature_engineering(df_2022)
     X, _ = forecaster._prepare_data_for_model(feats)
     X.to_parquet(str(config.REFERENCE_PATH), index=False)
-    print(f"[register] referencia salva: {config.REFERENCE_PATH} ({len(X)} linhas)")
+    print(f"[register] reference saved: {config.REFERENCE_PATH} ({len(X)} rows)")
     return X
 
 
@@ -46,19 +46,19 @@ def main():
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     mlflow.set_experiment(config.MLFLOW_EXPERIMENT)
 
-    print("[register] retreinando campeao (use_log_target=False, sem Optuna)...")
+    print("[register] retraining the champion (use_log_target=False, no Optuna)...")
     t0 = time.time()
     forecaster, df_full = train_champion()
     elapsed = time.time() - t0
     val_mae = forecaster.performance_metrics.get("validation_mae")
-    print(f"[register] treino concluido em {elapsed:.1f}s | val_mae = {val_mae:.4f}")
+    print(f"[register] training finished in {elapsed:.1f}s | val_mae = {val_mae:.4f}")
 
     ref_X = save_reference(forecaster, df_full)
 
     model_joblib = os.path.join(str(config.ARTIFACTS_DIR), "champion.joblib")
     forecaster.save_model(model_joblib)
 
-    # forecast de exemplo p/ infer_signature
+    # example forecast for infer_signature
     from .model_wrapper import SalesForecasterPyfunc as PM
     dummy = pd.DataFrame([{"weeks_to_forecast": 1, "top_n": 5}])
     example_out = pd.DataFrame({"semana": [1], "pdv": ["x"], "sku": ["y"], "quantidade_prevista": [0]})
@@ -73,7 +73,7 @@ def main():
             mlflow.log_metric(k, v)
         mlflow.log_metric("training_time_seconds", elapsed)
 
-        # logar modelo como pyfunc (com artefato joblib)
+        # log the model as pyfunc (with the joblib artifact)
         import shutil
         model_artifact_dir = "model"
         mlflow.pyfunc.log_model(
@@ -85,16 +85,16 @@ def main():
         )
         run_id = run.info.run_id
 
-    # promover usando a versao AUTO-registrada pelo log_model
-    # (source aponta para o artifact do run real; create_model_version manual
-    #  com mlflow.get_artifact_uri() gerava source quebrado em mlruns/0).
-    # Alias e o primario (MLflow 3.x); stage mantido por compatibilidade.
+    # promote using the version AUTO-registered by log_model
+    # (source points at the real run's artifact; a manual create_model_version
+    #  with mlflow.get_artifact_uri() produced a broken source in mlruns/0).
+    # The alias is the primary one (MLflow 3.x); stage kept for compatibility.
     from .registry import latest_unstaged_version, promote_version
     client = MlflowClient(config.MLFLOW_TRACKING_URI)
     mv = latest_unstaged_version(client, config.MLFLOW_MODEL_NAME)
     res = promote_version(client, config.MLFLOW_MODEL_NAME, mv.version,
                           config.MLFLOW_MODEL_ALIAS, config.MLFLOW_MODEL_STAGE)
-    print(f"[register] modelo '{config.MLFLOW_MODEL_NAME}' v{mv.version} -> "
+    print(f"[register] model '{config.MLFLOW_MODEL_NAME}' v{mv.version} -> "
           f"@{res['alias']} (stage_ok={res['stage_ok']})")
     print(f"[register] source={mv.source}")
     print(f"[register] run_id={run_id} | val_mae={val_mae:.4f}")

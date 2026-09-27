@@ -1,4 +1,4 @@
-"""Fallback: carrega o joblib committed direto quando o registry MLflow esta vazio."""
+"""Fallback: loads the committed joblib directly when the MLflow registry is empty."""
 import os
 import joblib
 import pandas as pd
@@ -6,7 +6,7 @@ from .model_wrapper import SalesForecasterPyfunc, DATA_PATHS, SALES_DIR
 
 
 class _LocalPyfunc(SalesForecasterPyfunc):
-    """Mesma interface do pyfunc, mas carrega do joblib em vez do artifacts context."""
+    """Same interface as the pyfunc, but loads from joblib instead of the artifacts context."""
 
     def __init__(self, joblib_path):
         super().__init__()

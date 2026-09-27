@@ -1,4 +1,4 @@
-"""Configuracoes do sistema de MLOps (serving + drift + retrain + dashboard)."""
+"""Configuration of the MLOps system (serving + drift + retrain + dashboard)."""
 import os
 from pathlib import Path
 
@@ -16,15 +16,15 @@ MLFLOW_TRACKING_URI = os.environ.get(
         "file:///", "sqlite:///"))
 MLFLOW_EXPERIMENT = "sales_forecast_v22_prod"
 MLFLOW_MODEL_NAME = "sales_forecaster_v22"
-MLFLOW_MODEL_STAGE = "Production"  # legado (fallback); o primario e o alias abaixo
-MLFLOW_MODEL_ALIAS = "production"  # `models:/<nome>@production` (MLflow 3.x)
+MLFLOW_MODEL_STAGE = "Production"  # legacy (fallback); the primary one is the alias below
+MLFLOW_MODEL_ALIAS = "production"  # `models:/<name>@production` (MLflow 3.x)
 
 API_HOST = "0.0.0.0"
 API_PORT = 8000
 
-# horizonte (semanas) do forecast pre-computado em memoria; /predict abaixo
-# disso passa a ser um simples lookup (warm em milissegundos). Acima disso,
-# cai no forecast "live" (ainda rapido, ~7s/2 semanas).
+# horizon (weeks) of the forecast pre-computed in memory; /predict below
+# that becomes a simple lookup (warm in milliseconds). Above that,
+# it falls back to the "live" forecast (still fast, ~7s/2 weeks).
 PRECOMPUTE_HORIZON = 12
 
 COST_PER_1000_PREDICTIONS = 0.0009
@@ -35,7 +35,7 @@ DRIFT_CHECK_INTERVAL_SECONDS = 60
 RETRAIN_TRIGGER_FILE = ARTIFACTS_DIR / "retrain_trigger.json"
 
 MONITOR_INTERVAL_SECONDS = 30
-# cooldown entre retrains automaticos (evita feedback loop em drift persistente)
+# cooldown between automatic retrains (avoids a feedback loop under persistent drift)
 RETRAIN_COOLDOWN_SECONDS = 1800
 
 for _d in (ARTIFACTS_DIR,):
