@@ -12,8 +12,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    # serving real do campeao via FastAPI + MLflow registry local
-    # tracking URI do codigo: <repo>/experiments/mlruns (mlops/config.py)
+    # real serving of the champion via FastAPI + local MLflow registry
+    # tracking URI used by the code: <repo>/experiments/mlruns (mlops/config.py)
     volumes:
       - ./experiments:/app/experiments
       - ./experiments/artifacts/mlops_sales:/app/experiments/artifacts/mlops_sales

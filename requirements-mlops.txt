@@ -1,7 +1,7 @@
-# Dependencias minimas p/ o serving MLOps (mlops/serve.py + monitor + retrain).
-# Substitui o requirements.txt monolito (torch/transformers/autogluon/h2o/...)
-# na imagem da API: build em minutos em vez de horas.
-# Pinos = ambiente verificado (testes mlops + coldstart + register passando).
+# Minimal dependencies for the MLOps serving (mlops/serve.py + monitor + retrain).
+# Replaces the monolithic requirements.txt (torch/transformers/autogluon/h2o/...)
+# in the API image: a build in minutes instead of hours.
+# Pins = verified environment (mlops tests + coldstart + register passing).
 mlflow==3.8.1
 fastapi==0.121.2
 uvicorn==0.38.0
