@@ -1,15 +1,15 @@
-"""Validacao estrutural dos notebooks do repositorio.
+"""Structural validation of the repository notebooks.
 
-Uso:
-    python scripts/validate_notebooks.py            # resumo + exit 1 se houver JSON quebrado
-    python scripts/validate_notebooks.py --strict   # tambem falha se houver notebook sem outputs executados
+Usage:
+    python scripts/validate_notebooks.py            # summary + exit 1 if any JSON is broken
+    python scripts/validate_notebooks.py --strict   # also fails if a notebook has no executed outputs
 
-Regras:
-- Todo `*.ipynb` (fora .venv/.git/mlruns/artifacts) deve ser JSON valido no
-  formato nbformat>=4 com ao menos 1 celula de codigo.
-- Notebooks externos (originais cloud: `ibm-experiments/`, `databricks-forecast/`,
-  ou com `EXT` no nome/primeira celula) sao marcados como EXT e dispensados da
-  exigencia de outputs (rodam fora do repo, com credenciais cloud).
+Rules:
+- Every `*.ipynb` (outside .venv/.git/mlruns/artifacts) must be valid JSON in
+  nbformat>=4 with at least 1 code cell.
+- External notebooks (cloud originals: `ibm-experiments/`, `databricks-forecast/`,
+  or with `EXT` in the name/first cell) are marked as EXT and exempted from the
+  output requirement (they run outside the repo, with cloud credentials).
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def check_notebook(path: Path) -> dict:
     try:
         nb = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
-        return {"path": str(path), "ok": False, "ext": False, "error": f"JSON invalido: {e}"}
+        return {"path": str(path), "ok": False, "ext": False, "error": f"invalid JSON: {e}"}
     if not isinstance(nb, dict) or nb.get("nbformat", 0) < 4:
         return {"path": str(path), "ok": False, "ext": False, "error": "nbformat ausente ou < 4"}
     cells = nb.get("cells") or []
@@ -51,7 +51,7 @@ def check_notebook(path: Path) -> dict:
             return {"path": str(path), "ok": True, "ext": False,
                     "docs_only": True, "cells": len(cells), "code": 0,
                     "with_outputs": 0}
-        return {"path": str(path), "ok": False, "ext": False, "error": "sem celulas"}
+        return {"path": str(path), "ok": False, "ext": False, "error": "no cells"}
     ext = is_external(path, nb)
     n_out = sum(1 for c in cells
                 if c.get("cell_type") == "code" and c.get("outputs"))
@@ -62,7 +62,7 @@ def check_notebook(path: Path) -> dict:
 def iter_notebooks(root: Path):
     import os
     for dirpath, dirnames, filenames in os.walk(root):
-        # poda antes de descer (evita .venv/mlruns com milhares de arquivos)
+        # prune before descending (avoids .venv/mlruns with thousands of files)
         dirnames[:] = sorted(
             d for d in dirnames
             if d not in SKIP_DIRS and d != ".ipynb_checkpoints" and not d.startswith(".")
@@ -75,7 +75,7 @@ def iter_notebooks(root: Path):
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true",
-                    help="falha tambem se notebook nao-EXT nao tiver outputs executados")
+                    help="also fail if a non-EXT notebook has no executed outputs")
     args = ap.parse_args(argv)
 
     results = [check_notebook(p) for p in iter_notebooks(REPO_ROOT)]
@@ -85,8 +85,8 @@ def main(argv=None) -> int:
               if r["ok"] and not r["ext"] and not r.get("docs_only") and r["with_outputs"] == 0]
     n_ext = sum(1 for r in results if r.get("ext"))
 
-    print(f"notebooks: {len(results)} | externos (EXT): {n_ext} | "
-          f"docs-only: {len(docs_only)} | quebrados: {len(broken)} | sem outputs: {len(no_out)}")
+    print(f"notebooks: {len(results)} | external (EXT): {n_ext} | "
+          f"docs-only: {len(docs_only)} | broken: {len(broken)} | without outputs: {len(no_out)}")
     for r in broken:
         print(f"  BROKEN  {r['path']}: {r['error']}")
     if args.strict:
