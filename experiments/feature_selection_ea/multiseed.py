@@ -1,9 +1,9 @@
-"""Agregação multi-seed para o comparativo EA vs clássicos.
+"""Multi-seed aggregation for the EA vs classical-methods comparison.
 
-Endereça a limitação do README (resultados de 1 seed; NSGA-II/DE são
-estocásticos): dada uma lista de DataFrames de resumo por seed
-(colunas `method,best_cv,best_feats,full_cv,test_score` + coluna `seed`),
-retorna média ± desvio por método. CLI:
+Addresses the limitation stated in the README (results from 1 seed; NSGA-II/DE are
+stochastic): given a list of per-seed summary DataFrames
+(columns `method,best_cv,best_feats,full_cv,test_score` + a `seed` column),
+it returns mean ± std per method. CLI:
 
     python multiseed.py outputs/summary_cal_seed*.csv
 """
@@ -21,11 +21,11 @@ SUMMARY_COLS = ["method", "best_cv", "best_feats", "full_cv", "test_score"]
 
 def summarize_multiseed(frames: list[pd.DataFrame]) -> pd.DataFrame:
     if not frames:
-        raise ValueError("nenhum frame fornecido")
+        raise ValueError("no frames provided")
     df = pd.concat(frames, ignore_index=True)
     missing = [c for c in SUMMARY_COLS if c not in df.columns]
     if missing:
-        raise ValueError(f"colunas ausentes: {missing}")
+        raise ValueError(f"missing columns: {missing}")
     if "seed" not in df.columns:
         df = df.copy()
         df["seed"] = 0

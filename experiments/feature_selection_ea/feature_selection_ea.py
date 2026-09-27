@@ -1,27 +1,27 @@
 """
-Feature Selection Evolucionaria (DEAP: GAAP-NSGA-II + MO-DE) vs metodos classicos.
+Evolutionary Feature Selection (DEAP: GAAP-NSGA-II + MO-DE) vs classical methods.
 
 Datasets:
-  * California Housing  -> regressao      (metrica: R2)
-  * Twitter sentiment   -> classificacao  (metrica: F1-macro)
+  * California Housing  -> regression    (metric: R2)
+  * Twitter sentiment   -> classification (metric: F1-macro)
 
-Metodos comparados:
-  * SelectKBest        (univariado: f_regression / f_classif)
-  * RandomForest       (ranking por feature importance)
+Methods compared:
+  * SelectKBest        (univariate: f_regression / f_classif)
+  * RandomForest       (ranking by feature importance)
   * Boruta             (shadow features)
-  * GAAP (NSGA-II)     (DEAP) - otimiza via Pareto: minimiza (1-score) e n-features
-  * MO-DE              (DE multi-objetivo em vetor real continuo + threshold 0.5)
+  * GAAP (NSGA-II)     (DEAP) - optimizes via Pareto: minimizes (1-score) and n-features
+  * MO-DE              (multi-objective DE on a continuous real vector + threshold 0.5)
 
-A metrica reportada e o score CV (R2 / F1-macro) em funcao do numero de features
-selecionadas; o melhor subset de cada metodo tambem e validado no holdout (test).
+The reported metric is the CV score (R2 / F1-macro) as a function of the number of
+selected features; the best subset of each method is also validated on the holdout (test).
 
-Uso:
-    python feature_selection_ea.py                 # completo
-    python feature_selection_ea.py --quick         # config menor p/ validar rapido
+Usage:
+    python feature_selection_ea.py                 # full
+    python feature_selection_ea.py --quick         # smaller config to validate quickly
     python feature_selection_ea.py --no-mlflow
     python feature_selection_ea.py --only-cal
 
-Artefatos: outputs/curves_*.csv, outputs/summary_*.csv, outputs/*.png
+Artifacts: outputs/curves_*.csv, outputs/summary_*.csv, outputs/*.png
 """
 import argparse
 import os
@@ -55,14 +55,14 @@ OUT = Path(__file__).resolve().parent / "outputs"
 
 
 # --------------------------------------------------------------------------- #
-# 1. DADOS
+# 1. DATA
 # --------------------------------------------------------------------------- #
 def load_california(poly_degree=2):
-    """California Housing (regressao). log1p nas variaveis assimetricas + polynomial."""
+    """California Housing (regression). log1p on the asymmetric variables + polynomial."""
     data = fetch_california_housing()
     X = data.data.astype(np.float64)
     names = list(data.feature_names)
-    # log1p em vars com cauda longa (MedInc, AveRooms, AveBedrms, Population, AveOccup)
+    # log1p on the long-tailed vars (MedInc, AveRooms, AveBedrms, Population, AveOccup)
     asim = [0, 3, 4, 5, 6]
     X = np.column_stack([np.log1p(X[:, i]) if i in asim else X[:, i]
                          for i in range(X.shape[1])])
@@ -84,13 +84,13 @@ def _clean_tweet(t):
 
 
 def load_twitter(max_features=400, n_rows=2000):
-    """Twitter Entity Sentiment -> classificacao multiclasse."""
+    """Twitter Entity Sentiment -> multiclass classification."""
     here = Path(__file__).resolve().parent
     candidates = [
         here / ".." / "nlp" / "twitter-entity-sentiment" / "senti-pred-variations"
         / "Senti-Pred-remake2" / "data" / "raw" / "twitter_training.csv",
         here / ".." / "senti-pred-variations" / "Senti-Pred-remake2" / "data"
-        / "raw" / "twitter_training.csv",  # layout legado
+        / "raw" / "twitter_training.csv",  # legacy layout
     ]
     train = next((p for p in candidates if p.exists()), candidates[0])
     if not train.exists():
@@ -108,7 +108,7 @@ def load_twitter(max_features=400, n_rows=2000):
 
 
 # --------------------------------------------------------------------------- #
-# 2. AVALIADOR (CV interno + holdout)
+# 2. EVALUATOR (internal CV + holdout)
 # --------------------------------------------------------------------------- #
 class Evaluator:
     def __init__(self, X_tr, y_tr, X_te, y_te, task, cv_folds=3):
@@ -193,7 +193,7 @@ def run_ga(evaler, pop=20, ngen=30, seed=SEED, verbose=False):
         fits = map(toolbox.evaluate, offspring)
         for ind, fit in zip(offspring, fits):
             ind.fitness.values = fit
-        # NSGA-II: selecao do conjunto uniao (parentes + filhotes)
+        # NSGA-II: selection over the union set (parents + offspring)
         population = toolbox.select(population + offspring, k=pop)
         hof.update(population)
         if verbose and gen % 5 == 0:
@@ -213,7 +213,7 @@ def run_ga(evaler, pop=20, ngen=30, seed=SEED, verbose=False):
 
 
 # --------------------------------------------------------------------------- #
-# 4. MO-DE (DE multi-objetivo, vetor real continuo + threshold)
+# 4. MO-DE (multi-objective DE, continuous real vector + threshold)
 # --------------------------------------------------------------------------- #
 def _obj(evaler, mask):
     k = int(mask.sum())
@@ -267,7 +267,7 @@ def run_de(evaler, pop=20, ngen=40, cr=0.5, fw=0.7, seed=SEED, verbose=False):
 
 
 # --------------------------------------------------------------------------- #
-# 5. BASELINES - curvas top-k
+# 5. BASELINES - top-k curves
 # --------------------------------------------------------------------------- #
 def _topk_mask(evaler, ranking, k):
     m = np.zeros(evaler.n_features, dtype=bool)
@@ -306,7 +306,7 @@ def baselines(evaler, X, y, task, max_steps=8):
 
     try:
         from boruta import BorutaPy
-        # subsample para rapidez; Boruta eh caro em espacos grandes
+        # subsample for speed; Boruta is expensive in large spaces
         if X.shape[0] > 1600 or X.shape[1] > 100:
             idx_bor = np.random.RandomState(SEED).choice(X.shape[0],
                                                          min(1600, X.shape[0]),
@@ -338,7 +338,7 @@ def plot_curves(df, title, fname):
     for method, g in df.groupby("method"):
         g = g.sort_values("n_feats")
         plt.plot(g["n_feats"], g["cv_score"], marker="o", label=method, ms=3)
-    plt.xlabel("numero de features selecionadas")
+    plt.xlabel("number of selected features")
     plt.ylabel("CV score (R2 / F1-macro)")
     plt.title(title)
     plt.legend(fontsize=8)
@@ -348,7 +348,7 @@ def plot_curves(df, title, fname):
 
 
 # --------------------------------------------------------------------------- #
-# 7. ORQUESTRADOR
+# 7. ORCHESTRATOR
 # --------------------------------------------------------------------------- #
 def run_one(task, X, y, cfg):
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=SEED)
@@ -378,7 +378,7 @@ def run_one(task, X, y, cfg):
         rows.append(dict(method="MO-DE", n_feats=int(k), cv_score=s))
     df = pd.DataFrame(rows).sort_values(["method", "n_feats"])
 
-    # resumo: melhor ponto (best_cv) de cada metodo
+    # summary: best point (best_cv) of each method
     summary = []
     for method, g in df.groupby("method"):
         g = g.sort_values("n_feats")
@@ -388,7 +388,7 @@ def run_one(task, X, y, cfg):
     s = pd.DataFrame(summary).sort_values("best_cv", ascending=False).reset_index(drop=True)
     s["full_cv"] = round(ev.full_score(), 4)
 
-    # validacao no holdout (test) do melhor subset de cada metodo
+    # holdout (test) validation of the best subset of each method
     test_rows = []
     for _, r in s.iterrows():
         k = int(r["best_feats"])
@@ -417,9 +417,9 @@ def main():
     ap.add_argument("--no-mlflow", action="store_true")
     ap.add_argument("--only-cal", action="store_true")
     ap.add_argument("--seed", type=int, default=42,
-                    help="seed global (EA, splits, CV). Default 42 reproduz os outputs commitados.")
+                    help="global seed (EA, splits, CV). Default 42 reproduces the committed outputs.")
     ap.add_argument("--suffix", default=None,
-                    help="sufixo dos artefatos (default: '' p/ seed 42, '_s<seed>' caso contrario)")
+                    help="artifact suffix (default: '' for seed 42, '_s<seed>' otherwise)")
     args = ap.parse_args()
 
     global SEED
@@ -430,7 +430,7 @@ def main():
     np.random.seed(SEED)
     random.seed(SEED)
 
-    # ---------- California Housing (regressao) ----------
+    # ---------- California Housing (regression) ----------
     print("=" * 95)
     print("1) CALIFORNIA HOUSING - R2 | polynomial features (44)")
     X, y, names_cal = load_california()
@@ -442,7 +442,7 @@ def main():
     res_cal = run_one("regression", X, y, cfg)
     df_cal, sum_cal, ev_cal = res_cal["df"], res_cal["summary"], res_cal["ev"]
 
-    # ---------- Twitter (classificacao) ----------
+    # ---------- Twitter (classification) ----------
     if not args.only_cal:
         print("=" * 95)
         print("2) TWITTER - F1-macro | TF-IDF")
@@ -458,7 +458,7 @@ def main():
     else:
         sum_tw = None
 
-    # persiste e plota
+    # persist and plot
     df_cal.to_csv(OUT / f"curves_cal{suffix}.csv", index=False)
     sum_cal.to_csv(OUT / f"summary_cal{suffix}.csv", index=False)
     plot_curves(df_cal, f"Feature Selection EA - California Housing (seed {SEED})",
@@ -472,7 +472,7 @@ def main():
     for tag, sm_row in {"California": sum_cal, "twitter": sum_tw}.items():
         if sm_row is None:
             continue
-        print(f"\n----- RESUMO {tag.upper()} -----")
+        print(f"\n----- SUMMARY {tag.upper()} -----")
         print(sm_row.to_string(index=False))
 
     # MLflow
@@ -492,7 +492,7 @@ def main():
         except Exception as e:
             print(f"[mlflow] skip: {e}")
 
-    print(f"\n>> done. artefactos em {OUT}")
+    print(f"\n>> done. artifacts in {OUT}")
 
 
 if __name__ == "__main__":
