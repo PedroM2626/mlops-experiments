@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -61,7 +61,7 @@
 const fmt_ts = u => {
   if (!u) return '—';
   const d = new Date(u * 1000);
-  return d.toLocaleTimeString('pt-BR') + ' ' + d.toLocaleDateString('pt-BR');
+  return d.toLocaleTimeString('en-GB') + ' ' + d.toLocaleDateString('en-GB');
 };
 async function refresh() {
   try {
