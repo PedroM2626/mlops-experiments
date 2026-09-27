@@ -175,8 +175,8 @@ The generated models and metrics can be used by:
 
 ## Contributing
 
-See the main [README.md](../../README.md) for contribution guidelines.
+See the main [README.md](../../../../../../../README.md) for contribution guidelines.
 
 ## License
 
-See the main [README.md](../../README.md) for license information.
+See the main [README.md](../../../../../../../README.md) for license information.

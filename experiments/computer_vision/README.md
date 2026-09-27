@@ -160,4 +160,4 @@ more time than fine-tuning. Artifacts: `experiments/artifacts/hog_cifar10_202609
   - `./animal-classifier.ipynb` — multi-label pets (ResNet18, VGG16, CLIP, EfficientNet)
   - `./face_recognition_app.ipynb` — face recognition app (LBPH / CNN / transfer_yunet)
   - `./yolo_notebook.ipynb` — YOLO detection via OpenCV DNN
-- References: Deng et al. (2009) CIFAR-10; He et al. (2016) *Deep Residual Learning*; Dosovitskiy et al. (2021) *An Image is Worth 16x16 Words*; Radford et al. (2021) *Learning Transferable Visual Models From Natural Language Supervision* (CLIP); Tan & Le (2019) *EfficientNet: Rethinking Model Scaling*; Sedhain et al. (2015) — see also the documents in `docs/modelo-academico-readme.md`.
+- References: Deng et al. (2009) CIFAR-10; He et al. (2016) *Deep Residual Learning*; Dosovitskiy et al. (2021) *An Image is Worth 16x16 Words*; Radford et al. (2021) *Learning Transferable Visual Models From Natural Language Supervision* (CLIP); Tan & Le (2019) *EfficientNet: Rethinking Model Scaling*; Sedhain et al. (2015) — see also the documents in `docs/academic-readme-template.md`.

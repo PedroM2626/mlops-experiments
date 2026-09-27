@@ -99,9 +99,9 @@ Clustering: Purity, NMI, ARI, F for leaves; Purity and NMI for parents. The fixe
 ```bash
 # Classification
 pip install scikit-learn numpy pandas matplotlib jupyter nbconvert
-python -m nbconvert --to notebook --execute --inplace classificacao_hierarquica.ipynb --ExecutePreprocessor.timeout=1200
+python -m nbconvert --to notebook --execute --inplace hierarchical_classification.ipynb --ExecutePreprocessor.timeout=1200
 # Clustering
-python -m nbconvert --to notebook --execute --inplace clustering_flat_vs_hierarquico.ipynb --ExecutePreprocessor.timeout=1800
+python -m nbconvert --to notebook --execute --inplace clustering_flat_vs_hierarchical.ipynb --ExecutePreprocessor.timeout=1800
 ```
 
 Or interactive: `jupyter notebook <notebook>.ipynb`. The dataset downloads automatically on first use (scikit-learn cache).
@@ -206,11 +206,11 @@ Notes: **top-down produces 45 leaf clusters** (not 20) because the real groups a
 
 ## 8. References and Files
 
-**Classification** (`classificacao_hierarquica.ipynb`)
+**Classification** (`hierarchical_classification.ipynb`)
 - Main notebook (executed, contains tables, matrices, plots, predictions).
 - Code: `calibrate_parent.py` + `tests/test_calibrate_parent.py` (parent threshold tuning).
 
-**Clustering** (`clustering_flat_vs_hierarquico.ipynb`)
+**Clustering** (`clustering_flat_vs_hierarchical.ipynb`)
 - Main notebook (executed, with dendrogram and heatmap).
 - Standalone comparisons: `clustering_comparison.ipynb`, `supervised_clustering.ipynb`.
 

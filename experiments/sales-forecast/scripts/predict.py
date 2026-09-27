@@ -64,11 +64,11 @@ def main(model_path: str, data_path: str, output_path: str, full_forecast: bool)
             
             # Set the filename based on the flag
             if full_forecast:
-                filename_suffix = "COMPLETA"
+                filename_suffix = "FULL"
             else:
-                filename_suffix = "SUBMISSAO"
+                filename_suffix = "SUBMISSION"
 
-            submission_filename = os.path.join(output_path, f"previsao_{filename_suffix}_{timestamp}.parquet")
+            submission_filename = os.path.join(output_path, f"forecast_{filename_suffix}_{timestamp}.parquet")
             df_submission_sorted.to_parquet(submission_filename, index=False)
             logging.info(f"Forecast file saved to: {submission_filename}")
         else:

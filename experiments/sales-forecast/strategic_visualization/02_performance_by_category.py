@@ -53,7 +53,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a treemap of the forecast by category and brand.")
     parser.add_argument("--forecast_path", type=str, required=True, help="Path to the final forecast file (.parquet).")
     parser.add_argument("--products_path", type=str, required=True, help="Path to the products dimension file (dim_produtos.parquet).")
-    parser.add_argument("--output_path", type=str, default="visualizacao_estrategica", help="Folder to save the results.")
+    parser.add_argument("--output_path", type=str, default="strategic_visualization", help="Folder to save the results.")
     
     args = parser.parse_args()
     os.makedirs(args.output_path, exist_ok=True)

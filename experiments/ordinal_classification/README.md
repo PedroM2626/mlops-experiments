@@ -72,4 +72,4 @@ pip install mord scikit-learn pandas matplotlib seaborn
 ## 8. References and Files
 
 - Notebook: `./ordinal_classification.ipynb` (executed, with figures).
-- References: Pedregosa et al. (`mord`); UCI Wine Quality (Cortez et al., 2009); Cohen (1960) Kappa; see `docs/modelo-academico-readme.md`.
+- References: Pedregosa et al. (`mord`); UCI Wine Quality (Cortez et al., 2009); Cohen (1960) Kappa; see `docs/academic-readme-template.md`.

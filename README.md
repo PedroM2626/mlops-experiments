@@ -6,7 +6,7 @@ article: abstract, context, methodology, results, discussion, conclusions and
 reproduction). This document is only the **index** that connects everything.
 
 For the documentation standard, see
-[`docs/modelo-academico-readme.md`](docs/modelo-academico-readme.md).
+[`docs/academic-readme-template.md`](docs/academic-readme-template.md).
 
 ---
 

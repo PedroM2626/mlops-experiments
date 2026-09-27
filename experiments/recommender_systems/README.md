@@ -148,4 +148,4 @@ with `scores` (n_users × n_items) and binary `rel` (1 = relevant in the test se
 - Notebooks: `./movielens-recsys.ipynb`, `./movielens-autorec.ipynb`, `./image_recommender.ipynb`.
 - Code: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`.
 - References: Sedhain et al. (2015) *AutoRec: Autoencoders Meet Collaborative Filtering*; Koren et al. (2009) *Matrix Factorization Techniques for Recommender* (SVD); Rendle et al. (2009) *BPR*; He et al. (2017) *Neural Collaborative Filtering* (NeuMF); Grafer et al. for Two-Tower/DLRM; Harley et al. (2022) for visual recommendation embeddings (ResNet).
-- Group reference document: `docs/modelo-academico-readme.md`.
+- Group reference document: `docs/academic-readme-template.md`.
