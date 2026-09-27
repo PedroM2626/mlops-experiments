@@ -17,7 +17,7 @@ def test_perfect_ranking_scores_one():
 
 
 def test_bpr_style_ranking_beats_rating_heuristic():
-    # Dois usuários; BPR ordena relevantes primeiro, heurística não.
+    # Two users; BPR puts the relevant items first, the heuristic does not.
     y_rel = np.array([[1, 0, 1, 0, 0], [0, 0, 1, 1, 0]])
     bpr_scores = np.array([[5.0, 0.0, 4.0, 1.0, 0.5], [0.0, 0.1, 5.0, 4.0, 0.2]])
     heur_scores = np.array([[0.0, 5.0, 0.1, 4.0, 3.0], [5.0, 4.0, 0.1, 0.0, 3.0]])

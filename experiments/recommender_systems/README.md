@@ -1,86 +1,86 @@
-# Recommender Systems — MovieLens e Recomendação Visual
+# Recommender Systems — MovieLens and Visual Recommendation
 
-> **Área:** RecSys
-> **Tarefa:** Predição de rating (matrix completion) e recomendação top-K / por similaridade
-> **Métrica principal:** RMSE (predição de rating)
-> **Status:** Concluído
-> **Datasets:** MovieLens 100k (100.000 ratings, 943 usuários, 1.682 filmes); dataset próprio de imagens (recomendação visual)
+> **Area:** RecSys
+> **Task:** Rating prediction (matrix completion) and top-K / similarity-based recommendation
+> **Primary metric:** RMSE (rating prediction)
+> **Status:** Completed
+> **Datasets:** MovieLens 100k (100,000 ratings, 943 users, 1,682 movies); custom image dataset (visual recommendation)
 
-## 1. Resumo
+## 1. Abstract
 
-Esta pasta compara **10 abordagens de recomendação** no MovieLens 100k (sparsity 93,7%), combinando o comparativo de 8 paradigmas de `movielens-recsys.ipynb` com o **AutoRec** (item/user) de `movielens-autorec.ipynb`. O **Item-AutoRec** venceu com RMSE 0.9054, seguido por **Two-Tower (0.9297)** e **SVD (0.9352)**; o BPR, apesar do último lugar em RMSE (1.1138), é o adequado para tarefas de ranking. A pasta inclui ainda `image_recommender.ipynb`, um sistema de recomendação por similaridade visual (embeddings ResNet + cosseno), sem métricas de qualidade embutidas (**TBD**).
+This folder compares **10 recommendation approaches** on MovieLens 100k (sparsity 93.7%), combining the 8-paradigm comparison of `movielens-recsys.ipynb` with **AutoRec** (item/user) from `movielens-autorec.ipynb`. **Item-AutoRec** won with RMSE 0.9054, followed by **Two-Tower (0.9297)** and **SVD (0.9352)**; BPR, despite its last place in RMSE (1.1138), is the suitable choice for ranking tasks. The folder also includes `image_recommender.ipynb`, a visual-similarity recommendation system (ResNet embeddings + cosine), with no built-in quality metrics (**TBD**).
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-O experimento busca responder qual paradigma de recomendação prediz melhor ratings num cenário de **alta esparsidade** (93,7% da matriz usuário-item vazia) e qual generalize para produção:
-1. **Movielens recsys (8 paradigmas):** heurística de popularidade, similaridade (KNN user/item), fatoração de matrizes (SVD, BPR) e modelos neurais (NCF, Two-Tower), além de Gradient Boosting tabular com features manuais (LightGBM+FE).
-2. **AutoRec (2 abordagens adicionais, total 10):** autoencoders para reconstruir vetores parcialmente observados (sedimentam se representação não-linear ml-dr ganha de MF de baixo posto).
-3. **Cold-start:** simular um usuário novo (3 ratings) e avaliar a coerência das recomendações.
-4. **Recomendação visual:** similaridade de conteúdo (não colaborativa) por embeddings de imagem.
+The experiment seeks to answer which recommendation paradigm predicts ratings better under **high sparsity** (93.7% of the user-item matrix empty) and which one generalizes to production:
+1. **Movielens recsys (8 paradigms):** popularity heuristic, similarity (user/item KNN), matrix factorization (SVD, BPR) and neural models (NCF, Two-Tower), plus tabular Gradient Boosting with manual features (LightGBM+FE).
+2. **AutoRec (2 additional approaches, 10 in total):** autoencoders that reconstruct partially observed vectors (they test whether the non-linear representation wins over low-rank MF).
+3. **Cold-start:** simulate a new user (3 ratings) and assess the coherence of the recommendations.
+4. **Visual recommendation:** content-based similarity (not collaborative) through image embeddings.
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **Colaborative filtering:** usa interações usuário-item; sofre de cold-start e sparsity.
-- **Matrix Factorization (SVD, `surprise`):** aproxima a matriz por R ≈ U·Vᵀ (100 fatores) + biases, minimizando MSE sobre os ratings observados; implementação Cython rápida.
-- **KNN user/item:** similaridade de cosseno entre perfis; degrada sob alta sparsity (matriz de distância dominada por zeros).
-- **BPR (MF pairwise):** otimiza ranking via amostragem negativa (um par (pos, neg) por vez); escolha para top-K, não avalia baseline por RMSE.
-- **NCF (NeuMF):** concatenação de embeddings 32-d + MLP [64,32,16] + Dropout.
-- **Two-Tower (DLRM-style):** torres MLP independentes para usuário e item + produto escalar; pré-computa embeddings de itens e viabiliza recuperação aproximada (ANN) em catálogos massivos.
-- **LightGBM + FE:** features tabulares (média, std, contagem por user/item + interações, 8 features, 500 trees/6k folhas).
-- **AutoRec (Sedhain et al., 2015):** autoencoder (input→tanh→hidden→sigmoid) que reconstrói vetores esparsos; loss MSE **mascarada** (apenas entradas observadas (`M==1`) geram gradiente); variantes item-based (vetor = notas recebidas do item, dim N_USERS) e user-based (dim N_ITEMS).
+- **Colaborative filtering:** uses user-item interactions; suffers from cold-start and sparsity.
+- **Matrix Factorization (SVD, `surprise`):** approximates the matrix as R ≈ U·Vᵀ (100 factors) + biases, minimizing MSE over the observed ratings; fast Cython implementation.
+- **KNN user/item:** cosine similarity between profiles; degrades under high sparsity (distance matrix dominated by zeros).
+- **BPR (pairwise MF):** optimizes ranking through negative sampling (one (pos, neg) pair at a time); the choice for top-K, the baseline is not evaluated by RMSE.
+- **NCF (NeuMF):** concatenation of 32-d embeddings + MLP [64,32,16] + Dropout.
+- **Two-Tower (DLRM-style):** independent MLP towers for user and item + dot product; precomputes item embeddings and makes approximate retrieval (ANN) feasible on massive catalogs.
+- **LightGBM + FE:** tabular features (mean, std, count per user/item + interactions, 8 features, 500 trees/6k leaves).
+- **AutoRec (Sedhain et al., 2015):** autoencoder (input→tanh→hidden→sigmoid) that reconstructs sparse vectors; **masked** MSE loss (only observed entries (`M==1`) generate gradient); item-based variant (vector = ratings the item received, dim N_USERS) and user-based variant (dim N_ITEMS).
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
+### 4.1 Data
 
-- **MovieLens 100k:** 100.000 ratings (escala 1–5) de 943 usuários sobre 1.682 filmes; sparsity de **93,7%**. Carregado via arquivo `u.data` do surprise (`~/.surprise_data/ml-100k/ml-100k`).
-- Split do comparativo neural: `train_test_split` 80/20 com `random_state=42` (80.000 treino / 20.000 teste) — mesmo split para NCF, LightGBM e Two-Tower.
-- **Anti-vazamento (AutoRec):** ratings de teste nunca entram na matriz de treino (zerados na construção de `R_tr`).
-- **Imagens (image_recommender):** dataset local de ~30 imagens (dim embedding 2048) usado para indexar/demonstrar.
+- **MovieLens 100k:** 100,000 ratings (1–5 scale) from 943 users over 1,682 movies; sparsity of **93.7%**. Loaded through the surprise `u.data` file (`~/.surprise_data/ml-100k/ml-100k`).
+- Split of the neural comparison: `train_test_split` 80/20 with `random_state=42` (80,000 training / 20,000 test) — the same split for NCF, LightGBM and Two-Tower.
+- **Anti-leakage (AutoRec):** test ratings never enter the training matrix (zeroed when building `R_tr`).
+- **Images (image_recommender):** local dataset of ~30 images (embedding dim 2048) used to index/demonstrate.
 
-### 4.2 Pré-processamento
+### 4.2 Preprocessing
 
-- Normalização dos ratings para **[0,1]** (`rating/5`) para o AutoRec (como no paper); entradas observadas ficam 0.
-- Matriz M binária (máscara) — loss apenas sobre observados.
-- Na predição de rating/recsys: sem feature engineering excessiva; LightGBM+FE dependência de 8 features manuais.
-- Representação visual: extração de embeddings ResNet pré-treinada → normalização L2 → similaridade de cosseno.
+- Normalization of the ratings to **[0,1]** (`rating/5`) for AutoRec (as in the paper); observed entries stay 0.
+- Binary matrix M (mask) — loss only over the observed entries.
+- In rating prediction/recsys: no excessive feature engineering; LightGBM+FE depends on 8 manual features.
+- Visual representation: extraction of pretrained ResNet embeddings → L2 normalization → cosine similarity.
 
-### 4.3 Métodos comparados
+### 4.3 Compared methods
 
-| Modelo | Paradigma | Estratégia | Parâmetros (~) |
+| Model | Paradigm | Strategy | Parameters (~) |
 |--------|-----------|-----------|---------------|
-| **Popularidade** | Heurística | Média global por item (min 5 ratings) | 0 |
-| **KNN User-based** | Similaridade (user) | Cosseno entre usuários | 0 |
-| **KNN Item-based** | Similaridade (item) | Cosseno entre itens | 0 |
-| **SVD** | MF (MSE) | Fatores latentes 100 + biases, 20 épocas | ~200k |
-| **NCF (NeuMF)** | Neural (concat) | Embs 32-d + MLP [64,32,16] + Dropout | ~2,2M |
-| **LightGBM + FE** | GB Tabular | 8 features usuario/item + interações, 500 trees | ~6k folhas |
-| **BPR** | MF (pairwise) | Fatores 64-d, loss BPR, amostragem negativa | ~165k |
-| **Two-Tower** | Neural (dot) | Embs 32-d + towers MLP [64,32] + produto escalar | ~150k |
+| **Popularity** | Heuristic | Global mean per item (min 5 ratings) | 0 |
+| **KNN User-based** | Similarity (user) | Cosine between users | 0 |
+| **KNN Item-based** | Similarity (item) | Cosine between items | 0 |
+| **SVD** | MF (MSE) | 100 latent factors + biases, 20 epochs | ~200k |
+| **NCF (NeuMF)** | Neural (concat) | 32-d embs + MLP [64,32,16] + Dropout | ~2.2M |
+| **LightGBM + FE** | GB Tabular | 8 user/item features + interactions, 500 trees | ~6k leaves |
+| **BPR** | MF (pairwise) | 64-d factors, BPR loss, negative sampling | ~165k |
+| **Two-Tower** | Neural (dot) | 32-d embs + MLP towers [64,32] + dot product | ~150k |
 | **Item-AutoRec** | Autoencoder | MLP N_USERS→hidden(500)→N_USERS, Tanh+Sigmoid, masked MSE | ~500×2 |
 | **User-AutoRec** | Autoencoder | MLP N_ITEMS→hidden(500)→N_ITEMS, masked MSE | ~500×2 |
 
-### 4.4 Avaliação
+### 4.4 Evaluation
 
-- **Métrica:** RMSE no split 80/20 `random_state=42` (holdout).
-- **AutoRec:** masked MSE por época; tuning de `hidden ∈ {200, 500, 800}` com split treino/validação (90/10), rankeando por `val RMSE`; 100 épocas, Adam.
-- **Cold-start:** simulação de usuário novo (Star Wars 5, Fargo 4, Shining 3) → lista de recomendações do SVD.
-- **Reprodutibilidade:** experimento registrado no MLflow local (`./mlruns`, experiment `MovieLens_AutoRec`).
+- **Metric:** RMSE on the 80/20 split with `random_state=42` (holdout).
+- **AutoRec:** masked MSE per epoch; tuning of `hidden ∈ {200, 500, 800}` with a training/validation split (90/10), ranked by `val RMSE`; 100 epochs, Adam.
+- **Cold-start:** simulation of a new user (Star Wars 5, Fargo 4, Shining 3) → SVD recommendation list.
+- **Reproducibility:** experiment registered in local MLflow (`./mlruns`, experiment `MovieLens_AutoRec`).
 
-### 4.5 Reprodução
+### 4.5 Reproduction
 
-- Notebooks relativos a esta pasta:
-  - `./movielens-recsys.ipynb` — 8 paradigmas base (Popularidade, KNN, SVD, NCF, LightGBM, BPR, Two-Tower)
-  - `./movielens-autorec.ipynb` — adiciona Item-/User-AutoRec (9ª e 10ª abordagens), compara os 10 modelos e registra no MLflow
-  - `./image_recommender.ipynb` — pipeline de recomendação visual (CLI + demo interativa)
-- Dependências: `surprise` (dados MovieLens), PyTorch, LightGBM, pandas, numpy, MLflow.
-- Padrão de artefatos: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+- Notebooks relative to this folder:
+  - `./movielens-recsys.ipynb` — the 8 base paradigms (Popularity, KNN, SVD, NCF, LightGBM, BPR, Two-Tower)
+  - `./movielens-autorec.ipynb` — adds Item-/User-AutoRec (the 9th and 10th approaches), compares the 10 models and registers them in MLflow
+  - `./image_recommender.ipynb` — visual recommendation pipeline (CLI + interactive demo)
+- Dependencies: `surprise` (MovieLens data), PyTorch, LightGBM, pandas, numpy, MLflow.
+- Artifact pattern: `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
 
-## 5. Resultados
+## 5. Results
 
-### 5.1 Rodada (10 modelos) — AutoRec incluído (movielens-autorec.ipynb)
+### 5.1 Run (10 models) — AutoRec included (movielens-autorec.ipynb)
 
-| Modelo | RMSE | Paradigma |
+| Model | RMSE | Paradigm |
 |---|---|---|
 | **Item-AutoRec** | **0.9054** | Autoencoder (item) |
 | Two-Tower | 0.9297 | Neural (dot) |
@@ -88,64 +88,64 @@ O experimento busca responder qual paradigma de recomendação prediz melhor rat
 | LightGBM+FE | 0.9406 | GB Tabular |
 | NCF | 0.9462 | Neural (concat) |
 | User-AutoRec | 0.9611 | Autoencoder (user) |
-| Popularidade | 1.0171 | Heurística |
-| KNN User | 1.0194 | Similaridade |
-| KNN Item | 1.0264 | Similaridade |
+| Popularity | 1.0171 | Heuristic |
+| KNN User | 1.0194 | Similarity |
+| KNN Item | 1.0264 | Similarity |
 | BPR | 1.1138 | MF (pairwise) |
 
-Nota: no notebook de origem as 8 abordagens originais seguem o padrão de RMSE relatado (Two-Tower 0.929712, SVD 0.935171, LightGBM+FE 0.940597, NCF 0.946228, Popularidade 1.017112, KNN User 1.019354, KNN Item 1.026430, BPR 1.113827).
+Note: in the source notebook the 8 original approaches follow the reported RMSE pattern (Two-Tower 0.929712, SVD 0.935171, LightGBM+FE 0.940597, NCF 0.946228, Popularity 1.017112, KNN User 1.019354, KNN Item 1.026430, BPR 1.113827).
 
-**AutoRec (detalhes):**
-- Item-based: masked MSE convergente 0.0230 (época 100); **test RMSE 0.9054**; treino **16.0s**.
-- User-based: masked MSE 0.0239; **test RMSE 0.9611**; treino **10.7s**.
-- Tuning (val RMSE): item `hidden=500` → 0.9065 (pico), `hidden=800` → 0.9080, `hidden=200` → 0.9124; user `hidden=500` → 0.9614, `hidden=200` → 0.9649, `hidden=800` → 0.9665.
+**AutoRec (details):**
+- Item-based: converging masked MSE 0.0230 (epoch 100); **test RMSE 0.9054**; training **16.0s**.
+- User-based: masked MSE 0.0239; **test RMSE 0.9611**; training **10.7s**.
+- Tuning (val RMSE): item `hidden=500` → 0.9065 (peak), `hidden=800` → 0.9080, `hidden=200` → 0.9124; user `hidden=500` → 0.9614, `hidden=200` → 0.9649, `hidden=800` → 0.9665.
 
-**Análise da rodada:**
-- Item-AutoRec derrota o Two-Tower por ~0.024 em RMSE, e o SVD por ~0.030 — a representação não-linear comprimida (item-side) supera fatorização de baixo posto e os discípulos neurais.
-- User-AutoRec (0.9611) fica atrás de LightGBM (0.9406) e NCF (0.9462), mas à frente de heurísticas; **item-side >> user-side** nesta matriz de alta sparsity (heurística melhora per-espancidade média por item do que por usuário).
-- BPR em último (1.1138): RMSE não é métrica justa para pairwise-ranking (avaliar precision/recall@K).
+**Run analysis:**
+- Item-AutoRec beats Two-Tower by ~0.024 in RMSE, and SVD by ~0.030 — the compressed non-linear representation (item-side) outperforms low-rank factorization and the neural disciples.
+- User-AutoRec (0.9611) lands behind LightGBM (0.9406) and NCF (0.9462), but ahead of the heuristics; **item-side >> user-side** on this high-sparsity matrix (the heuristic improves on mean per-item sparsity rather than per user).
+- BPR in last place (1.1138): RMSE is not a fair metric for pairwise ranking (evaluate precision/recall@K).
 
 ### 5.2 Cold-Start (movielens-recsys.ipynb)
 
-Usuário novo avaliou Star Wars 5, Fargo 4, Shining 3 → SVD recomendou **Empire Strikes Back (4.97)**, **Dr. Strangelove (4.94)**, **Cuckoo's Nest (4.94)** — clássicos bem avaliados de perfil similar, indicando coerência sem treinamento do usuário.
+A new user rated Star Wars 5, Fargo 4, Shining 3 → SVD recommended **Empire Strikes Back (4.97)**, **Dr. Strangelove (4.94)**, **Cuckoo's Nest (4.94)** — well-rated classics of similar profile, indicating coherence without user training.
 
-### 5.3 Recomendação Visual (image_recommender.ipynb)
+### 5.3 Visual Recommendation (image_recommender.ipynb)
 
-- Pipeline: coleta → extração de embeddings ResNet → L2 normalização → cosseno top-K → saída JSONL.
-- Benchmark de indexação observada: **30 imagens indexadas em 4.229 s, dim 2048**.
-- Avaliação de ranking: usar `ranking_metrics.py` (`ranking_report(y_score, y_relevant, ks=(5,10,20))` → precision/recall@K, hit-rate@K, nDCG@K). Mascarar itens de treino com score −inf antes de ranquear.
+- Pipeline: collection → ResNet embedding extraction → L2 normalization → cosine top-K → JSONL output.
+- Observed indexing benchmark: **30 images indexed in 4.229 s, dim 2048**.
+- Ranking evaluation: use `ranking_metrics.py` (`ranking_report(y_score, y_relevant, ks=(5,10,20))` → precision/recall@K, hit-rate@K, nDCG@K). Mask training items with score −inf before ranking.
 
-### 5.4 Avaliação de ranking (BPR e demais) — `ranking_metrics.py`
+### 5.4 Ranking evaluation (BPR and others) — `ranking_metrics.py`
 
-RMSE mede rating absoluto; BPR otimiza pares (ranking). Para comparação justa em top-K:
+RMSE measures the absolute rating; BPR optimizes pairs (ranking). For a fair top-K comparison:
 
 ```bash
 python -c "from ranking_metrics import ranking_report; print(ranking_report(scores, rel))"
 ```
 
-com `scores` (n_users × n_items) e `rel` binário (1 = relevante no teste, ex.: rating ≥ 4). Testes: `tests/test_ranking_metrics.py` (7 asserts, inclui caso BPR-ordenado > heurística em nDCG).
+with `scores` (n_users × n_items) and binary `rel` (1 = relevant in the test set, e.g. rating ≥ 4). Tests: `tests/test_ranking_metrics.py` (7 asserts, includes the case where the BPR ordering beats the heuristic in nDCG).
 
-## 6. Discussão
+## 6. Discussion
 
-- **AutoRec item-based é o novo campeão local:** com MLP mascarada (não-linear) o item representa informação compacta que latent-space SVD de posto baixo não aproveita; o custo é treino ~16s vs ~ 11Cython segundos do SVD — trade-off ainda favorável em dataset pequeno.
-- **Two-Tower vs SVD** mantém empate mcase local (~0.005–0.006), mas o Two-Tower habilita ANN/max recovery para produção de milhões de itens (Google/Meta/Pinterest).
-- **LightGBM+FE** prova que FE manual (u_std, u_mean) compete com neurais (0.9406), além de ser interpretável (SHAP/feature importance).
-- **Sparsity prejudica métodos de similaridade** (KNN ~1.02); modelo é sample também do vitorá do Feature Engineering tabular: árvores ganham menos com FE do que modelos lineares (ver pasta `tabular_regression`).
-- **BPR não deve ser avaliado por RMSE** — sua função é top-K; a medição de ranking está implementada em `ranking_metrics.py` (§5.4).
-- **Limitações:** dataset único (100k); `image_recommender` avaliado via protocolo de ranking (`ranking_metrics.py`), sem baseline externo de qualidade — demonstração do pipeline.
+- **Item-based AutoRec is the new local champion:** with the masked (non-linear) MLP the item represents compact information that the low-rank latent-space SVD does not exploit; the cost is ~16s of training vs the SVD's ~11 Cython seconds — a trade-off still favorable on a small dataset.
+- **Two-Tower vs SVD** keeps a near tie locally (~0.005–0.006), but Two-Tower enables ANN/max recovery for production with millions of items (Google/Meta/Pinterest).
+- **LightGBM+FE** proves that manual FE (u_std, u_mean) competes with the neural models (0.9406), besides being interpretable (SHAP/feature importance).
+- **Sparsity hurts similarity methods** (KNN ~1.02); the model is also a sample of the wins of tabular Feature Engineering: trees gain less from FE than linear models (see the `tabular_regression` folder).
+- **BPR should not be evaluated by RMSE** — its function is top-K; the ranking measurement is implemented in `ranking_metrics.py` (§5.4).
+- **Limitations:** single dataset (100k); `image_recommender` evaluated through the ranking protocol (`ranking_metrics.py`), with no external quality baseline — a demonstration of the pipeline.
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- **Predição de rating** em datasets ≤ 100k: **AutoRec item-based** (RMSE 0.9054) ou **SVD** (0.9352) como melhor custo/simplicidade (Cython, segundos).
-- **Melhor trade-off produção:** **Two-Tower** para escala (ANN) —o custo ~0.93 de RMSE é o melhor se precisa de recuperação em catálogo massivo.
-- **Interpretabilidade:** **LightGBM+m3** com 8 features (u_mean/u_std) é forte (0.9406) e fornece SHAP.
-- **Ranking (top-K):** **BPR** (pairwise) — medido por precision/recall@K e nDCG via `ranking_metrics.py`, não por RMSE.
-- Sugestão: versionar a matriz de scores por modelo para reavaliar o ranking sem re-treinar, e avaliar o `image_recommender` com precision@K em dataset rotulado.
-- **Cold-start:** híbrido de popularidade + conteúdo até o usuário acumular interações.
+- **Rating prediction** on datasets ≤ 100k: **AutoRec item-based** (RMSE 0.9054) or **SVD** (0.9352) as the best cost/simplicity (Cython, seconds).
+- **Best production trade-off:** **Two-Tower** for scale (ANN) — the ~0.93 RMSE cost is the best option when retrieval over a massive catalog is needed.
+- **Interpretability:** **LightGBM+m3** with 8 features (u_mean/u_std) is strong (0.9406) and provides SHAP.
+- **Ranking (top-K):** **BPR** (pairwise) — measured by precision/recall@K and nDCG through `ranking_metrics.py`, not by RMSE.
+- Suggestion: version the score matrix per model to re-evaluate ranking without retraining, and evaluate `image_recommender` with precision@K on a labeled dataset.
+- **Cold-start:** popularity + content hybrid until the user accumulates interactions.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
 - Notebooks: `./movielens-recsys.ipynb`, `./movielens-autorec.ipynb`, `./image_recommender.ipynb`.
-- Código: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`.
-- Referências: Sedhain et al. (2015) *AutoRec: Autoencoders Meet Collaborative Filtering*; Koren et al. (2009) *Matrix Factorization Techniques for Recommender* (SVD); Rendle et al. (2009) *BPR*; He et al. (2017) *Neural Collaborative Filtering* (NeuMF); Grafer et al. para Two-Tower/DLRM; Harley et al. (2022) recommend visual embeddings (ResNet).
-- Documento de referência do grupo: `docs/modelo-academico-readme.md`.
+- Code: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`.
+- References: Sedhain et al. (2015) *AutoRec: Autoencoders Meet Collaborative Filtering*; Koren et al. (2009) *Matrix Factorization Techniques for Recommender* (SVD); Rendle et al. (2009) *BPR*; He et al. (2017) *Neural Collaborative Filtering* (NeuMF); Grafer et al. for Two-Tower/DLRM; Harley et al. (2022) for visual recommendation embeddings (ResNet).
+- Group reference document: `docs/modelo-academico-readme.md`.
