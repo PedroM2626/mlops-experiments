@@ -30,9 +30,9 @@ but Pipeline C's cleaning is the least favorable of the three — the best F1-Ma
 The repository contains a group of NLP experiments that compares, among other things, two
 sentiment analysis pipeline variations on social networks (Twitter):
 
-- **Pipeline A** (`senti-pred_pipeline.ipynb`) — **aggressive** preprocessing
+- **Pipeline A** (`../senti-pred_pipeline.ipynb`) — **aggressive** preprocessing
   (removes URLs, mentions, whole hashtags, punctuation and digits).
-- **Pipeline B** (`twitter-sentiment-analysis.ipynb`) — **conservative** preprocessing
+- **Pipeline B** (`../twitter-sentiment-analysis.ipynb`) — **conservative** preprocessing
   (keeps hashtag content, punctuation `!?.,'"`, hyphens and numbers).
 
 Section §5.4 of the NLP README concluded that **B = 0,9860 F1-Weighted vs A = 0,9820**
@@ -151,15 +151,22 @@ documentation and isolate the effect of features).
 ### 4.7 Reproduction
 
 ```bash
-cd experiments/nlp/pipelines_abc_comparison
-python run_abc_comparison.py --out ../../artifacts/pipelines_abc_<timestamp>_<sha>
+cd experiments/nlp/twitter-entity-sentiment/pipelines_abc_comparison
+jupyter nbconvert --to notebook --execute run_abc_comparison.ipynb
 ```
+
+- The runner is the single-cell notebook `run_abc_comparison.ipynb`; it calls
+  `parse_args([])`, so the argparse defaults always apply (all stages, `seed=42`)
+  and it writes to `artifacts_abc/` under the current working directory.
+- The run recorded in this repository is
+  `experiments/artifacts/pipelines_abc_20260812_123257_0295952/`.
 
 - Output: `experiments/artifacts/pipelines_abc_20260812_123257_0295952/`
   (`results_*.csv`, `results_all.csv`, `fig*.png`, `predictions.npz`,
   `val_with_predictions.csv`, `champions_summary.csv`, `meta.json`).
 - Code: `pipelines_abc_core.py` (cleaners/vectorizers/models/evaluation),
-  `run_abc_comparison.py` (orchestration of the ablations).
+  `run_abc_comparison.ipynb` (orchestration of the ablations, same code as the
+  exported script that used to live here).
 
 ## 5. Results
 
@@ -470,14 +477,16 @@ To assess the real semantic understanding of the models (Pipeline B and C with L
 
 ## 8. References and Files
 
-- `run_abc_comparison.py`, `pipelines_abc_core.py` — experiment code (in this folder).
+- `run_abc_comparison.ipynb` (runner), `pipelines_abc_core.py` (cleaners, vectorizers,
+  models, evaluation) — experiment code, in this folder.
 - `experiments/artifacts/pipelines_abc_20260812_123257_0295952/` — results CSVs,
   figures `fig1..fig5`, predictions, confusion matrix and summary.
-- Source notebooks: `experiments/nlp/senti-pred_pipeline.ipynb` (A),
-  `experiments/nlp/twitter-sentiment-analysis.ipynb` (B),
-  `experiments/senti-pred-variations/Senti-Pred-remake2/` (C).
+- Source notebooks: `experiments/nlp/twitter-entity-sentiment/senti-pred_pipeline.ipynb` (A),
+  `experiments/nlp/twitter-entity-sentiment/twitter-sentiment-analysis.ipynb` (B),
+  `experiments/nlp/twitter-entity-sentiment/senti-pred-variations/Senti-Pred-remake2/` (C).
 - Related documentation: `experiments/nlp/README.md` (§5.3–5.6),
-  `experiments/senti-pred-variations/README.md`, `EXPERIMENTS_SUMMARY.md`.
+  `experiments/nlp/twitter-entity-sentiment/senti-pred-variations/README.md`,
+  `experiments/nlp/twitter-entity-sentiment/senti-pred-variations/EXPERIMENTS_SUMMARY.md`.
 - Methods: Vapnik (SVM), Manning et al. (TF-IDF/n-grams), McNemar (1947);
   Platt calibration (1999).
 
@@ -492,21 +501,20 @@ Code of the comparative study of the 3 Twitter sentiment pipelines.
 | File | Function |
 |---|---|
 | `pipelines_abc_core.py` | Faithful reimplementation of the 3 preprocessing variants, vectorizers, models and evaluation function |
-| `run_abc_comparison.py` | Orchestration of the 9 experiment batteries (E1–E9) and CSV/JSON export |
+| `run_abc_comparison.ipynb` | Orchestration of the 9 experiment batteries (E1–E9) and CSV/JSON export |
 | `README.md` | Academic documentation of the study (results, what-ifs, discussion, conclusions) |
 
 ## Reproduce
 
 ```bash
-# from the directory experiments/nlp/pipelines_abc_comparison
-python run_abc_comparison.py --out ../../artifacts/pipelines_abc_<timestamp>_<sha>
+# from the directory
+# experiments/nlp/twitter-entity-sentiment/pipelines_abc_comparison
+jupyter nbconvert --to notebook --execute run_abc_comparison.ipynb   # -> artifacts_abc/
 ```
 
-To run only a subset of the batteries:
-
-```bash
-python run_abc_comparison.py --stages canonical ngrams --out <dir>
-```
+To run only a subset of the batteries, edit the `STAGES` selection in the runner
+cell before executing it: the script parses `parse_args([])`, so the
+`--stages`/`--out` flags are never read from a real command line.
 
 Available stages (`--stages`): `canonical ngrams max_features min_df sublinear_tf
 preprocessing model_c fairness cross`.

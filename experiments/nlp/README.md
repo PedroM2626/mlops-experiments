@@ -80,6 +80,8 @@ Metrics: Accuracy, F1-Macro, F1-Weighted (changed between phases), Precision/Rec
 ### 4.5 Reproduction
 
 - `ag-news-classification.ipynb` — Exp1 AG News (1000 training / 200 test, seed 42).
+- `generative-text-markov/markov_sentiment_generator.py` — Markov-chain text generator
+  conditioned on sentiment (trained on the Twitter entity dataset).
 - **Twitter Entity Sentiment Analysis**: all experiments and original pipelines (A, B, C) involving this dataset were centralized in the `twitter-entity-sentiment/` subfolder. This includes `twitter-sentiment-analysis.ipynb`, `senti-pred_pipeline.ipynb`, `logistic-regression-multiclass.ipynb`, `feature-engineering-nlp.ipynb` and `NLP-twitter-methods-comparasion.ipynb`.
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task on `go_emotions`.
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (layer/strategy parameters documented in §5.2; run via notebook).
@@ -220,13 +222,13 @@ Differences < 1 pp between the three are statistically non-significant (McNemar,
 
 ### Comparison pipelines — relative paths:
 
-- Pipeline A → `senti-pred_pipeline.ipynb`
-- Pipeline B → `twitter-sentiment-analysis.ipynb`
-- Pipeline C → `pipelines_abc_comparison/` + `../senti-pred-variations/Senti-Pred-remake2/`
+- Pipeline A → `twitter-entity-sentiment/senti-pred_pipeline.ipynb`
+- Pipeline B → `twitter-entity-sentiment/twitter-sentiment-analysis.ipynb`
+- Pipeline C → `twitter-entity-sentiment/pipelines_abc_comparison/` + `twitter-entity-sentiment/senti-pred-variations/Senti-Pred-remake2/`
 
 ### 5.5. Twitter Methods Comparison — Text Representation Paradigms
 
-Notebook: `../NLP-twitter-methods-comparasion.ipynb`. Five paradigms on the complete dataset (73.995 training / 999 val, 4 classes).
+Notebook: `twitter-entity-sentiment/NLP-twitter-methods-comparasion.ipynb`. Five paradigms on the complete dataset (73.995 training / 999 val, 4 classes).
 
 | Model | Accuracy | Time (s) | Paradigm | Parameters |
 |---|---|---|---|---|
@@ -272,7 +274,7 @@ Detail: TF-IDF+LinearSVC 0.9800 / 4.35s — accuracy with L2 regularization (C=1
 
 ### 5.6. Logistic Regression: Multiclass Strategies
 
-Notebook: `logistic-regression-multiclass.ipynb`. Twitter Sentiment dataset (73.768 training/999 val). 5 configurations of `multi_class`, `solver`, `C`.
+Notebook: `twitter-entity-sentiment/logistic-regression-multiclass.ipynb`. Twitter Sentiment dataset (73.768 training/999 val). 5 configurations of `multi_class`, `solver`, `C`.
 
 Strategies:
 
@@ -315,7 +317,7 @@ Maximum difference between optimized strategies: only 0,4 pp (0,9780–0,9820).
 
 ### 5.7. Feature Engineering NLP — key points
 
-From the feature engineering study (notebook: `feature-engineering-nlp.ipynb`):
+From the feature engineering study (notebook: `twitter-entity-sentiment/feature-engineering-nlp.ipynb`):
 
 | Observation | Value |
 |---|---|
@@ -405,12 +407,17 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hypothesis: correlated tasks (J
 ## 8. References and Files
 
 - `ag-news-classification.ipynb` — Exp1 AG News (low data, grid search).
-- `twitter-sentiment-analysis.ipynb` — Pipeline B.
-- `senti-pred_pipeline.ipynb` — Pipeline A.
-- `pipelines_abc_comparison/` — A vs B vs C (remake2) comparison with what-ifs (n-grams, vocabulary, pre-processing, model; McNemar).
-- `logistic-regression-multiclass.ipynb` — multiclass strategies for Logistic Regression.
-- `feature-engineering-nlp.ipynb` — feature engineering for NLP.
+- `twitter-entity-sentiment/twitter-sentiment-analysis.ipynb` — Pipeline B.
+- `twitter-entity-sentiment/senti-pred_pipeline.ipynb` — Pipeline A.
+- `twitter-entity-sentiment/pipelines_abc_comparison/` — A vs B vs C (remake2) comparison
+  with what-ifs (n-grams, vocabulary, pre-processing, model; McNemar).
+- `twitter-entity-sentiment/logistic-regression-multiclass.ipynb` — multiclass strategies
+  for Logistic Regression.
+- `twitter-entity-sentiment/feature-engineering-nlp.ipynb` — feature engineering for NLP.
+- `twitter-entity-sentiment/NLP-twitter-methods-comparasion.ipynb` — Twitter Methods
+  Comparison (5 paradigms).
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task (go_emotions).
-- `../NLP-twitter-methods-comparasion.ipynb` — Twitter Methods Comparison (5 paradigms).
+- `generative-text-markov/markov_sentiment_generator.py` — sentiment-conditioned Markov
+  text generator (CLI: `python generative-text-markov/markov_sentiment_generator.py --help`).
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parameters documented in §5.2).
 - References: Devlin et al. (BERT); Sanh et al. (DistilBERT); see the MMoE papers (Ma et al., SIGIR 2018) and Lin et al. (Focal Loss, ICCV 2017).

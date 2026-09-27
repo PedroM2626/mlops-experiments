@@ -49,7 +49,7 @@ Hyperparameter optimization is normally done by exhaustive, random or Bayesian s
 ### 4.4 Reproduction
 - `rl_automl_qlearning.ipynb` — base Q-Learning + LightGBM experiment.
 - `rl_sentipred_automl.ipynb` — application to Senti-Pred (LinearSVC full scale).
-- `sales-forecast/rl_proxy_sales_full.ipynb` — Proxy Training RL on Sales Forecast (5.6M).
+- `../sales-forecast/rl_proxy_sales_full.ipynb` — Proxy Training RL on Sales Forecast (5.6M).
 - Artifact: `mlruns/2/<run_id>/artifacts/q_table_final.npy`.
 
 ## 5. Results

@@ -1,6 +1,9 @@
 # Senti-Pred: Modular Python Scripts
 
-This guide details how to run the Senti-Pred project using the modular Python scripts located in the `src/scripts/` directory.
+This guide details how to run the Senti-Pred project using the modular Python scripts located in
+the `src/scripts/` directory. Paths in this document are relative to the `senti-pred-exp1/`
+project root, not to this file's folder; the files under `data/processed/`, `src/models/` and
+`reports/` are produced by running the scripts and are not committed.
 
 ## Overview
 
@@ -45,7 +48,7 @@ python src/scripts/02_preprocessing.py
 - Applies lemmatization with POS tagging
 - Saves processed data in pickle format
 
-**Generated artifacts:**
+**Generated artifacts** (written by the scripts; not committed to git):
 - `data/processed/processed_data.pkl` - contains processed DataFrames for training and validation
 
 ### 3. Model Training
@@ -169,9 +172,10 @@ Run the manual download of the NLTK packages as shown above
 ## Integration with Other Components
 
 The generated models and metrics can be used by:
-- **Streamlit Dashboard:** `streamlit_dashboard/app.py` (now with interactive and batch prediction)
-- **Django API:** `src/api/views.py`
-- **R Shiny Dashboard:** `r_shiny/app.py`
+- **Django API:** `src/api/views.py` — the only serving app kept in this repository.
+
+The Streamlit and R Shiny dashboards mentioned in earlier drafts were prototyped outside
+this repo; there is no `streamlit_dashboard/` or `r_shiny/` to open here.
 
 ## Contributing
 

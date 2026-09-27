@@ -86,8 +86,9 @@ For the documentation standard, see
 ## Other artifacts and standalone files
 
 - **Standalone notebooks at the root of `experiments/`** (`anomaly_detection_comparison.ipynb`,
-  `anomaly_detection_enhanced.ipynb`, `ensemble_pyramid.ipynb` + `ensemble_pyramid_best.pkl`)
-  — supporting the READMEs above.
+  `anomaly_detection_enhanced.ipynb`, `ensemble_pyramid.ipynb`) — supporting the READMEs
+  above. `ensemble_pyramid.ipynb` also dumps `ensemble_pyramid_best.pkl` (model + TF-IDF +
+  label encoder); `*.pkl` is gitignored, so that file comes back only by re-running it.
 - **Experiment dashboard**: `dashboard/index.html` (open in the browser).
 
 ## Repository standards
