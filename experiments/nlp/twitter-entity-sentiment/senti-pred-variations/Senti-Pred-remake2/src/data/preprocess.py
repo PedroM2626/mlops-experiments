@@ -8,10 +8,10 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
-# Carregar variáveis de ambiente
+# Load environment variables
 load_dotenv()
 
-# Baixar recursos do NLTK se necessário
+# Download NLTK resources if needed
 try:
     nltk.data.find('corpora/stopwords')
     nltk.data.find('tokenizers/punkt')
@@ -25,22 +25,22 @@ except LookupError:
 
 def clean_text(text):
     """
-    Limpa o texto removendo caracteres especiais, links, converte para minúsculas
-    e aplica lemmatização para normalizar as palavras.
+    Clean the text by removing special characters and links, converting to lowercase
+    and applying lemmatization to normalize the words.
     """
     if not isinstance(text, str):
         return ""
     
-    # Converter para minúsculas
+    # Convert to lowercase
     text = text.lower()
     
-    # Remover URLs
+    # Remove URLs
     text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
     
-    # Remover menções (@usuario) e hashtags (#)
+    # Remove mentions (@user) and hashtags (#)
     text = re.sub(r'\@\w+|\#','', text)
     
-    # Substituir contrações comuns (opcional, mas ajuda)
+    # Replace common contractions (optional, but it helps)
     text = re.sub(r"can't", "cannot", text)
     text = re.sub(r"n't", " not", text)
     text = re.sub(r"'re", " are", text)
@@ -51,15 +51,15 @@ def clean_text(text):
     text = re.sub(r"'ve", " have", text)
     text = re.sub(r"'m", " am", text)
 
-    # Remover pontuação e caracteres especiais, mas manter '!' e '?' que podem indicar sentimento
+    # Remove punctuation and special characters, but keep '!' and '?' which may indicate sentiment
     text = re.sub(r'[^a-z\s\!\?]', '', text)
     
-    # Tokenização
+    # Tokenization
     tokens = word_tokenize(text)
     
-    # Remoção de stopwords e Lemmatização
+    # Stopword removal and lemmatization
     stop_words = set(stopwords.words('english'))
-    # Remover 'not' e 'no' das stopwords pois são cruciais para sentimento
+    # Remove 'not' and 'no' from the stopwords since they are crucial for sentiment
     stop_words.discard('not')
     stop_words.discard('no')
     
@@ -71,13 +71,13 @@ def clean_text(text):
 
 def preprocess_data():
     """
-    Lê os dados brutos, limpa e salva no diretório processado.
+    Reads the raw data, cleans it and saves it to the processed directory.
     """
     project_root = Path(__file__).parent.parent.parent
     raw_dir = project_root / os.getenv('DATA_RAW_PATH', 'data/raw')
     processed_dir = project_root / os.getenv('DATA_PROCESSED_PATH', 'data/processed')
     
-    # Criar diretório processado se não existir
+    # Create the processed directory if it does not exist
     processed_dir.mkdir(parents=True, exist_ok=True)
     
     files_to_process = {
@@ -92,29 +92,29 @@ def preprocess_data():
         output_path = processed_dir / output_file
         
         if not input_path.exists():
-            print(f"Arquivo não encontrado: {input_path}")
+            print(f"File not found: {input_path}")
             continue
             
-        print(f"Processando {input_file}...")
+        print(f"Processing {input_file}...")
         
-        # Ler CSV sem cabeçalho
+        # Read the CSV without a header
         df = pd.read_csv(input_path, names=columns, header=None)
         
-        # Remover linhas com valores nulos no texto ou sentimento
+        # Remove rows with null values in text or sentiment
         df = df.dropna(subset=['text', 'sentiment'])
         
-        # Limpar o texto
+        # Clean the text
         df['cleaned_text'] = df['text'].apply(clean_text)
         
-        # Remover linhas que ficaram vazias após a limpeza
+        # Remove rows that became empty after cleaning
         df = df[df['cleaned_text'] != ""]
         
-        # Salvar dados processados
+        # Save the processed data
         df[['cleaned_text', 'sentiment']].to_csv(output_path, index=False)
-        print(f"Salvo em {output_path}")
+        print(f"Saved to {output_path}")
 
 if __name__ == "__main__":
     try:
         preprocess_data()
     except Exception as e:
-        print(f"Erro no pré-processamento: {e}")
+        print(f"Preprocessing error: {e}")

@@ -1,10 +1,10 @@
 """01_eda.py
 
-Script de Análise Exploratória (EDA) para o projeto Senti-Pred.
+Exploratory Data Analysis (EDA) script for the Senti-Pred project.
 
-Gera gráficos PNG em `reports/visualizacoes/` com visualizações úteis antes do
-pré-processamento (distribuição de comprimentos, distribuição de sentimentos,
-top-words brutas, etc.).
+Generates PNG charts in `reports/visualizacoes/` with visualizations useful before
+preprocessing (length distribution, sentiment distribution,
+raw top-words, etc.).
 """
 
 from pathlib import Path
@@ -24,7 +24,7 @@ os.makedirs(VIS_DIR, exist_ok=True)
 def find_raw_files():
     files = list(RAW_DIR.glob('*.csv'))
     if not files:
-        raise FileNotFoundError(f'Nenhum arquivo CSV encontrado em {RAW_DIR}')
+        raise FileNotFoundError(f'No CSV file found in {RAW_DIR}')
     # prefer explicit train/validation if present
     train = RAW_DIR / 'twitter_training.csv'
     val = RAW_DIR / 'twitter_validation.csv'
@@ -60,8 +60,8 @@ def run_eda():
     df['text_length'] = df[text_col].astype(str).apply(lambda s: len(s.split()))
     plt.figure(figsize=(10, 5))
     sns.histplot(df['text_length'], bins=40, kde=True)
-    plt.title('Distribuição de comprimento de texto')
-    plt.xlabel('Número de palavras')
+    plt.title('Text length distribution')
+    plt.xlabel('Number of words')
     plt.tight_layout()
     plt.savefig(VIS_DIR / 'text_length.png')
     plt.close()
@@ -80,12 +80,12 @@ def run_eda():
     if 'sentiment' in df.columns:
         plt.figure(figsize=(8, 5))
         sns.countplot(x='sentiment', data=df)
-        plt.title('Distribuição de Sentimentos (combined)')
+        plt.title('Sentiment distribution (combined)')
         plt.tight_layout()
         plt.savefig(VIS_DIR / 'sentiment_distribution.png')
         plt.close()
 
-    print('[OK] EDA concluída — gráficos salvos em reports/visualizacoes')
+    print('[OK] EDA complete — charts saved in reports/visualizacoes')
 
 if __name__ == '__main__':
     run_eda()

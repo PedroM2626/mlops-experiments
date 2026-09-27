@@ -1,9 +1,9 @@
 """04_evaluation.py
 
-Avaliação modular: carrega o modelo salvo em `src/models/sentiment_model.pkl` e
-os dados pré-processados (pickle em `data/processed/processed_data.pkl`) para
-gerar métricas e imagens de avaliação (matriz de confusão, ROC/PR quando
-disponível).
+Modular evaluation: loads the model saved in `src/models/sentiment_model.pkl` and
+the preprocessed data (pickle in `data/processed/processed_data.pkl`) to
+generate evaluation metrics and images (confusion matrix, ROC/PR when
+available).
 """
 
 from pathlib import Path
@@ -66,20 +66,20 @@ def run_evaluation():
     # save confusion matrix image
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=model.classes_, yticklabels=model.classes_)
-    plt.title('Matriz de Confusão')
+    plt.title('Confusion matrix')
     plt.tight_layout()
     plt.savefig(VIS_DIR / 'evaluation_confusion_matrix.png')
     plt.close()
 
-    # Estrutura padronizada com best_model e results (igual ao notebook)
+    # Standardized structure with best_model and results (same as the notebook)
     metrics = {
-        'best_model': 'LinearSVC',  # Como só avaliamos um modelo, definimos como melhor
+        'best_model': 'LinearSVC',  # Since only one model is evaluated, it is set as the best
         'results': {
             'LinearSVC': {
                 'accuracy': acc,
                 'f1_macro': report['macro avg']['f1-score'],
-                'train_time_seconds': 0,  # Não temos essa info no script de avaliação
-                'predict_time_seconds': 0,  # Não temos essa info no script de avaliação
+                'train_time_seconds': 0,  # Not available in the evaluation script
+                'predict_time_seconds': 0,  # Not available in the evaluation script
                 'classification_report': report,
                 'confusion_matrix': cm.tolist()
             }

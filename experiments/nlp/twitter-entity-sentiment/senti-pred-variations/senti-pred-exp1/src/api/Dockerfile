@@ -1,18 +1,18 @@
-# Use a imagem oficial do Python como base
+# Use the official Python image as the base
 FROM python:3.11-slim
 
-# Define o diretório de trabalho dentro do contêiner
+# Sets the working directory inside the container
 WORKDIR /app
 
-# Copia o arquivo de requisitos e instala as dependências
+# Copies the requirements file and installs the dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o restante do código da aplicação
+# Copies the rest of the application code
 COPY . .
 
-# Expõe a porta em que o Django irá rodar
+# Exposes the port that Django will run on
 EXPOSE 8000
 
-# Comando para iniciar o servidor Django
+# Command to start the Django server
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

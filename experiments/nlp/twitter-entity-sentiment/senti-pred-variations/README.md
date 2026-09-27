@@ -1,100 +1,100 @@
-# Senti-Pred — Variações do Pipeline de Análise de Sentimento
+# Senti-Pred — Sentiment Analysis Pipeline Variations
 
-> **Área:** NLP
-> **Tarefa:** Classificação de sentimentos (4 classes: Irrelevant, Negative, Neutral, Positive)
-> **Métrica principal:** F1-Macro / Acurácia
-> **Status:** Concluído
+> **Domain:** NLP
+> **Task:** Sentiment classification (4 classes: Irrelevant, Negative, Neutral, Positive)
+> **Primary metric:** Macro-F1 / Accuracy
+> **Status:** Completed
 > **Datasets:** Twitter (Twitter Entity Sentiment — `twitter_training.csv` / `twitter_validation.csv`)
 
-## 1. Resumo
+## 1. Abstract
 
-Esta pasta consolida as **variações do projeto Senti-Pred**, unificando resultados, otimizações e lições de baselines com Transformers até ensembles de alta performance e AutoML. No dataset de tweets (4 classes), a jornada demonstrou que o refinamento dos dados e de modelos lineares robustos supera arquiteturas complexas de Deep Learning. O recorde foi alcançado por **Senti-Pred-remake2** (voting LinearSVC + LogisticRegression sobre TF-IDF 100k + 4-grams) com **97,80%** de F1-Macro/Acurácia.
+This folder consolidates the **variations of the Senti-Pred project**, unifying results, optimizations and lessons learned from Transformer baselines through high-performance ensembles and AutoML. On the tweet dataset (4 classes), the journey showed that data refinement and robust linear models outperform complex Deep Learning architectures. The record was achieved by **Senti-Pred-remake2** (voting LinearSVC + LogisticRegression over TF-IDF 100k + 4-grams) with **97.80%** Macro-F1/Accuracy.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-Explorou-se o mesmo dataset de tweets através de múltiplas abordagens — Transformers pré-treinados (RoBERTa), redes profundas, modelos lineares, ensambles, AutoML (FLAML) e engenharia de dados "Data-Centric AI" — para investigar:
+The same tweet dataset was explored through multiple approaches — pre-trained Transformers (RoBERTa), deep networks, linear models, ensembles, AutoML (FLAML) and "Data-Centric AI" data engineering — to investigate:
 
-- Qual a representação de texto (n-grams, vocabulário, limpeza) que maximiza o F1.
-- Quanto o pré-processamento importa vs. a arquitetura do modelo.
-- Como o MLOps (MLflow/DagsHub, modularidade, persistência) suporta a evolução das variações.
+- Which text representation (n-grams, vocabulary, cleaning) maximizes F1.
+- How much preprocessing matters vs. the model architecture.
+- How MLOps (MLflow/DagsHub, modularity, persistence) supports the evolution of the variations.
 
-Hipótese central: para tweets, **pipeline de features + modelos lineares robustos superam fine-tuning de transformers** quando não há hardware massivo.
+Central hypothesis: for tweets, **a feature pipeline + robust linear models outperform transformer fine-tuning** when massive hardware is unavailable.
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **TF-IDF / n-grams** — representação esparsa com até 4-grams e vocabulários de até 100k features p/ capturar contexto de sentiment.
-- **Voting Ensemble** — combinação democrática de classificadores (LinearSVC + LogisticRegression, ou Passive Aggressive) para eliminar erros individuais.
-- **Passive Aggressive** — algoritmo online que aprende rapidamente com erros, ideal para larga escala.
-- **FLAML** — framework AutoML rápido (300s) para prototipagem.
-- **MLflow / DagsHub** — rastreabilidade de hiperparâmetros, métricas e artefatos; wrappers persistentes (`Pipeline` + `LabelEncoder`) para inferência idêntica ao treino.
+- **TF-IDF / n-grams** — sparse representation with up to 4-grams and vocabularies of up to 100k features to capture sentiment context.
+- **Voting Ensemble** — democratic combination of classifiers (LinearSVC + LogisticRegression, or Passive Aggressive) to eliminate individual errors.
+- **Passive Aggressive** — online algorithm that learns quickly from errors, ideal for large scale.
+- **FLAML** — fast AutoML framework (300s) for prototyping.
+- **MLflow / DagsHub** — traceability of hyperparameters, metrics and artifacts; persistent wrappers (`Pipeline` + `LabelEncoder`) so inference matches training.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
-- `senti-pred-exp1/data/raw/twitter_training.csv` (treino) e `twitter_validation.csv` (treino de validação).
+### 4.1 Data
+- `senti-pred-exp1/data/raw/twitter_training.csv` (training) and `twitter_validation.csv` (validation training).
 - 4 classes: *Irrelevant*, *Negative*, *Neutral*, *Positive*.
 
-### 4.2 Pré-processamento (Data-Centric AI)
-- **Limpeza sentiment-aware:** preservação de pontuações emocionais (`!`, `?`) e expansão de contrações.
-- **Normalização de ruído:** Regex remove URLs, menções e trata caracteres repetidos (ex.: `"loooove"` → `"love"`).
-- **Vetorização extrema:** n-grams até 4-grams, vocabulários de até 100k features.
-- **Paralelização:** `joblib.Parallel` (15 núcleos) para lematização e limpeza em larga escala.
+### 4.2 Preprocessing (Data-Centric AI)
+- **Sentiment-aware cleaning:** preservation of emotional punctuation (`!`, `?`) and expansion of contractions.
+- **Noise normalization:** Regex removes URLs and mentions and handles repeated characters (e.g.: `"loooove"` → `"love"`).
+- **Extreme vectorization:** n-grams up to 4-grams, vocabularies of up to 100k features.
+- **Parallelization:** `joblib.Parallel` (15 cores) for lemmatization and large-scale cleaning.
 
-### 4.3 Métodos comparados
-Desde modelo baseline de TF-IDF 10k + LR, passando por KNN, LinearSVC, MultinomialNB, Random Forest (Optuna), stacking (Chi2 + feature sel.), FLAML AutoML e ensambles por votação; além do Roland RoBERTa (baseline transformer). Variações isoladas em duas subpastas:
+### 4.3 Compared methods
+From the TF-IDF 10k + LR baseline model through KNN, LinearSVC, MultinomialNB, Random Forest (Optuna), stacking (Chi2 + feature sel.), FLAML AutoML and voting ensembles; as well as RoBERTa (transformer baseline). Variations isolated in two subfolders:
 
-- `Senti-pred-exp1/` — pipeline completo (scripts `01_eda.py` → `04_evaluation.py`, src/api) com containerização (Dockerfile/form).
-- `Senti-Pred-remake2/` — remake com `src/` modular + `data/raw/`.
+- `Senti-pred-exp1/` — complete pipeline (scripts `01_eda.py` → `04_evaluation.py`, src/api) with containerization (Dockerfile/form).
+- `Senti-Pred-remake2/` — remake with modular `src/` + `data/raw/`.
 
-### 4.4 Avaliação / MLOps
-- Métrica principal: F1-Macro/Acurácia; integração **MLflow/DagsHub**.
-- **Persistência:** wrappers (`Pipeline` + `LabelEncoder`) salvos via `joblib` para inferência idêntica.
-- **Modularização**: cada variação isolada em diretórios p/ evitar conflitos de dependências.
+### 4.4 Evaluation / MLOps
+- Primary metric: Macro-F1/Accuracy; **MLflow/DagsHub** integration.
+- **Persistence:** wrappers (`Pipeline` + `LabelEncoder`) saved via `joblib` for identical inference.
+- **Modularization**: each variation isolated in its own directory to avoid dependency conflicts.
 
-### 4.5 Reprodução
-- Refiro ao `EXPERIMENTS_SUMMARY.md` (resumo consolidado) e à estrutura de cada subpasta (`senti-pred-exp1/`, `Senti-Pred-remake2/`).
-- Pipelines: `senti-pred-exp1/src/scripts/01_eda.py` … `04_evaluation.py`; instruções de Docker em `senti-pred-exp1/Dockerfile`/`docker-compose.yml`.
-- Logs de treino versionados: `senti-pred-exp1/training_log{,_v2..v7}.txt`.
+### 4.5 Reproduction
+- See `EXPERIMENTS_SUMMARY.md` (consolidated summary) and the structure of each subfolder (`senti-pred-exp1/`, `Senti-Pred-remake2/`).
+- Pipelines: `senti-pred-exp1/src/scripts/01_eda.py` … `04_evaluation.py`; Docker instructions in `senti-pred-exp1/Dockerfile`/`docker-compose.yml`.
+- Versioned training logs: `senti-pred-exp1/training_log{,_v2..v7}.txt`.
 
-## 5. Resultados
+## 5. Results
 
-| Modelo / Experimento | Técnica de Texto | Métrica Principal (F1-Macro/Acc) | Obs./Config |
+| Model / Experiment | Text technique | Primary metric (Macro-F1/Acc) | Notes/Config |
 | :--- | :--- | :--- | :--- |
 | **🏆 Senti-Pred-remake2** | TF-IDF (100k) + 4-grams | **97.80%** | Record: Voting (LinearSVC + LR) |
 | God Mode (Remake 1) | TF-IDF (50k) + Punct | 97.50% | Voting (Passive Aggressive + LR) |
-| Ultimate (Remake 1) | TF-IDF (40k) + Char Rep | 97.00% | Correção agressiva de erros |
-| FLAML (AutoML) V3 | TF-IDF (30k) + 1-2 n-grams | 96.73% | Melhor AutoML: RandomForest em 5 min |
-| Insane Mode | Chi2 Feature Selection | 96.20% | Stacking Classifier (overfitting leve) |
-| Logistic Regression | TF-IDF (20k) + Regex | 96.00% | Baseline linear estável |
-| LinearSVC | TF-IDF (Standard) | 95.00% | Excelente para espaços esparsos |
-| KNN | TF-IDF (Standard) | 95.00% | Não paramétrico, rápido |
-| MultinomialNB | Trigramas + Sublinear TF | 92.06% | Busca logarítmica de alpha |
-| Random Forest | Optuna (busca profunda) | 91.00% | Salto de 71% → 91% após HPO |
-| Classic (LR Baseline) | TF-IDF (10k) | 87.20% | Primeiro modelo robusto (dataset total) |
-| Baseline RoBERTa | Transformer (pre-trained) | ~60.00% | Lento e pouco dado (amostra de 1k) |
+| Ultimate (Remake 1) | TF-IDF (40k) + Char Rep | 97.00% | Aggressive error correction |
+| FLAML (AutoML) V3 | TF-IDF (30k) + 1-2 n-grams | 96.73% | Best AutoML: RandomForest in 5 min |
+| Insane Mode | Chi2 Feature Selection | 96.20% | Stacking Classifier (mild overfitting) |
+| Logistic Regression | TF-IDF (20k) + Regex | 96.00% | Stable linear baseline |
+| LinearSVC | TF-IDF (Standard) | 95.00% | Excellent for sparse spaces |
+| KNN | TF-IDF (Standard) | 95.00% | Non-parametric, fast |
+| MultinomialNB | Trigrams + Sublinear TF | 92.06% | Logarithmic search of alpha |
+| Random Forest | Optuna (deep search) | 91.00% | Jump from 71% → 91% after HPO |
+| Classic (LR Baseline) | TF-IDF (10k) | 87.20% | First robust model (full dataset) |
+| Baseline RoBERTa | Transformer (pre-trained) | ~60.00% | Slow and little data (1k sample) |
 
-### Destaques por abordagem
+### Highlights by approach
 
-- **AutoML (FLAML):** 96.73% em 300 segundos; selecionou `RandomForestClassifier`.
-- **Ensembles por votação:** combinação LinearSVC + LogisticRegression (ou Passive Aggressive) é a mais estável.
-- **Passive Aggressive:** aprende rápido com erros, ideal para larga escala (modo *Ultimate*).
-- **RoBERTa:** sem hardware massivo e tiempo para fine-tuning no full, estatísticos clássicos são mais eficientes nesta tarefa.
+- **AutoML (FLAML):** 96.73% in 300 seconds; selected `RandomForestClassifier`.
+- **Voting ensembles:** the LinearSVC + LogisticRegression combination (or Passive Aggressive) is the most stable.
+- **Passive Aggressive:** learns quickly from errors, ideal for large scale (*Ultimate* mode).
+- **RoBERTa:** without massive hardware and time for fine-tuning on the full dataset, classical statistical models are more efficient for this task.
 
-## 6. Discussão
+## 6. Discussion
 
-O comparativo mostra uma hierarquia clara: **mais n-grams + mais vocabulário + boas limpezas** elevam sistemas clássicos de 87.2% (baseline) a **97.8%** (record), enquanto o RoBERTa ficou em ~60% por falta de dados/hardware. A votação de modelos lineares robustos (SVC + LR) foi o fator-sorda para o recorde. As escolhas *Data-Centric* (retoção de URLs, n-grams de caracteres e vocabulário de 100k) superaram a modelagem de arquiteturas complexas. Limitações: FLAMB escolhe RandomForest, mas os ensembles lineares venceram com mais features; o overfitting leve foi reportado no *Insane Mode* (stacking com Chi2).
+The comparison shows a clear hierarchy: **more n-grams + more vocabulary + good cleaning** lift classical systems from 87.2% (baseline) to **97.8%** (record), while RoBERTa stayed at ~60% for lack of data/hardware. Voting among robust linear models (SVC + LR) was the key factor for the record. The *Data-Centric* choices (URL removal, character n-grams and a 100k vocabulary) outperformed modeling complex architectures. Limitations: FLAMB picks RandomForest, but the linear ensembles won with more features; mild overfitting was reported in *Insane Mode* (stacking with Chi2).
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- **Priorizar features esparsas ricas (TF-IDF, até 4-grams, 100k) + voting de modelos lineares** como melhor custo vs. com para este domínio de tweets.
-- Para **prototipagem rápida**, `AutoML (FLAML)` é suficiente em 5 min (96.73%).
-- **Transformers** só valem com hardware e dataset completo (ver `../nlp/README.md` para fine-tuning).
-- **Próximos passos:** interface Streamlit para comparar modelos em tempo real; deploy via Docker para reprodutibilidade; testar LLMs zero-shot (API/quantizados).
+- **Prioritize rich sparse features (TF-IDF, up to 4-grams, 100k) + voting of linear models** as the best cost vs. return for this tweet domain.
+- For **rapid prototyping**, `AutoML (FLAML)` is sufficient in 5 min (96.73%).
+- **Transformers** are only worth it with hardware and the full dataset (see `../nlp/README.md` for fine-tuning).
+- **Next steps:** Streamlit interface to compare models in real time; deploy via Docker for reproducibility; test zero-shot LLMs (API/quantized).
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- `EXPERIMENTS_SUMMARY.md` — resumo consolidado (fonte desta documentação).
-- `senti-pred-exp1/` — pipeline original (scripts 01–04, Docker, MLflow local, logs de treino).
-- `Senti-Pred-remake2/` — remake modular com `src/` e dados raw.
-- Comparação rigorosa **A vs B vs C (remake2)** com what-ifs: `../nlp/pipelines_abc_comparison/README.md`
-- Casos semelhantes (representação/ensembles, logistic multi): `../nlp/README.md`.
+- `EXPERIMENTS_SUMMARY.md` — consolidated summary (source of this documentation).
+- `senti-pred-exp1/` — original pipeline (scripts 01–04, Docker, local MLflow, training logs).
+- `Senti-Pred-remake2/` — modular remake with `src/` and raw data.
+- Rigorous **A vs B vs C (remake2)** comparison with what-ifs: `../nlp/pipelines_abc_comparison/README.md`
+- Similar cases (representation/ensembles, logistic multi): `../nlp/README.md`.

@@ -10,53 +10,53 @@ from sklearn.metrics import classification_report, accuracy_score
 import joblib
 import sys
 
-# Adicionar src ao path para importar o preprocessador
+# Add src to the path to import the preprocessor
 sys.path.append(str(Path(__file__).parent.parent))
 from data.preprocess import clean_text
 
-# Carregar variáveis de ambiente
+# Load environment variables
 load_dotenv()
 
 def train_model():
     """
-    Treina o modelo de análise de sentimentos utilizando o dataset bruto original.
-    Utiliza LinearSVC com C=1.0 e 3-grams para máxima acurácia equilibrada.
+    Train the sentiment analysis model using the original raw dataset.
+    Uses LinearSVC with C=1.0 and 3-grams for maximum balanced accuracy.
     """
     project_root = Path(__file__).parent.parent.parent
     raw_dir = project_root / os.getenv('DATA_RAW_PATH', 'data/raw')
     models_dir = project_root / os.getenv('MODELS_PATH', 'models')
     
-    # Criar diretório de modelos se não existir
+    # Create the models directory if it does not exist
     models_dir.mkdir(parents=True, exist_ok=True)
     
     train_path = raw_dir / 'twitter_training.csv'
     val_path = raw_dir / 'twitter_validation.csv'
     
     if not train_path.exists() or not val_path.exists():
-        raise FileNotFoundError(f"Dados brutos não encontrados em {raw_dir}. Verifique os arquivos CSV.")
+        raise FileNotFoundError(f"Raw data not found in {raw_dir}. Check the CSV files.")
     
     columns = ['id', 'topic', 'sentiment', 'text']
     
-    print("Carregando dados brutos originais...")
+    print("Loading original raw data...")
     train_df = pd.read_csv(train_path, names=columns, header=None)
     val_df = pd.read_csv(val_path, names=columns, header=None)
     
-    # Limpeza básica (remover nulos) antes da vetorização
-    print("Limpando dados e removendo valores nulos...")
+    # Basic cleaning (remove nulls) before vectorization
+    print("Cleaning data and removing null values...")
     train_df = train_df.dropna(subset=['text', 'sentiment'])
     val_df = val_df.dropna(subset=['text', 'sentiment'])
     
-    # Aplicar a limpeza de texto (Lemmatization inclusa no preprocess.py)
-    print("Processando textos (limpeza e lemmatização)...")
+    # Apply text cleaning (Lemmatization included in preprocess.py)
+    print("Processing texts (cleaning and lemmatization)...")
     train_df['cleaned_text'] = train_df['text'].apply(clean_text)
     val_df['cleaned_text'] = val_df['text'].apply(clean_text)
     
-    # Remover linhas que ficaram vazias após a limpeza
+    # Remove rows that became empty after cleaning
     train_df = train_df[train_df['cleaned_text'] != ""]
     val_df = val_df[val_df['cleaned_text'] != ""]
     
-    # Vetorização TF-IDF com 4-grams e limite de features para 100k
-    print("Vetorizando textos (N-grams 1-4, 100k features)...")
+    # TF-IDF vectorization with 4-grams and feature limit set to 100k
+    print("Vectorizing texts (N-grams 1-4, 100k features)...")
     vectorizer = TfidfVectorizer(
         max_features=100000, 
         ngram_range=(1, 4),
@@ -72,8 +72,8 @@ def train_model():
     X_val = vectorizer.transform(val_df['cleaned_text'])
     y_val = val_df['sentiment']
     
-    # Configuração de um Ensemble (Voting Classifier)
-    print("Treinando o modelo Ensemble (LinearSVC + LogisticRegression)...")
+    # Ensemble configuration (Voting Classifier)
+    print("Training the Ensemble model (LinearSVC + LogisticRegression)...")
     
     svc = LinearSVC(C=0.5, max_iter=3000, dual='auto', random_state=42, tol=1e-5, class_weight='balanced')
     lr = LogisticRegression(C=10, max_iter=1000, solver='lbfgs', multi_class='multinomial', random_state=42, class_weight='balanced')
@@ -85,23 +85,23 @@ def train_model():
     
     model.fit(X_train, y_train)
     
-    # Avaliação
-    print("Avaliando o modelo...")
+    # Evaluation
+    print("Evaluating the model...")
     y_pred = model.predict(X_val)
     
-    print("\nResultados da Validação:")
-    print(f"Acurácia: {accuracy_score(y_val, y_pred):.4f}")
-    print("\nRelatório de Classificação:")
+    print("\nValidation results:")
+    print(f"Accuracy: {accuracy_score(y_val, y_pred):.4f}")
+    print("\nClassification report:")
     print(classification_report(y_val, y_pred))
     
-    # Salvar artefatos
-    print(f"Salvando artefatos em {models_dir}...")
+    # Save artifacts
+    print(f"Saving artifacts to {models_dir}...")
     joblib.dump(model, models_dir / 'sentiment_model.pkl')
     joblib.dump(vectorizer, models_dir / 'tfidf_vectorizer.pkl')
-    print("Concluído!")
+    print("Done!")
 
 if __name__ == "__main__":
     try:
         train_model()
     except Exception as e:
-        print(f"Erro no treinamento: {e}")
+        print(f"Training error: {e}")

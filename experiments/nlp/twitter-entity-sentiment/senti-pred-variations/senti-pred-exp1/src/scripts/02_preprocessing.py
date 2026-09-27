@@ -1,8 +1,8 @@
 """02_preprocessing.py
 
-Pré-processamento modularizado — implementa o pré-processamento em inglês usado
-no `full_pipeline.py`. Gera um artefato binário (pickle/joblib) em
-`data/processed/processed_data.pkl` contendo o DataFrame processado.
+Modularized preprocessing — implements the English-language preprocessing used
+in `full_pipeline.py`. Generates a binary artifact (pickle/joblib) in
+`data/processed/processed_data.pkl` containing the processed DataFrame.
 """
 
 from pathlib import Path
@@ -80,7 +80,7 @@ def lemmatize_text_en(text):
 def find_raw_files():
     files = list(RAW_DIR.glob('*.csv'))
     if not files:
-        raise FileNotFoundError(f'Nenhum arquivo CSV encontrado em {RAW_DIR}')
+        raise FileNotFoundError(f'No CSV file found in {RAW_DIR}')
     train = RAW_DIR / 'twitter_training.csv'
     val = RAW_DIR / 'twitter_validation.csv'
     if train.exists() and val.exists():
@@ -92,14 +92,14 @@ def find_raw_files():
 def load_processed():
     p = PROCESSED_DIR / 'processed_data.pkl'
     if not p.exists():
-        raise FileNotFoundError(f'Processed data not found: {p}. Execute 02_preprocessing.py first')
+        raise FileNotFoundError(f'Processed data not found: {p}. Run 02_preprocessing.py first')
     obj = joblib.load(p)
     return obj['train'], obj.get('validation', pd.DataFrame())
 
 def run_preprocessing():
-    print("Iniciando pré-processamento...")
+    print("Starting preprocessing...")
     train_path, val_path = find_raw_files()
-    print(f"Arquivos encontrados: {train_path}, {val_path}")
+    print(f"Files found: {train_path}, {val_path}")
     cols = ['tweet_id', 'entity', 'sentiment', 'text']
     df_train = pd.read_csv(train_path, names=cols, header=None, engine='python', encoding='utf-8')
     df_val = pd.read_csv(val_path, names=cols, header=None, engine='python', encoding='utf-8') if val_path is not None else pd.DataFrame(columns=cols)
@@ -112,10 +112,10 @@ def run_preprocessing():
     df_val['text_no_stop'] = df_val['text_clean'].apply(remove_stopwords_en)
     df_val['text_lemmatized'] = df_val['text_no_stop'].apply(lemmatize_text_en)
 
-    # Salvar objeto binário (pickle) para uso pelos scripts seguintes
+    # Save the binary object (pickle) for the following scripts to use
     out_path = PROCESSED_DIR / 'processed_data.pkl'
     joblib.dump({'train': df_train, 'validation': df_val}, out_path)
-    print(f'[OK] Dados processados salvos (pickle): {out_path}')
+    print(f'[OK] Processed data saved (pickle): {out_path}')
 
 if __name__ == '__main__':
     run_preprocessing()

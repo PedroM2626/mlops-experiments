@@ -1,5 +1,5 @@
 """
-Views da API Django para o projeto Senti-Pred.
+Django API views for the Senti-Pred project.
 """
 from django.http import JsonResponse
 from rest_framework.views import APIView
@@ -9,18 +9,18 @@ import joblib
 import os
 import json
 
-# Caminho para o modelo treinado
+# Path to the trained model
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'sentiment_model.pkl')
 
 
 class SentimentPredictionView(APIView):
     """
-    API para predição de sentimentos.
+    API for sentiment prediction.
     """
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Carregar o modelo se existir
+        # Load the model if it exists
         if os.path.exists(MODEL_PATH):
             self.model = joblib.load(MODEL_PATH)
         else:
@@ -28,32 +28,32 @@ class SentimentPredictionView(APIView):
     
     def post(self, request):
         """
-        Endpoint para predição de sentimentos.
+        Endpoint for sentiment prediction.
         
-        Espera um JSON com o campo 'text' contendo o texto para análise.
-        Retorna a predição de sentimento e as probabilidades.
+        Expects a JSON with the 'text' field containing the text to analyze.
+        Returns the sentiment prediction and the probabilities.
         """
         if self.model is None:
             return Response(
-                {"error": "Modelo não encontrado. Treine o modelo primeiro."},
+                {"error": "Model not found. Train the model first."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
         try:
-            # Obter texto da requisição
+            # Get the text from the request
             data = json.loads(request.body)
             text = data.get('text', '')
             
             if not text:
                 return Response(
-                    {"error": "O campo 'text' é obrigatório."},
+                    {"error": "The 'text' field is required."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Fazer predição
+            # Make the prediction
             sentiment = self.model.predict([text])[0]
             
-            # Obter probabilidades se disponível
+            # Get probabilities if available
             try:
                 probabilities = self.model.predict_proba([text])[0].tolist()
                 classes = self.model.classes_.tolist()
@@ -61,7 +61,7 @@ class SentimentPredictionView(APIView):
             except:
                 probs_dict = {}
             
-            # Retornar resultado
+            # Return the result
             return Response({
                 "text": text,
                 "sentiment": sentiment,
@@ -77,20 +77,20 @@ class SentimentPredictionView(APIView):
 
 class ModelInfoView(APIView):
     """
-    API para informações sobre o modelo.
+    API for information about the model.
     """
     
     def get(self, request):
         """
-        Retorna informações sobre o modelo carregado.
+        Returns information about the loaded model.
         """
         if os.path.exists(MODEL_PATH):
             model = joblib.load(MODEL_PATH)
             
-            # Extrair informações do modelo
+            # Extract model information
             model_type = type(model).__name__
             
-            # Verificar se é um pipeline
+            # Check whether it is a pipeline
             if hasattr(model, 'steps'):
                 steps = [step[0] for step in model.steps]
                 classifier = type(model.steps[-1][1]).__name__
@@ -108,12 +108,12 @@ class ModelInfoView(APIView):
         else:
             return Response({
                 "model_loaded": False,
-                "error": "Modelo não encontrado"
+                "error": "Model not found"
             })
 
 
 def health_check(request):
     """
-    Endpoint simples para verificar se a API está funcionando.
+    Simple endpoint to check that the API is working.
     """
     return JsonResponse({"status": "ok"})

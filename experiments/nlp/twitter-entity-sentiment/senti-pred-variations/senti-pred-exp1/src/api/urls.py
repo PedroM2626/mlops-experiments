@@ -1,5 +1,5 @@
 """
-Configuração de URLs para a API Django do projeto Senti-Pred.
+URL configuration for the Senti-Pred Django API.
 """
 from django.urls import path
 from .views import SentimentPredictionView, ModelInfoView, health_check
