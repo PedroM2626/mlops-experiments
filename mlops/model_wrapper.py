@@ -1,12 +1,12 @@
-"""Wrapper pyfunc do SalesForecasterV2 para o MLflow model registry.
+"""pyfunc wrapper for SalesForecasterV2 for the MLflow model registry.
 
-O pyfunc encapsula:
-  - o artefato LightGBM (booster + feature_names + categorical + flags)
-  - a classe SalesForecasterV2 (feature_engineering + generate_forecasts)
-  - os dados historicos (2022) para alimentar generate_forecasts
+The pyfunc encapsulates:
+  - the LightGBM artifact (booster + feature_names + categorical + flags)
+  - the SalesForecasterV2 class (feature_engineering + generate_forecasts)
+  - the historical data (2022) that feeds generate_forecasts
 
-Input esperado (df ou dict): {"weeks_to_forecast": int, "top_n": int|None}
-Output: DataFrame com colunas [semana, pdv, sku, quantidade_prevista]
+Expected input (df or dict): {"weeks_to_forecast": int, "top_n": int|None}
+Output: DataFrame with columns [semana, pdv, sku, quantidade_prevista]
 """
 from __future__ import annotations
 import os
@@ -34,9 +34,9 @@ _EMPTY_FC = pd.DataFrame(columns=["pdv", "sku", "semana", "quantidade_prevista"]
 
 
 def build_forecast_state(forecaster, df_historical):
-    """Parte invariante do forecast (so depende do historico estatico):
-    matriz deslizante de 53 offsets por (pdv, sku), precos/paridade, semana da
-    ultima observacao, dims categoricos e categorias do modelo. Cacheavel."""
+    """Invariant part of the forecast (depends only on the static history):
+    sliding matrix of 53 offsets per (pdv, sku), prices/parity, week of the
+    last observation, categorical dims and the model categories. Cacheable."""
     model = forecaster.model
     feature_names = list(forecaster.feature_names)
     cat_features = list(forecaster.categorical_features)
@@ -57,15 +57,15 @@ def build_forecast_state(forecaster, df_historical):
     codes = arr["_code"].to_numpy()
     seq = arr["_seq"].to_numpy()
     sizes_c = sizes[codes]
-    idx = sizes_c - 1 - seq  # 0 = observacao mais recente de cada combo
+    idx = sizes_c - 1 - seq  # 0 = most recent observation of each combo
 
     qty = arr["quantidade"].to_numpy(dtype=np.float32)
     keep = idx < DIFF
     Q = np.full((n, DIFF), np.nan, dtype=np.float32)
     Q[codes[keep], idx[keep]] = qty[keep]
 
-    P0 = np.full(n, np.nan, dtype=np.float32)  # preco da ultima semana real
-    P1 = np.full(n, np.nan, dtype=np.float32)  # preco da penultima semana real
+    P0 = np.full(n, np.nan, dtype=np.float32)  # price of the last real week
+    P1 = np.full(n, np.nan, dtype=np.float32)  # price of the second-to-last real week
     m_last = seq == (sizes_c - 1)
     m_prev = seq == (sizes_c - 2)
     P0[codes[m_last]] = arr.loc[m_last, "preco_medio_unitario"].to_numpy(dtype=np.float32)
@@ -99,14 +99,14 @@ def build_forecast_state(forecaster, df_historical):
 
 
 def _yield_week_predictions(state, weeks_to_forecast):
-    """Gerador: produz (wk, pred int64) para cada semana do horizonte.
+    """Generator: yields (wk, pred int64) for each week of the horizon.
 
-    Replica exatamente as features/quirks do generate_forecasts original
-    (semana=w com seno/coss/trim anterior, lag_diff_1 pre-fillna, fp32 dos
-    precos, confirm_matrix etc), mas 100% vetorizado a partir do estado."""
+    Reproduces exactly the features/quirks of the original generate_forecasts
+    (week=w with sine/cosine/previous quarter, lag_diff_1 pre-fillna, fp32
+    prices, confirm_matrix etc), but 100% vectorized from the state."""
     if weeks_to_forecast <= 0 or state is None:
         return
-    Q = state["Q"].copy()  # recursao muta Q local; estado original fica intacto (cache)
+    Q = state["Q"].copy()  # the recursion mutates Q locally; the original state stays intact (cache)
     P0, P1, S0 = state["P0"], state["P1"], state["S0"]
     combos, cats = state["combos"], state["cats"]
     model, use_log = state["model"], state["use_log"]
@@ -136,8 +136,8 @@ def _yield_week_predictions(state, weeks_to_forecast):
                         roll[w] = {"mean": np.nanmean(W, axis=1), "std": np.nanstd(W, axis=1, ddof=1),
                                    "max": np.nanmax(W, axis=1), "min": np.full(n, np.nan)}
 
-        # quirk original: 'semana'=w, mas seno/coss/trimestre da semana anterior
-        # (w-1; na ultima semana real quando w==1)
+        # original quirk: 'semana'=w, but sine/cosine/quarter of the previous week
+        # (w-1; on the last real week when w==1)
         if wk == 1:
             sem_ref = S0
         else:
@@ -196,7 +196,7 @@ def _yield_week_predictions(state, weeks_to_forecast):
 
 
 def forecast_from_state(state, weeks_to_forecast):
-    """Recursao semana a semana usando o estado pre-computado (cacheavel)."""
+    """Week-by-week recursion using the pre-computed state (cacheable)."""
     if weeks_to_forecast <= 0 or state is None:
         return _EMPTY_FC.copy()
     n = state["Q"].shape[0]
@@ -214,10 +214,10 @@ def forecast_from_state(state, weeks_to_forecast):
 
 
 def precompute_forecasts(state, horizon):
-    """Pre-computa o forecast completo de `horizon` semanas em memoria (numpy).
+    """Pre-computes the full forecast of `horizon` weeks in memory (numpy).
 
-    Retorna dict {"pdv", "sku", "preds"} com preds de shape (n_combos, horizon)
-    em int64 — materıa-prima para responder /predict em milissegundos."""
+    Returns dict {"pdv", "sku", "preds"} with preds of shape (n_combos, horizon)
+    in int64 — raw material for answering /predict in milliseconds."""
     if state is None or horizon <= 0:
         return None
     n = state["Q"].shape[0]
@@ -230,10 +230,10 @@ def precompute_forecasts(state, horizon):
 
 
 def fast_forecast(forecaster, df_historical, weeks_to_forecast):
-    """Forecast vetorizado, matematicamente equivalente ao generate_forecasts
-    recursivo (que re-rodava feature_engineering na tabela inteira a cada semana).
+    """Vectorized forecast, mathematically equivalent to the recursive
+    generate_forecasts (which re-ran feature_engineering on the whole table every week).
 
-    Recomenda-se cachear build_forecast_state() entre chamadas (ver pyfunc)."""
+    Caching build_forecast_state() across calls is recommended (see pyfunc)."""
     return forecast_from_state(build_forecast_state(forecaster, df_historical),
                                weeks_to_forecast)
 
@@ -270,8 +270,8 @@ class SalesForecasterPyfunc(PythonModel):
         return self._fstate
 
     def ensure_precomputed(self, horizon):
-        """Constroi (1x) o pre-compute completo de `horizon` semanas, se ainda
-        nao houver cobertura suficiente. Retorna o dict pre-computado."""
+        """Builds (once) the full pre-compute of `horizon` weeks when there is not
+        yet enough coverage. Returns the pre-computed dict."""
         if horizon is None or horizon <= 0:
             return self._precomputed
         with self._precompute_lock:
@@ -291,9 +291,9 @@ class SalesForecasterPyfunc(PythonModel):
         return 5, None
 
     def _predict_from_cache(self, weeks, top_n):
-        """Resposta a partir do pre-compute em numpy (ms). Ordena as linhas
-        exatamente como o path live (semanas outer, combos na ordem original
-        do estado; combos candidatos = top_n por total das `weeks`)."""
+        """Answer from the numpy pre-compute (ms). Orders the rows
+        exactly like the live path (weeks outer, combos in the original state
+        order; candidate combos = top_n by total over `weeks`)."""
         pc = self._precomputed
         n = pc["preds"].shape[0]
         if n == 0 or weeks <= 0:
@@ -302,8 +302,8 @@ class SalesForecasterPyfunc(PythonModel):
         totals = preds.sum(axis=1)
         if top_n and n:
             k = min(int(top_n), n)
-            # top-k por importancia (rank desc); stable = empates mantem a ordem
-            # original (igual nlargest keep='first' do path live)
+            # top-k by importance (desc rank); stable = ties keep the
+            # original order (same as nlargest keep='first' in the live path)
             part = np.argsort(-totals, kind="stable")[:k]
             combo_ids = np.sort(part)
         else:
@@ -325,7 +325,7 @@ class SalesForecasterPyfunc(PythonModel):
             try:
                 return self._predict_from_cache(weeks, top_n)
             except Exception:
-                pass  # qualquer falha no cache cai no path live
+                pass  # any cache failure falls back to the live path
         df_hist = self._load_hist()
         try:
             fc = forecast_from_state(self._state(), weeks_to_forecast=weeks)
@@ -339,7 +339,7 @@ class SalesForecasterPyfunc(PythonModel):
 
 
 def get_production_model():
-    """Carrega o modelo Production do MLflow registry (fallback: joblib committed)."""
+    """Loads the Production model from the MLflow registry (fallback: committed joblib)."""
     from . import config
     uri = config.MLFLOW_TRACKING_URI
     mlflow.set_tracking_uri(uri)
@@ -349,9 +349,9 @@ def get_production_model():
     if prod:
         v = sorted(prod, key=lambda x: x.last_updated_timestamp)[-1]
         return mlflow.pyfunc.load_model(f"models:/{config.MLFLOW_MODEL_NAME}/{v.version}")
-    # fallback: construir pyfunc do joblib committed
+    # fallback: build the pyfunc from the committed joblib
     joblib_path = os.path.join(SALES_DIR, "artifacts", "sales_forecaster_v2_final.joblib")
     if os.path.exists(joblib_path):
         from .model_wrapper_local import load_local_pyfunc
         return load_local_pyfunc(joblib_path)
-    raise RuntimeError(f"Nenhum modelo '{config.MLFLOW_MODEL_NAME}' em Production e sem fallback joblib.")
+    raise RuntimeError(f"No model '{config.MLFLOW_MODEL_NAME}' in Production and no joblib fallback.")

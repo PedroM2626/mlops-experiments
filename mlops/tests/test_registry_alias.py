@@ -1,7 +1,7 @@
-"""Testes do registry com aliases (MLflow 3.x) em tracking store temporário.
+"""Registry tests with aliases (MLflow 3.x) in a temporary tracking store.
 
-Tudo offline (file store em tmp_path): cria modelo + versão de um source
-local, promove via helper e resolve de volta. Sem treino, sem rede.
+All offline (file store in tmp_path): creates a model + version from a local
+source, promotes via the helper and resolves it back. No training, no network.
 """
 import mlflow
 from mlflow.tracking import MlflowClient

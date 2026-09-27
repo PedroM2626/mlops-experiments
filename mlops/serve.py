@@ -1,15 +1,15 @@
-"""API FastAPI de serving do sales-forecast v2.2 com MLflow registry.
+"""FastAPI serving API for sales-forecast v2.2 with an MLflow registry.
 
 Endpoints:
-  GET  /health         -> status do servico + versao do modelo em Producao
-  POST /predict        -> gera forecast (semanas) e loga latencia/custo
-  GET  /metrics?window=3600 -> resumo agregado da janela (chegadas, custo, latencia, drift)
-  GET  /recent         -> ultimas predicoes + drift checks (feed do dashboard)
-  GET  /drift          -> ultimo estado de drift + gatilho de retrain
-  GET  /dashboard      -> dashboard HTML vivo (polling AJAX)
+  GET  /health         -> service status + version of the model in Production
+  POST /predict        -> generates the forecast (weeks) and logs latency/cost
+  GET  /metrics?window=3600 -> aggregate summary of the window (arrivals, cost, latency, drift)
+  GET  /recent         -> latest predictions + drift checks (dashboard feed)
+  GET  /drift          -> last drift state + retrain trigger
+  GET  /dashboard      -> live HTML dashboard (AJAX polling)
 
-Uso:
-  python -m mlops.serve            # uvicorn embutido
+Usage:
+  python -m mlops.serve            # embedded uvicorn
   uvicorn mlops.serve:app --host 0.0.0.0 --port 8000 --reload
 """
 import os
@@ -38,10 +38,10 @@ class PredictRequest(BaseModel):
 
 
 def _load_production_predictor():
-    """Carrega artefato de producao do MLflow e cacheia dados historicos.
+    """Loads the production artifact from MLflow and caches the historical data.
 
-    Primario: alias `models:/<nome>@production` (MLflow 3.x). Fallback:
-    stage Production legado e, em ultimo caso, joblib commitado.
+    Primary: alias `models:/<name>@production` (MLflow 3.x). Fallback:
+    the legacy Production stage and, as a last resort, the committed joblib.
     """
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     client = mlflow.tracking.MlflowClient(config.MLFLOW_TRACKING_URI)
@@ -62,18 +62,18 @@ def _load_production_predictor():
         # fallback: joblib committed
         p = os.path.join(SALES_DIR, "artifacts", "sales_forecaster_v2_final.joblib")
         if not os.path.exists(p):
-            raise RuntimeError("Sem modelo Production e sem fallback joblib.")
+            raise RuntimeError("No Production model and no joblib fallback.")
         from .model_wrapper_local import load_local_pyfunc
         return load_local_pyfunc(p), "fallback_joblib", None
-    # resolve pelo registry (estilo-independente: v.source pode ser caminho
-    # de artefato OU locator 'models:/...' dependendo da versao do MLflow)
+    # resolve via the registry (style-independent: v.source can be an artifact
+    # path OR a 'models:/...' locator depending on the MLflow version)
     model = mlflow.pyfunc.load_model(f"models:/{config.MLFLOW_MODEL_NAME}/{v.version}")
     return model, f"v{v.version}", v.run_id
 
 
 app = FastAPI(title="MLOps Sales-Forecast v2.2", version="2.0")
 _predictor, _model_version, _model_run_id = None, None, None
-_forecaster_cache = None  # para reusar dados historicos
+_forecaster_cache = None  # reuse the historical data
 _precompute_thread = None
 _precompute_done = False
 
@@ -83,7 +83,7 @@ def _ensure_predictor():
     if _predictor is None:
         _predictor, _model_version, _model_run_id = _load_production_predictor()
     if _forecaster_cache is None:
-        # carrega dados brutos 2022 uma vez para alimentar generate_forecasts
+        # loads the raw 2022 data once to feed generate_forecasts
         fc = SalesForecasterV2()
         df_full = fc.load_data(DATA_PATHS)
         _forecaster_cache = df_full[df_full["ano"] == 2022].copy()
@@ -91,8 +91,8 @@ def _ensure_predictor():
 
 
 def _python_model():
-    """Instancia do pyfunc por tras do PyFuncModel do MLflow (ou o proprio
-    pyfunc local no fallback joblib, quando nao ha modelo Production)."""
+    """The pyfunc instance behind the MLflow PyFuncModel (or the local
+    pyfunc itself in the joblib fallback, when there is no Production model)."""
     impl = getattr(_predictor, "_model_impl", None)
     if impl is not None:
         return getattr(impl, "python_model", _predictor)
@@ -100,7 +100,7 @@ def _python_model():
 
 
 def _kick_precompute():
-    """Pre-computa o forecast completo em background; /predict nao bloqueia."""
+    """Pre-computes the full forecast in the background; /predict does not block."""
     global _precompute_thread, _precompute_done
     if _predictor is None or (_precompute_thread and _precompute_thread.is_alive()):
         return
@@ -110,14 +110,14 @@ def _kick_precompute():
             _python_model().ensure_precomputed(config.PRECOMPUTE_HORIZON)
             _precompute_done = True
         except Exception as e:  # noqa: BLE001
-            print(f"[precompute] erro: {e}", flush=True)
+            print(f"[precompute] error: {e}", flush=True)
     _precompute_thread = threading.Thread(target=_run, name="precompute", daemon=True)
     _precompute_thread.start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown moderno (substitui o `@app.on_event`, deprecated)."""
+    """Modern startup/shutdown (replaces the deprecated `@app.on_event`)."""
     metrics_store.init_db()
     _ensure_predictor()
     _kick_precompute()
@@ -172,7 +172,7 @@ def precompute_status():
 
 @app.post("/precompute")
 def precompute_refresh():
-    """Forca (bloqueante) o rebuild do forecast pre-computado."""
+    """Forces a (blocking) rebuild of the pre-computed forecast."""
     _kick_precompute()
     if _precompute_thread and _precompute_thread.is_alive():
         _precompute_thread.join(timeout=config.PRECOMPUTE_HORIZON * 30)
@@ -198,7 +198,7 @@ def drift_status():
     p = config.RETRAIN_TRIGGER_FILE
     if p.exists():
         return json.loads(p.read_text(encoding="utf-8"))
-    return {"triggered": False, "message": "sem gatilho ativo"}
+    return {"triggered": False, "message": "no active trigger"}
 
 
 @app.get("/dashboard")
@@ -207,7 +207,7 @@ def dashboard():
     return __import__("fastapi").responses.HTMLResponse(open(html, encoding="utf-8").read())
 
 
-# helper p/ detectar o fallback local (pyfunc)
+# helper to detect the local fallback (pyfunc)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.API_HOST, port=config.API_PORT)

@@ -1,130 +1,130 @@
-# MLOps Sales-Forecast v2.2 — Produção de ponta a ponta
+# MLOps Sales-Forecast v2.2 — End-to-end production
 
-Pipeline de produção completo sobre o campeão do repo (`sales-forecast`, LightGBM V2.2):
-**serving (FastAPI + MLflow registry) → métricas de custo/latência → drift (PSI) → retrain automático (com cooldown) → dashboard vivo.**
+Complete production pipeline on top of the repo champion (`sales-forecast`, LightGBM V2.2):
+**serving (FastAPI + MLflow registry) → cost/latency metrics → drift (PSI) → automatic retrain (with cooldown) → live dashboard.**
 
-Tracking de produção: **SQLite** (`experiments/mlops_tracking.db`, default;
-override via env `MLFLOW_TRACKING_URI`). O file store legado
-(`experiments/mlruns`) guarda o histórico e continua navegável no
-`mlflow_ui` / via override. Motivo: o backend file será deprecated em
-fev/2026 e o registry file já é segunda-classe no MLflow 3.x.
+Production tracking: **SQLite** (`experiments/mlops_tracking.db`, default;
+override via env `MLFLOW_TRACKING_URI`). The legacy file store
+(`experiments/mlruns`) keeps the history and stays browsable in
+`mlflow_ui` / via override. Reason: the file backend will be deprecated in
+Feb 2026 and the file registry is already second-class in MLflow 3.x.
 
-## Arquitetura
+## Architecture
 
 ```
 ┌──────────────┐      POST /predict       ┌───────────────────────────────┐
 │  dashboard   │◄──── GET /metrics        │  FastAPI (mlops/serve.py)      │
-│  (HTML vivo) │◄──── GET /recent         │  - carrega Production do MLflow│
-└──────────────┘                          │  - loga latência/custo (SQLite)│
+│  (live HTML) │◄──── GET /recent         │  - loads Production from MLflow│
+└──────────────┘                          │  - logs latency/cost (SQLite)  │
                                           └──────────────┬────────────────┘
                                                          │
                                     MLflow registry (experiments/mlruns)
-┌──────────────┐    a cada N min        ┌───────────────────────────────┐
+┌──────────────┐    every N min         ┌───────────────────────────────┐
 │  monitor.py  │──── drift PSI/share ──►│  retrain_trigger.json          │
 │  (--auto)    │                        └──────────────┬────────────────┘
-└──────┬───────┘                                       │ se drift > limiar
+└──────┬───────┘                                       │ if drift > threshold
        │ cooldown OK? ────────────────────────────────►▼
-       │ fetch: se em cooldown -> skip    ┌───────────────────────┐
-       └──────────────────────────────┬──►│ retrain.py → nova run │
+       │ fetch: if in cooldown -> skip    ┌───────────────────────┐
+       └──────────────────────────────┬──►│ retrain.py → new run  │
                                       │   │ MLflow → Production    │
                                       └───┘ (auto via monitor --auto)
 ```
 
-## Componentes
+## Components
 
-| Arquivo | Papel |
+| File | Role |
 |---|---|
-| `config.py` | caminhos, limiares (PSI 0.25, share 0.40), custo ($0.0009/1k pred), cooldown de retrain (1800s) |
-| `metrics_store.py` | SQLite: predições, drift checks, retrains (`last_retrain_ts`) |
-| `model_wrapper.py` | pyfunc do SalesForecasterV2 (dados 2022 + forecasts), com cache dos dados por processo |
-| `model_wrapper_local.py` | fallback: carrega o joblib committed se o registry estiver vazio |
-| `register_model.py` | retreina o campeão (use_log_target=False) e registra Production |
-| `retrain.py` | reusa o pipeline, loga nova run MLflow, promove a versão auto-registrada |
+| `config.py` | paths, thresholds (PSI 0.25, share 0.40), cost ($0.0009/1k pred), retrain cooldown (1800s) |
+| `metrics_store.py` | SQLite: predictions, drift checks, retrains (`last_retrain_ts`) |
+| `model_wrapper.py` | pyfunc of SalesForecasterV2 (2022 data + forecasts), with a per-process data cache |
+| `model_wrapper_local.py` | fallback: loads the committed joblib when the registry is empty |
+| `register_model.py` | retrains the champion (use_log_target=False) and registers Production |
+| `retrain.py` | reuses the pipeline, logs a new MLflow run, promotes the auto-registered version |
 | `serve.py` | FastAPI: `/predict /metrics /recent /drift /health /dashboard` |
-| `dashboard.html` | dashboard vivo (polling 5s) |
-| `monitor.py` | drift em 2 níveis (Evidently `DataDriftPreset` se instalado + PSI/share-change sempre); `--auto` executa retrain com cooldown |
-| `registry.py` | promote/resolve via alias `production` (+ fallback stage); `latest_unstaged_version` pega a auto-registrada do `log_model` |
-| `tests/` | `test_monitor.py` (PSI/share/compute_drift/Evidently-safe) + `test_metrics_store.py` (ciclo pred→drift→retrain em SQLite tmp) + `test_registry_alias.py` (alias/stage/fallback em file-store tmp) + `test_serve_lifespan.py` (lifespan sem carregar dados) |
+| `dashboard.html` | live dashboard (5s polling) |
+| `monitor.py` | 2-level drift (Evidently `DataDriftPreset` when installed + PSI/share-change always); `--auto` runs retrain with cooldown |
+| `registry.py` | promote/resolve via alias `production` (+ stage fallback); `latest_unstaged_version` picks the version auto-registered by `log_model` |
+| `tests/` | `test_monitor.py` (PSI/share/compute_drift/Evidently-safe) + `test_metrics_store.py` (pred→drift→retrain cycle in a tmp SQLite) + `test_registry_alias.py` (alias/stage/fallback in a tmp file store) + `test_serve_lifespan.py` (lifespan without loading data) |
 
-## Como rodar
+## How to run
 
 ```bash
-# 1) Registrar campeão no MLflow (retreina use_log_target=False, ~4 min)
+# 1) Register the champion in MLflow (retrains use_log_target=False, ~4 min)
 python -m mlops.register_model
 
-# 2) Subir API + dashboard vivo
+# 2) Start the API + live dashboard
 python -m mlops.serve           # http://localhost:8000/dashboard
 
-# 3) Monitor contínuo com retrain automático
+# 3) Continuous monitor with automatic retrain
 python -m mlops.monitor --loop --auto
 
-# 4) Retrain manual / por gatilho
+# 4) Manual / triggered retrain
 python -m mlops.retrain --reason manual
 ```
 
-## Detectando drift (modos do monitor)
+## Detecting drift (monitor modes)
 
 ```bash
-python -m mlops.monitor                    # uma rodada (simulação suave -> tipicamente OK)
-python -m mlops.monitor --loop --auto      # contínuo + retrain automático com cooldown
-python -m mlops.monitor --auto --dry-run   # mostra se retreinaría, sem retreinar
-python -m mlops.monitor --strong           # simulação forte (gatilho garantido p/ demo/testes)
+python -m mlops.monitor                    # one pass (smooth simulation -> typically OK)
+python -m mlops.monitor --loop --auto      # continuous + automatic retrain with cooldown
+python -m mlops.monitor --auto --dry-run   # shows whether it would retrain, without retraining
+python -m mlops.monitor --strong           # strong simulation (trigger guaranteed for demos/tests)
 ```
 
-### Gatilho automático (cooldown)
+### Automatic trigger (cooldown)
 
-- Drift é detectado quando `max_psi > 0.25` **ou** `max_share_change > 0.40`.
-- Quando detectado: escreve `retrain_trigger.json` e **o monitor `--auto` chama `retrain(reason="drift")`**.
-- **Cooldown**: retrains automáticos não acontecem mais de uma vez a cada `RETRAIN_COOLDOWN_SECONDS` (1800s), evitando feedback loop em drift persistente. O estado é lido do SQLite (`retrain_events`).
+- Drift is detected when `max_psi > 0.25` **or** `max_share_change > 0.40`.
+- When detected: it writes `retrain_trigger.json` and **the `--auto` monitor calls `retrain(reason="drift")`**.
+- **Cooldown**: automatic retrains never happen more than once every `RETRAIN_COOLDOWN_SECONDS` (1800s), avoiding a feedback loop under persistent drift. The state is read from SQLite (`retrain_events`).
 
-## Observações de serviço (latência + precompute)
+## Service notes (latency + precompute)
 
-O forecast completo é essencialmente *batch* (1,47M+ linhas para 2 semanas × 735k combos).
-Antes da otimização, `generate_forecasts` re-rodava `feature_engineering` na tabela inteira
-a cada semana do horizonte → ~2,5 min por chamada e 495s só no compute do algoritmo.
+The full forecast is essentially *batch* (1.47M+ rows for 2 weeks × 735k combos).
+Before the optimization, `generate_forecasts` re-ran `feature_engineering` on the whole table
+for every week of the horizon → ~2.5 min per call and 495s on algorithm compute alone.
 
-**Abordagem em 2 camadas** (`model_wrapper.py`):
+**Two-layer approach** (`model_wrapper.py`):
 
-1. **Recursão vetorizada (live).** `build_forecast_state` pré-computa o estado invariante
-   (matriz deslizante de 53 offsets, 10.8s, cacheado) e `forecast_from_state` roda a
-   recursão semana a semana 100% vetorizada → **7.3s/2 semanas** (saída idêntica ao
-   original; validado com assert_frame_equal em 12k linhas e no dataset completo).
-2. **Forecast pre-computado (cache).** No startup, um thread de background roda
-   `precompute_forecasts` (forecast completo de `PRECOMPUTE_HORIZON=12` semanas = matriz
-   numpy `(735.304 × 12)` em int64). `/predict` com `weeks <= 12` passa a ser um **lookup
-   + top_n em numpy** → resposta em **~80–100ms** (incluindo HTTP). Acima do horizonte,
-   cai no modo live (ainda ~3.6s/semana). Estado: `GET/POST /precompute`.
+1. **Vectorized recursion (live).** `build_forecast_state` pre-computes the invariant state
+   (sliding matrix of 53 offsets, 10.8s, cached) and `forecast_from_state` runs the
+   week-by-week recursion 100% vectorized → **7.3s/2 weeks** (output identical to the
+   original; validated with assert_frame_equal on 12k rows and on the full dataset).
+2. **Pre-computed forecast (cache).** At startup, a background thread runs
+   `precompute_forecasts` (full forecast of `PRECOMPUTE_HORIZON=12` weeks = numpy matrix
+   `(735,304 × 12)` in int64). `/predict` with `weeks <= 12` becomes a **lookup
+   + top_n in numpy** → response in **~80–100ms** (including HTTP). Above the horizon,
+   it falls back to live mode (still ~3.6s/week). State: `GET/POST /precompute`.
 
-Latência observada no endpoint `POST /predict` (top_n=5):
+Latency observed on the `POST /predict` endpoint (top_n=5):
 
-| Métrica | Antes | v9 (precompute) | Ganho |
+| Metric | Before | v9 (precompute) | Gain |
 |---|---|---|---|
 | warm /predict (weeks≤12) | 146.4s | **~0.09s** | **~1.6k×** |
 | warm /predict (v8, live) | 146.4s | 6.5s | ~22× |
-| cold (startup + build 12 sem) | 165.8s | ~2min (só 1×) | — |
-| forecast full (2 sem, algoritmo) | 495.7s | 7.3s | 68× |
+| cold (startup + build 12 weeks) | 165.8s | ~2min (only 1×) | — |
+| full forecast (2 weeks, algorithm) | 495.7s | 7.3s | 68× |
 
-Custo estimado: $0.0009 / 1k predições; cada chamada registra `n_predictions`,
-`latency_ms`, `cost_usd`. O `top_n` reduz o resultado final, mas as features são
-computadas para todas as combinações antes do corte (ou pré-computadas).
+Estimated cost: $0.0009 / 1k predictions; each call records `n_predictions`,
+`latency_ms`, `cost_usd`. `top_n` shrinks the final result, but features are
+computed for all combinations before the cut (or pre-computed).
 
-## Registry: alias `production` (primário) + stage (fallback)
+## Registry: alias `production` (primary) + stage (fallback)
 
-Produção resolve via `models:/sales_forecaster_v22@production` (`mlops/registry.py`).
-`register_model`/`retrain` apontam o alias e ainda tentam o stage `Production`
-para compatibilidade com deploys antigos; o serving aceita ambos (alias
-primeiro, stage depois, joblib por último). Motivo: `get_latest_versions` e
-`transition_model_version_stage` estão deprecated desde o MLflow 2.9 e os
-stages serão removidos em major futura — o alias é o caminho suportado.
+Production resolves via `models:/sales_forecaster_v22@production` (`mlops/registry.py`).
+`register_model`/`retrain` point the alias and still try the `Production` stage
+for compatibility with older deploys; serving accepts both (alias
+first, stage second, joblib last). Reason: `get_latest_versions` and
+`transition_model_version_stage` have been deprecated since MLflow 2.9 and the
+stages will be removed in a future major — the alias is the supported path.
 
-Nota histórica (MLflow 3.x): `get_latest_versions(...)` podia retornar `source`
-como locator `models:/m-<hash>` (não o caminho `.../mlruns/<exp>/...`). O
-`serve.py` sempre carregou via `models:/<nome>/<versão>` ou `@alias`, que
-resolve no registry e independe do estilo do `source`.
+Historical note (MLflow 3.x): `get_latest_versions(...)` could return `source`
+as a `models:/m-<hash>` locator (not the `.../mlruns/<exp>/...` path). The
+`serve.py` always loaded via `models:/<name>/<version>` or `@alias`, which
+resolves in the registry and is independent of the `source` style.
 
-## Modelo registrado
+## Registered model
 
-Campeão: `use_log_target=False` (val_mae **1.5074** medido sem Optuna). O joblib
-commitado (`sales_forecaster_v2_final.joblib`, use_log_target=True, val_mae 2.71)
-é a versão descartada no README do repo — registramos o campeão verdadeiro, o
-tipo de divergência que um model registry serve para capturar.
+Champion: `use_log_target=False` (val_mae **1.5074** measured without Optuna). The committed
+joblib (`sales_forecaster_v2_final.joblib`, use_log_target=True, val_mae 2.71)
+is the version discarded in the repo README — we registered the true champion, the
+kind of divergence a model registry exists to capture.

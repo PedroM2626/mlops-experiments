@@ -1,4 +1,4 @@
-"""Testes do metrics_store com SQLite temporário (não toca o DB de produção)."""
+"""Tests for metrics_store with a temporary SQLite DB (does not touch the production DB)."""
 
 import mlops.config as config
 import mlops.metrics_store as ms

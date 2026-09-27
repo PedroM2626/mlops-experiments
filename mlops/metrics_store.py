@@ -1,4 +1,4 @@
-"""Persistencia das metricas de producao (latencia, custo, drift) em SQLite."""
+"""Persistence of production metrics (latency, cost, drift) in SQLite."""
 import sqlite3
 import json
 import time
@@ -79,7 +79,7 @@ def log_drift(n_features, drifted_features, max_psi, max_share_change, triggered
 
 
 def last_retrain_ts():
-    """TS (epoch) do retrain mais recente; 0.0 se nunca houve."""
+    """TS (epoch) of the most recent retrain; 0.0 if there was never one."""
     init_db()
     with get_conn() as c:
         row = c.execute("SELECT MAX(ts) FROM retrain_events").fetchone()

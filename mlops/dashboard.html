@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MLOps Sales-Forecast v2.2 — Dashboard Vivo</title>
+<title>MLOps Sales-Forecast v2.2 — Live Dashboard</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1419; color: #e0e0e0; padding: 20px; }
@@ -32,30 +32,30 @@
 </head>
 <body>
   <h1>MLOps Sales-Forecast v2.2 <span class="pulse" id="live"></span> <span class="badge" id="driftbadge" style="display:none">DRIFT</span></h1>
-  <div class="subtitle">Serving em FastAPI + MLflow registry + drift (Evidently) + retrain automático. Atualiza a cada 5s.</div>
+  <div class="subtitle">FastAPI serving + MLflow registry + drift (Evidently) + automatic retrain. Refreshes every 5s.</div>
 
   <div class="grid" id="cards">
-    <div class="card"><div class="label">Modelo em Produção</div><div class="value" id="m_version">—</div><div class="sub" id="m_runid">run: —</div></div>
-    <div class="card"><div class="label">Calls (janela)</div><div class="value" id="m_calls">0</div><div class="sub" id="m_predtotal">0 preds</div></div>
-    <div class="card"><div class="label">Custo acumulado</div><div class="value" id="m_cost">$0.00</div><div class="sub">@ $0.0009 / 1k pred</div></div>
-    <div class="card"><div class="label">Latência média</div><div class="value" id="m_lat">0 ms</div><div class="sub" id="m_latmax">pico: 0 ms</div></div>
-    <div class="card" id="m_driftcard"><div class="label">Drift (PSI máx)</div><div class="value" id="m_drift">0.00</div><div class="sub" id="m_driftchecks">0 checks</div></div>
-    <div class="card" id="m_retraincard"><div class="label">Retrains (janela)</div><div class="value" id="m_retrains">0</div><div class="sub" id="m_retraininfo">sem gatilho</div></div>
+    <div class="card"><div class="label">Model in Production</div><div class="value" id="m_version">—</div><div class="sub" id="m_runid">run: —</div></div>
+    <div class="card"><div class="label">Calls (window)</div><div class="value" id="m_calls">0</div><div class="sub" id="m_predtotal">0 preds</div></div>
+    <div class="card"><div class="label">Cumulative cost</div><div class="value" id="m_cost">$0.00</div><div class="sub">@ $0.0009 / 1k pred</div></div>
+    <div class="card"><div class="label">Average latency</div><div class="value" id="m_lat">0 ms</div><div class="sub" id="m_latmax">peak: 0 ms</div></div>
+    <div class="card" id="m_driftcard"><div class="label">Drift (max PSI)</div><div class="value" id="m_drift">0.00</div><div class="sub" id="m_driftchecks">0 checks</div></div>
+    <div class="card" id="m_retraincard"><div class="label">Retrains (window)</div><div class="value" id="m_retrains">0</div><div class="sub" id="m_retraininfo">no trigger</div></div>
   </div>
 
   <div class="section">
-    <h2>Últimas predições</h2>
-    <table><thead><tr><th>Timestamp</th><th>Semanas</th><th>Nº predições</th><th>Latência (ms)</th><th>Custo ($)</th><th>Status</th></tr></thead>
+    <h2>Latest predictions</h2>
+    <table><thead><tr><th>Timestamp</th><th>Weeks</th><th>Predictions</th><th>Latency (ms)</th><th>Cost ($)</th><th>Status</th></tr></thead>
     <tbody id="preds"></tbody></table>
   </div>
 
   <div class="section">
-    <h2>Últimos checks de drift</h2>
-    <table><thead><tr><th>Timestamp</th><th>Features drift</th><th>PSI máx</th><th>Share máx</th><th>Gatilho</th></tr></thead>
+    <h2>Latest drift checks</h2>
+    <table><thead><tr><th>Timestamp</th><th>Drifted features</th><th>Max PSI</th><th>Max share</th><th>Trigger</th></tr></thead>
     <tbody id="drifts"></tbody></table>
   </div>
 
-  <div class="footer">MLOps dashboard vivo · FastAPI /metrics · MLflow registry · Evidently/PSI drift · <a href="https://github.com/PedroM2626/mlops-experiments" style="color:#4fc3f7">hub estático: dashboard/index.html</a></div>
+  <div class="footer">Live MLOps dashboard · FastAPI /metrics · MLflow registry · Evidently/PSI drift · <a href="https://github.com/PedroM2626/mlops-experiments" style="color:#4fc3f7">static hub: dashboard/index.html</a></div>
 
 <script>
 const fmt_ts = u => {
@@ -76,7 +76,7 @@ async function refresh() {
     document.getElementById('m_predtotal').textContent = (metrics.predictions?.total_predictions || 0) + ' preds';
     document.getElementById('m_cost').textContent = '$' + (metrics.predictions?.cost_usd || 0).toFixed(6);
     document.getElementById('m_lat').textContent = (metrics.predictions?.avg_latency_ms || 0) + ' ms';
-    document.getElementById('m_latmax').textContent = 'pico: ' + (metrics.predictions?.max_latency_ms || 0) + ' ms';
+    document.getElementById('m_latmax').textContent = 'peak: ' + (metrics.predictions?.max_latency_ms || 0) + ' ms';
     document.getElementById('m_drift').textContent = (metrics.drift?.max_psi || 0).toFixed(3);
     document.getElementById('m_driftchecks').textContent = (metrics.drift?.checks || 0) + ' checks';
     document.getElementById('m_retrains').textContent = metrics.retrains || 0;
@@ -91,12 +91,12 @@ async function refresh() {
     for (const p of recent.predictions || []) {
       h += `<tr><td>${fmt_ts(p.ts)}</td><td>${p.weeks}</td><td>${p.n_predictions}</td><td>${(p.latency_ms||0).toFixed(0)}</td><td>${(p.cost_usd||0).toFixed(6)}</td><td>${p.status}</td></tr>`;
     }
-    document.getElementById('preds').innerHTML = h || '<tr><td colspan="6" style="color:#546e7a">nenhuma predição ainda</td></tr>';
+    document.getElementById('preds').innerHTML = h || '<tr><td colspan="6" style="color:#546e7a">no predictions yet</td></tr>';
     let h2 = '';
     for (const d of recent.drift_checks || []) {
-      h2 += `<tr><td>${fmt_ts(d.ts)}</td><td>${d.drifted_features}/${d.n_features}</td><td>${(d.max_psi||0).toFixed(3)}</td><td>${(d.max_share_change||0).toFixed(3)}</td><td>${d.triggered ? 'SIM' : 'não'}</td></tr>`;
+      h2 += `<tr><td>${fmt_ts(d.ts)}</td><td>${d.drifted_features}/${d.n_features}</td><td>${(d.max_psi||0).toFixed(3)}</td><td>${(d.max_share_change||0).toFixed(3)}</td><td>${d.triggered ? 'YES' : 'no'}</td></tr>`;
     }
-    document.getElementById('drifts').innerHTML = h2 || '<tr><td colspan="5" style="color:#546e7a">nenhum check ainda</td></tr>';
+    document.getElementById('drifts').innerHTML = h2 || '<tr><td colspan="5" style="color:#546e7a">no checks yet</td></tr>';
   } catch (e) { console.error(e); }
 }
 setInterval(refresh, 5000); refresh();

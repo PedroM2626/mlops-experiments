@@ -1,8 +1,8 @@
-"""Testes do lifespan do serve sem carregar dados/modelo reais.
+"""Tests for the serve lifespan without loading real data or models.
 
-Importar `mlops.serve` e monkeypatchar `_ensure_predictor`/`_kick_precompute`
-+ DB temporário: o bloco lifespan executa sem tocar no registry nem nos
-parquets de vendas.
+Import `mlops.serve` and monkeypatch `_ensure_predictor`/`_kick_precompute`
++ a temporary DB: the lifespan block runs without touching the registry or the
+sales parquets.
 """
 import asyncio
 

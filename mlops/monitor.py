@@ -1,21 +1,21 @@
-"""Monitor de drift de feature entre referencia (treino) e inferencias recentes.
+"""Feature drift monitor between the reference (training data) and recent inferences.
 
-Abordagem em 2 níveis:
-  1. Tenta Evidently (`DataDriftPreset`) se instalado — conta features com
-     drift e usa como sinal primário.
-  2. Sempre calcula PSI (numéricas) + share-change (categóricas) como
-     fallback robusto e como métricas registradas no SQLite.
+Two-level approach:
+  1. Tries Evidently (`DataDriftPreset`) when installed — counts the features with
+     drift and uses that as the primary signal.
+  2. Always computes PSI (numeric) + share-change (categorical) as a
+     robust fallback and as the metrics recorded in SQLite.
 
-Se max_PSI > DRIFT_PSI_THRESHOLD ou share > DRIFT_SHARE_THRESHOLD, escreve
-retrain_trigger.json (consumido pelo retrain).
+If max_PSI > DRIFT_PSI_THRESHOLD or share > DRIFT_SHARE_THRESHOLD, it writes
+retrain_trigger.json (consumed by retrain).
 
-Como 'current' usamos a matriz de features de uma recente /predict (amos-
-trada). Sem inferencias recentes, deriva a 'current' da propria referencia
-shiftada (simulacao).
+As 'current' we use the feature matrix of a recent /predict (sample). Without
+recent inferences, 'current' is derived from the shifted reference itself
+(simulation).
 
-Uso:
-  python -m mlops.monitor            # uma rodada
-  python -m mlops.monitor --loop     # monitor continuo (MONITOR_INTERVAL_SECONDS)
+Usage:
+  python -m mlops.monitor            # one pass
+  python -m mlops.monitor --loop     # continuous monitoring (MONITOR_INTERVAL_SECONDS)
 """
 import os
 import sys
@@ -29,7 +29,7 @@ from . import config, metrics_store
 
 
 def _psi(expected, actual, buckets=10):
-    """Population Stability Index para uma feature numerica."""
+    """Population Stability Index for one numeric feature."""
     eps = 1e-6
     breakpoints = np.percentile(expected, np.linspace(0, 100, buckets + 1))
     breakpoints[0] = -np.inf
@@ -45,7 +45,7 @@ def _psi(expected, actual, buckets=10):
 
 
 def _share_diff(expected, actual):
-    """Mudanca maxima de share de categorias entre expected/actual."""
+    """Maximum category share change between expected/actual."""
     esc = expected.value_counts(normalize=True)
     asc = actual.value_counts(normalize=True)
     cats = set(esc.index) | set(asc.index)
@@ -53,10 +53,10 @@ def _share_diff(expected, actual):
 
 
 def _try_evidently_drift(reference, current) -> dict | None:
-    """Roda Evidently DataDriftPreset; retorna resumo ou None se indisponível.
+    """Runs the Evidently DataDriftPreset; returns a summary or None when unavailable.
 
-    Nunca levanta exceção — qualquer falha (import, API, versão) cai no
-    fallback PSI do `compute_drift`.
+    Never raises — any failure (import, API, version) falls back to the
+    PSI computation in `compute_drift`.
     """
     try:
         from evidently.report import Report
@@ -65,7 +65,7 @@ def _try_evidently_drift(reference, current) -> dict | None:
         report = Report(metrics=[DataDriftPreset()])
         report.run(reference_data=reference, current_data=current)
         payload = report.as_dict()
-        # Extrai nº de features com drift de forma tolerante a versões.
+        # Extracts the number of drifted features in a version-tolerant way.
         drifted, total, share = 0, len(reference.columns), 0.0
         try:
             metrics = payload.get("metrics", [])
@@ -92,7 +92,7 @@ def _try_evidently_drift(reference, current) -> dict | None:
 
 
 def compute_drift(reference, current):
-    """Retorna dict {n_features, drifted_features, max_psi, max_share_change, per_feature}."""
+    """Returns dict {n_features, drifted_features, max_psi, max_share_change, per_feature}."""
     per = {}
     max_psi = 0.0
     max_share = 0.0
@@ -125,7 +125,7 @@ def compute_drift(reference, current):
 def run_once(auto=False, dry_run=False, strong=False):
     metrics_store.init_db()
     ref = pd.read_parquet(str(config.REFERENCE_PATH))
-    # current: dados recentes se existirem, senao simulacao (ref + ruido)
+    # current: recent data when it exists, otherwise a simulation (ref + noise)
     if config.CURRENT_PATH.exists():
         cur = pd.read_parquet(str(config.CURRENT_PATH))
         n_match = min(len(cur), len(ref))
@@ -133,7 +133,7 @@ def run_once(auto=False, dry_run=False, strong=False):
         sample_cur = cur.sample(n=n_match, random_state=42)
     else:
         sample_ref = ref.sample(n=min(20000, len(ref)), random_state=42)
-        # simulacao de drift: shiftar lag_* +10% e preco +20% (padrao, suave)
+        # drift simulation: shift lag_* by +10% and price by +20% (default, smooth)
         sample_cur = sample_ref.copy()
         for c in sample_cur.columns:
             if c.startswith("lag_") and sample_cur[c].dtype.kind in "fiu":
@@ -143,30 +143,30 @@ def run_once(auto=False, dry_run=False, strong=False):
     result = compute_drift(sample_ref, sample_cur)
     ev = _try_evidently_drift(sample_ref, sample_cur)
     result["evidently"] = ev or {"method": "psi_fallback",
-                                 "reason": "evidently indisponível ou falhou"}
+                                 "reason": "evidently unavailable or failed"}
     result["method"] = result["evidently"]["method"]
     triggered = (result["max_psi"] > config.DRIFT_PSI_THRESHOLD or
                  result["max_share_change"] > config.DRIFT_SHARE_THRESHOLD)
     result_with_ts = {"triggered": triggered,
-                      "reason": "drift detectado" if triggered else "OK",
+                      "reason": "drift detected" if triggered else "OK",
                       **result}
     metrics_store.log_drift(result["n_features"], result["drifted_features"],
                             result["max_psi"], result["max_share_change"], triggered, result["per_feature"])
-    # escreve gatilho apenas se nao houver um pendente (evita churn de arquivo)
+    # writes the trigger only when there is no pending one (avoids file churn)
     if triggered and config.RETRAIN_TRIGGER_FILE.parent.exists() and not config.RETRAIN_TRIGGER_FILE.exists():
         config.RETRAIN_TRIGGER_FILE.write_text(json.dumps(result_with_ts, default=str), encoding="utf-8")
     print(f"[monitor] drifted={result['drifted_features']}/{result['n_features']} "
           f"max_psi={result['max_psi']:.3f} max_share={result['max_share_change']:.3f} -> {'TRIGGER' if triggered else 'OK'}")
 
-    # loop automatico: retrain se gatilho + cooldown satisfeito
+    # automatic loop: retrain when trigger + cooldown are satisfied
     if auto and triggered:
         last = metrics_store.last_retrain_ts()
         since = time.time() - last
         if since < config.RETRAIN_COOLDOWN_SECONDS:
-            print(f"[monitor] cooldown de retrain ativo ({since:.0f}/{config.RETRAIN_COOLDOWN_SECONDS}s) - skip")
+            print(f"[monitor] retrain cooldown active ({since:.0f}/{config.RETRAIN_COOLDOWN_SECONDS}s) - skip")
             return result_with_ts
         if dry_run:
-            print(f"[monitor][auto] IRIA retreinar (drift) - dry-run")
+            print(f"[monitor][auto] would retrain (drift) - dry-run")
         else:
             from .retrain import retrain
             retrain(reason="drift")
@@ -177,10 +177,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--auto", action="store_true",
-                        help="executa retrain automaticamente quando drift > limiar (com cooldown)")
-    parser.add_argument("--dry-run", action="store_true", help="nao executa retrain de fato")
+                        help="runs retrain automatically when drift > threshold (with cooldown)")
+    parser.add_argument("--dry-run", action="store_true", help="does not actually run retrain")
     parser.add_argument("--strong", action="store_true",
-                        help="simulacao de drift forte (demo/gatilho garantido)")
+                        help="strong drift simulation (demo/guaranteed trigger)")
     args = parser.parse_args()
     while True:
         run_once(auto=args.auto, dry_run=args.dry_run, strong=args.strong)
