@@ -1,14 +1,14 @@
-"""Detector YOLO via OpenCV DNN (usado pelo `yolo_notebook.ipynb`).
+"""YOLO detector via OpenCV DNN (used by `yolo_notebook.ipynb`).
 
-`build_detector_from_env()` monta o detector a partir de `.env` ou do
-fallback YOLOv3-tiny COCO (pesos baixados automaticamente p/ o cache local
-`~/.cache/mlops_yolo/`). API minima usada pelo notebook e pelos testes:
+`build_detector_from_env()` builds the detector from `.env` or from the
+YOLOv3-tiny COCO fallback (weights downloaded automatically to the local cache
+`~/.cache/mlops_yolo/`). Minimal API used by the notebook and by the tests:
 
     detector = build_detector_from_env()
     dets = detector.detect(img_bgr)   # [{'class_name', 'confidence', 'box'}]
     out = detector.draw(img_bgr, dets)
 
-Variaveis `.env` (todas opcionais):
+`.env` variables (all optional):
     YOLO_WEIGHTS, YOLO_CFG, YOLO_NAMES, YOLO_SIZE (default 416),
     YOLO_CONF (default 0.5), YOLO_NMS (default 0.4)
 """
@@ -22,7 +22,7 @@ import cv2
 import numpy as np
 
 COCO_URLS = {
-    # pesos: original Joseph Redmon (pjreddie fora do ar -> tentar proximos)
+    # weights: original Joseph Redmon (pjreddie offline -> try the next ones)
     "weights": [
         "https://pjreddie.com/media/files/yolov3-tiny.weights",
     ],
@@ -48,7 +48,7 @@ def _fetch(url: str | list, dest: Path) -> Path:
             last = e
             if dest.exists():
                 dest.unlink()
-    raise RuntimeError(f"download falhou ({urls[0]}...): {last}")
+    raise RuntimeError(f"download failed ({urls[0]}...): {last}")
 
 
 def _env(name: str, default: str) -> str:

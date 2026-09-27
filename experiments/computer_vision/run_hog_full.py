@@ -1,15 +1,15 @@
-"""HOG+SVM no CIFAR-10 COMPLETO (50k treino / 10k teste).
+"""HOG+SVM on the COMPLETE CIFAR-10 (50k train / 10k test).
 
-Comparacao justa com ResNet18/ViT (que usaram 50k/10k): mesma receita do
+Fair comparison with ResNet18/ViT (which used 50k/10k): same recipe as the
 notebook `cv-methods-comparison.ipynb` (gray -> 64x64 -> HOG 9ori/8x8/3x3 =
-2.916 feats -> StandardScaler -> LinearSVC C=1), mas sem a subamostra de
-10k/2k. Extracao paralelizada com joblib (o notebook era serial).
+2,916 feats -> StandardScaler -> LinearSVC C=1), but without the
+10k/2k subsample. Extraction parallelized with joblib (the notebook was serial).
 
-Dados: `computer_vision/data/cifar-10-python.tar.gz` local (sem download).
-Features intermediarias (float32) vao p/ TEMP (nao commitadas); metricas em
+Data: local `computer_vision/data/cifar-10-python.tar.gz` (no download).
+Intermediate features (float32) go to TEMP (not committed); metrics in
 `experiments/artifacts/hog_cifar10_<timestamp>/metrics.json`.
 
-Uso:
+Usage:
     python run_hog_full.py [--jobs -1]
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ SEED = 42
 
 
 def load_cifar10():
-    """HF `cifar10` (mesma fonte do notebook). Fallback: tarball local."""
+    """HF `cifar10` (same source as the notebook). Fallback: local tarball."""
     try:
         from datasets import load_dataset
         ds = load_dataset("cifar10")
@@ -51,10 +51,10 @@ def load_cifar10():
         ytr = np.array(ds["train"]["label"])
         Xte = np.stack([np.array(ds["test"][i]["img"]) for i in range(len(ds["test"]))])
         yte = np.array(ds["test"]["label"])
-        print("[hog] fonte: HuggingFace cifar10")
+        print("[hog] source: HuggingFace cifar10")
         return Xtr, ytr, Xte, yte
     except Exception as e:
-        print(f"[hog] HF falhou ({e}); tentando tarball local...")
+        print(f"[hog] HF failed ({e}); trying the local tarball...")
     tmp = Path(tempfile.mkdtemp(prefix="cifar10_"))
     with tarfile.open(TARBALL) as tf:
         tf.extractall(tmp, filter="data")
@@ -86,7 +86,7 @@ def main() -> int:
 
     t0 = time.time()
     Xtr, ytr, Xte, yte = load_cifar10()
-    print(f"[hog] dados: treino={Xtr.shape} teste={Xte.shape} "
+    print(f"[hog] data: train={Xtr.shape} test={Xte.shape} "
           f"({time.time()-t0:.0f}s)", flush=True)
 
     t1 = time.time()
@@ -120,7 +120,7 @@ def main() -> int:
         "report": classification_report(yte, pred, target_names=CLASSES,
                                         zero_division=0, output_dict=True),
     }, indent=2), encoding="utf-8")
-    print(f"[hog] artefatos em {outdir}")
+    print(f"[hog] artifacts in {outdir}")
     return 0
 
 

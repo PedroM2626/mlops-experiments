@@ -25,7 +25,7 @@ def test_env_override_tmp(tmp_path):
     import shutil
     src_weights = os.path.join(os.path.expanduser("~"), ".cache", "mlops_yolo",
                                "yolov3-tiny.weights")
-    assert os.path.exists(src_weights), "rode test_detector_download_and_detect antes"
+    assert os.path.exists(src_weights), "run test_detector_download_and_detect first"
     for name in ["yolov3-tiny.weights", "yolov3-tiny.cfg", "coco.names"]:
         shutil.copy(os.path.join(os.path.dirname(src_weights), name), tmp_path / name)
     os.environ["YOLO_WEIGHTS"] = str(tmp_path / "yolov3-tiny.weights")

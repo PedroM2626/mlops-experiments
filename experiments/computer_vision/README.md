@@ -1,163 +1,163 @@
-# Computer Vision — Experimentos e Aplicações
+# Computer Vision — Experiments and Applications
 
-> **Área:** Computer Vision
-> **Tarefa:** Classificação de imagens (multiclasse e multi-label), detecção e reconhecimento facial
-> **Métrica principal:** Acurácia (CIFAR-10) / F1-macro (multi-label)
-> **Status:** Concluído
-> **Datasets:** CIFAR-10 (50.000 treino / 10.000 teste, 10 classes); dataset próprio de pets (44 imagens, 2 classes multi-label); dataset local de faces; COCO/custom para YOLO
+> **Area:** Computer Vision
+> **Task:** Image classification (multiclass and multi-label), detection and face recognition
+> **Primary metric:** Accuracy (CIFAR-10) / F1-macro (multi-label)
+> **Status:** Completed
+> **Datasets:** CIFAR-10 (50,000 train / 10,000 test, 10 classes); own pet dataset (44 images, 2 multi-label classes); local face dataset; COCO/custom for YOLO
 
-## 1. Resumo
+## 1. Abstract
 
-Esta pasta reúne quatro notebooks de visão computacional: um comparativo de três paradigmas (HOG+SVM, ResNet18 e ViT) no CIFAR-10 — vencido pelo **ViT com 0,9805 de acurácia** —, um estudo multi-label de classificação de pets com quatro abordagens (ResNet18, VGG16, CLIP zero-shot e EfficientNet) — vencido pelo **ResNet18 com F1-macro 1,000** —, um aplicativo de reconhecimento facial com modos LBPH/CNN/transferência (YuNet) e um notebook de detecção com YOLO (OpenCV DNN). Conclui-se que transformers pré-treinados e fine-tuning supervisionado são os caminhos de maior acurácia, enquanto features manuais (HOG) falham em imagens de baixa resolução.
+This folder gathers four computer vision notebooks: a comparison of three paradigms (HOG+SVM, ResNet18 and ViT) on CIFAR-10 — won by **ViT with 0.9805 accuracy** —, a multi-label study of pet classification with four approaches (ResNet18, VGG16, CLIP zero-shot and EfficientNet) — won by **ResNet18 with F1-macro 1.000** —, a face recognition app with LBPH/CNN/transfer (YuNet) modes and a detection notebook with YOLO (OpenCV DNN). It is concluded that pretrained transformers and supervised fine-tuning are the highest-accuracy paths, while manual features (HOG) fail on low-resolution images.
 
-## 2. Contexto e Objetivos
+## 2. Context and Objectives
 
-O grupo investiga o vetor de técnicas de visão computacional disponíveis para problemas de escala:
-1. **CIFAR-10 (cv-methods-comparison.ipynb):** quantificar o salto de representações manuais (HOG) para redes profundas (ResNet18 CNN residual) e para transformers visuais (ViT pré-treinado no ImageNet-21k), além do custo computacional de cada um.
-2. **Multi-label pets (animal-classifier.ipynb):** comparar 4 fluxos (PyTorch/Keras/CLIP) para o problema de ativar múltiplos rótulos numa mesma imagem — duas gatas (Dime e Frida) que aparecem juntas em algumas fotos.
-3. **Face recognition e YOLO:** disponibilizar aplicações funcionais (app embutido no notebook e detecção por YOLO via OpenCV DNN) sem dependência de scripts externos.
+The group investigates the range of computer vision techniques available for problems at scale:
+1. **CIFAR-10 (cv-methods-comparison.ipynb):** quantify the jump from manual representations (HOG) to deep networks (ResNet18 residual CNN) and to vision transformers (ViT pretrained on ImageNet-21k), besides the computational cost of each.
+2. **Multi-label pets (animal-classifier.ipynb):** compare 4 flows (PyTorch/Keras/CLIP) for the problem of activating multiple labels on the same image — two cats (Dime and Frida) that appear together in some photos.
+3. **Face recognition and YOLO:** provide functional applications (app embedded in the notebook and YOLO detection via OpenCV DNN) without depending on external scripts.
 
-Questões de pesquisa: *o salto arquitetural importa mais em visão do que em texto? O fine-tuning supervisionado supera backbones congelados e zero-shot em cenários de poucos dados?*
+Research questions: *does the architectural jump matter more in vision than in text? Does supervised fine-tuning beat frozen backbones and zero-shot in low-data scenarios?*
 
-## 3. Fundamentação Teórica (curta)
+## 3. Theoretical Background (brief)
 
-- **HOG (Histogram of Oriented Gradients):** representação clássica baseada em gradientes locais por célula (cell/block); eficaz para detecção de pedestres em média resolução, mas com baixa capacidade de generalização para classe variada.
-- **CNN residuais (ResNet18):** blocos com conexões residuais permitem treinamento profundo sem degradação de gradiente; fine-tune sobre pesos ImageNet transfere features genéricas de textura/forma.
-- **Vision Transformer (ViT):** divide a imagem em patches linearizados e aplica self-attention global; pré-treinamento em corpora gigantes (ImageNet-21k, 14M imagens/21k classes) confere antecedentes qualitativos sobre CNNs pré-treinadas no ImageNet-1k.
-- **Aprendizado multi-label:** BCEWithLogitsLoss + sigmoid por classe; métricas de Exact Match, Hamming Loss, F1-micro/macro, precisão/recall.
-- **CLIP zero-shot:** alinha texto-imagem (ViT-B/32); classificação via protótipos de classes (embedding médio) e similaridade de cosseno com limiar (threshold).
-- **EfficientNet-B0:** escalonamento compound (profundidade × largura × resolução).
-- **Reconhecimento facial:** LBPH (histogramas LBP + distância), CNN treinada do zero e transfer learning com MobileNetV2 sobre faces detectadas por YuNet.
-- **YOLO (OpenCV DNN):** detecção one-stage (YOLOv3-tiny COCO) para classificação de objetos em imagens de upload.
+- **HOG (Histogram of Oriented Gradients):** classical representation based on local gradients per cell (cell/block); effective for pedestrian detection at medium resolution, but with low generalization capacity for varied classes.
+- **Residual CNNs (ResNet18):** blocks with residual connections allow deep training without gradient degradation; fine-tuning on ImageNet weights transfers generic texture/shape features.
+- **Vision Transformer (ViT):** splits the image into linearized patches and applies global self-attention; pretraining on giant corpora (ImageNet-21k, 14M images/21k classes) yields qualitative advantages over CNNs pretrained on ImageNet-1k.
+- **Multi-label learning:** BCEWithLogitsLoss + sigmoid per class; Exact Match, Hamming Loss, F1-micro/macro, precision/recall metrics.
+- **CLIP zero-shot:** aligns text-image (ViT-B/32); classification via class prototypes (mean embedding) and cosine similarity with a threshold.
+- **EfficientNet-B0:** compound scaling (depth × width × resolution).
+- **Face recognition:** LBPH (LBP histograms + distance), a CNN trained from scratch and transfer learning with MobileNetV2 on faces detected by YuNet.
+- **YOLO (OpenCV DNN):** one-stage detection (YOLOv3-tiny COCO) for object classification in uploaded images.
 
-## 4. Metodologia
+## 4. Methodology
 
-### 4.1 Dados
+### 4.1 Data
 
-**Experimento CIFAR-10 (cv-methods-comparison.ipynb):**
-- CIFAR-10: 50.000 imagens de treino, 10.000 de teste, 10 classes, 32×32, coloridas (RGB).
-- HOG+SVM usou subamostra de **10k treino / 2k teste** por limitação computacional; ResNet18 e ViT usaram **50k treino / 10k teste**.
+**CIFAR-10 experiment (cv-methods-comparison.ipynb):**
+- CIFAR-10: 50,000 training images, 10,000 test, 10 classes, 32×32, color (RGB).
+- HOG+SVM used a subsample of **10k train / 2k test** due to computational limits; ResNet18 and ViT used **50k train / 10k test**.
 - Hardware: NVIDIA RTX 4070 Laptop GPU (8GB), Python 3.8, PyTorch 2.4.
 
-**Experimento multi-label (animal-classifier.ipynb):**
-- 44 imagens rotuladas (22 por classe: Dime e Frida); multi-label porque as duas gatas aparecem juntas em algumas fotos.
-- Split: 60% treino (30), 15% validação (7), 25% teste (7), estratificado por classe dominante.
-- Cautela: dataset muito pequeno impede generalização robusta (valores perfeitos devem ser interpretados com ressalvas).
+**Multi-label experiment (animal-classifier.ipynb):**
+- 44 labeled images (22 per class: Dime and Frida); multi-label because the two cats appear together in some photos.
+- Split: 60% training (30), 15% validation (7), 25% test (7), stratified by dominant class.
+- Caution: a very small dataset prevents robust generalization (perfect values should be interpreted with reservations).
 
-**Face recog & YOLO:** dataset local `dataset/<nome>/` (coleta por upload); YOLO usa COCO (YOLOv3-tiny) ou modelo custom (car, motorbike, threewheel, van, bus, truck), baixado automaticamente via `.env`.
+**Face recog & YOLO:** local dataset `dataset/<name>/` (collection by upload); YOLO uses COCO (YOLOv3-tiny) or a custom model (car, motorbike, threewheel, van, bus, truck), downloaded automatically via `.env`.
 
-### 4.2 Pré-processamento
+### 4.2 Preprocessing
 
-- CIFAR-10: redimensionamento para 224×224 com normalização ImageNet (ResNet18 e ViT); no ViT, normalização própria do modelo; HOG baseado em 9 orientações, cell 8×8, block 3×3, gerando **2.916 features**.
-- Pets: Data Augmentation (flip horizontal, rotação ±15°, jitter de cor, affine) aplicada aos fluxos ResNet18 e EfficientNet; normalização ImageNet.
-- Faces: recorte de faces detectadas, salvando em `dataset/<nome>/`.
+- CIFAR-10: resizing to 224×224 with ImageNet normalization (ResNet18 and ViT); for ViT, the model's own normalization; HOG based on 9 orientations, cell 8×8, block 3×3, generating **2,916 features**.
+- Pets: Data Augmentation (horizontal flip, ±15° rotation, color jitter, affine) applied to the ResNet18 and EfficientNet flows; ImageNet normalization.
+- Faces: crop of detected faces, saved under `dataset/<name>/`.
 
-### 4.3 Métodos comparados
+### 4.3 Methods compared
 
-| Notebook | Fluxos/Arquiteturas | Estratégia |
+| Notebook | Flows/Architectures | Strategy |
 |---|---|---|
-| cv-methods-comparison.ipynb | HOG+SVM; ResNet18 (fine-tune 5 épocas, Adam lr=1e-4, batch 128); ViT `google/vit-base-patch16-224-in21k` (fine-tune 2 épocas, Adam lr=2e-5, batch 32) | Paradigmática: manual → CNN → Transformer |
-| animal-classifier.ipynb | ResNet18+Aug (fine layer4+FC, adam lr=1e-4, 10 épocas); VGG16 (frozen + head 128/Dropout0.2 + sigmoid, 6 épocas); CLIP zero-shot (prototypes, threshold 0.75); EfficientNet-B0+Aug (blocks 4-5+FC, 10 épocas) | Supervisionado vs zero-shot |
-| face_recognition_app.ipynb | LBPH (baseline), CNN (do zero), transfer_yunet (MobileNetV2 + detecção YuNet) | Reconhecimento facial |
-| yolo_notebook.ipynb | YOLOv3-tiny COCO (OpenCV DNN) | Detecção one-stage |
+| cv-methods-comparison.ipynb | HOG+SVM; ResNet18 (fine-tune 5 epochs, Adam lr=1e-4, batch 128); ViT `google/vit-base-patch16-224-in21k` (fine-tune 2 epochs, Adam lr=2e-5, batch 32) | Paradigmatic: manual → CNN → Transformer |
+| animal-classifier.ipynb | ResNet18+Aug (fine layer4+FC, adam lr=1e-4, 10 epochs); VGG16 (frozen + head 128/Dropout0.2 + sigmoid, 6 epochs); CLIP zero-shot (prototypes, threshold 0.75); EfficientNet-B0+Aug (blocks 4-5+FC, 10 epochs) | Supervised vs zero-shot |
+| face_recognition_app.ipynb | LBPH (baseline), CNN (from scratch), transfer_yunet (MobileNetV2 + YuNet detection) | Face recognition |
+| yolo_notebook.ipynb | YOLOv3-tiny COCO (OpenCV DNN) | One-stage detection |
 
-Configurações env para o face app: `FACE_DETECTOR=yunet\|haar`; `FACE_TL_EPOCHS`, `FACE_TL_BATCH`; `FACE_CNN_EPOCHS`, `FACE_CNN_BATCH`; `YUNET_SCORE_THRESHOLD`, `YUNET_NMS_THRESHOLD`, `YUNET_TOP_K`.
+Env settings for the face app: `FACE_DETECTOR=yunet\|haar`; `FACE_TL_EPOCHS`, `FACE_TL_BATCH`; `FACE_CNN_EPOCHS`, `FACE_CNN_BATCH`; `YUNET_SCORE_THRESHOLD`, `YUNET_NMS_THRESHOLD`, `YUNET_TOP_K`.
 
-### 4.4 Avaliação
+### 4.4 Evaluation
 
-- CIFAR-10: **acurácia** no teste e tempo de treinamento; análise por classe (F1) para cada método.
-- Multi-label: **Exact Match, Hamming Loss, F1-micro, F1-macro, precisão micro, recall micro** sobre o conjunto de teste (7 imagens).
-- Face recog: predição por upload com visualização do resultado.
-- Seeds determinísticas e mesma partição para todos os fluxos do multi-label.
+- CIFAR-10: **accuracy** on test and training time; per-class analysis (F1) for each method.
+- Multi-label: **Exact Match, Hamming Loss, F1-micro, F1-macro, micro precision, micro recall** on the test set (7 images).
+- Face recog: prediction by upload with visualization of the result.
+- Deterministic seeds and the same split for all multi-label flows.
 
-### 4.5 Reprodução
+### 4.5 Reproduction
 
-- Notebooks com outputs embutidos; abrir em Jupyter (Jupyter Notebook / VS Code) e executar célula a célula.
-- `cv-methods-comparison.ipynb` requer GPU NVIDIA (RTX 4070) e PyTorch 2.4.
-- Scripts de validação estrutural: `python scripts/validate_notebooks.py`.
-- Pacote de saída (atípico deste grupo modelo): `experiments/artifacts/<experimento>_<timestamp>_<sha>/`.
+- Notebooks with embedded outputs; open in Jupyter (Jupyter Notebook / VS Code) and run cell by cell.
+- `cv-methods-comparison.ipynb` requires an NVIDIA GPU (RTX 4070) and PyTorch 2.4.
+- Structural validation scripts: `python scripts/validate_notebooks.py`.
+- Output bundle (atypical for this model group): `experiments/artifacts/<experiment>_<timestamp>_<sha>/`.
 
-## 5. Resultados
+## 5. Results
 
-### 5.1 CIFAR-10 — Comparativo de Paradigmas (cv-methods-comparison.ipynb)
+### 5.1 CIFAR-10 — Paradigm comparison (cv-methods-comparison.ipynb)
 
-| Método | Acurácia | Tempo | Paradigma | Dados |
+| Method | Accuracy | Time | Paradigm | Data |
 |--------|----------|-------|-----------|-------|
-| **ViT** | **0,9805** | ~17 min (1 época) | Transformer visual pré-treinado (ImageNet-21k) | 50k treino |
-| **ResNet18** | **0,9362** | 12,5 min (5 épocas) | CNN residual pré-treinada (ImageNet) | 50k treino |
-| HOG+SVM | 0,3970 | 27 min | Features manuais + SVM | 10k treino |
+| **ViT** | **0.9805** | ~17 min (1 epoch) | Pretrained visual transformer (ImageNet-21k) | 50k train |
+| **ResNet18** | **0.9362** | 12.5 min (5 epochs) | Pretrained residual CNN (ImageNet) | 50k train |
+| HOG+SVM | 0.3970 | 27 min | Manual features + SVM | 10k train |
 
-**Análise por classe (F1):** HOG+SVM melhor em `automobile` (0,54 F1, bordas retilíneas) e pior em `cat` (0,25 F1, forma não rígida). ResNet18: melhores em `ship` (0,99 prescisão), `bird` (0,97), `horse` (0,97); pior `cat` (0,84 prescisão, 0,87 F1). ViT domina todas as classes com margem.
+**Per-class analysis (F1):** HOG+SVM best on `automobile` (0.54 F1, straight edges) and worst on `cat` (0.25 F1, non-rigid shape). ResNet18: best on `ship` (0.99 precision), `bird` (0.97), `horse` (0.97); worst `cat` (0.84 precision, 0.87 F1). ViT dominates every class by a margin.
 
-Comportamento do treino ResNet18: saturação rápida (época 1 = 0,9323, oscila ~0,94). ViT alcançou 0,9805 em **1 época**.
+ResNet18 training behaviour: fast saturation (epoch 1 = 0.9323, oscillates around ~0.94). ViT reached 0.9805 in **1 epoch**.
 
-**Nota de fairness (derivada dos números acima, sem nova execução):** HOG usou 5× menos dados (10k vs 50k) e mesmo assim custou mais (27 min vs 12,5 min ResNet / ~17 min ViT). Custo por 1k amostras: HOG ~2,7 min (+SVM O(n²·d) em d=2.916), ResNet ~0,25 min, ViT ~0,34 min. Ou seja, mesmo normalizando por amostra o HOG perde em acc (0,3970) e em custo — a conclusão qualitativa (evitar HOG em CIFAR) se mantém, mas comparação head-to-head exige HOG em 50k ou todos em 10k.
+**Fairness note (derived from the numbers above, without a new run):** HOG used 5× less data (10k vs 50k) and still cost more (27 min vs 12.5 min ResNet / ~17 min ViT). Cost per 1k samples: HOG ~2.7 min (+SVM O(n²·d) at d=2,916), ResNet ~0.25 min, ViT ~0.34 min. That is, even normalized per sample HOG loses on acc (0.3970) and on cost — the qualitative conclusion (avoid HOG on CIFAR) holds, but a head-to-head comparison requires HOG at 50k or everyone at 10k.
 
-### 5.1b HOG em 50k/10k — comparação justa (`run_hog_full.py`)
+### 5.1b HOG at 50k/10k — fair comparison (`run_hog_full.py`)
 
-Mesma receita (gray → 64×64 → HOG 9/8×8/3×3 → StandardScaler → LinearSVC C=1),
-extração paralelizada (joblib), dados HF `cifar10` (o tarball local
-`data/cifar-10-python.tar.gz` está truncado — verificado EOFError no gzip):
+Same recipe (gray → 64×64 → HOG 9/8×8/3×3 → StandardScaler → LinearSVC C=1),
+parallelized extraction (joblib), HF `cifar10` data (the local tarball
+`data/cifar-10-python.tar.gz` is truncated — EOFError verified in gzip):
 
-| Método | Acurácia | Tempo | Dados |
+| Method | Accuracy | Time | Data |
 |--------|----------|-------|-------|
-| **ViT** | **0,9805** | ~17 min | 50k treino |
-| **ResNet18** | **0,9362** | 12,5 min | 50k treino |
-| HOG+SVM (full) | 0,5381 | ~33 min (1958 s) | 50k treino / 10k teste |
-| HOG+SVM (subamostra, original) | 0,3970 | 27 min | 10k / 2k |
+| **ViT** | **0.9805** | ~17 min | 50k train |
+| **ResNet18** | **0.9362** | 12.5 min | 50k train |
+| HOG+SVM (full) | 0.5381 | ~33 min (1958 s) | 50k train / 10k test |
+| HOG+SVM (subsample, original) | 0.3970 | 27 min | 10k / 2k |
 
-5× mais dados elevaram o HOG de 0,3970 → **0,5381 (+14 pp)**, e o padrão por
-classe se manteve (`automobile` melhor, `cat` pior) — mas o gap p/ ResNet
-(−39,8 pp) continua abissal: features manuais não escalam, e ainda custam
-mais tempo que o fine-tuning. Artefatos: `experiments/artifacts/hog_cifar10_20260908_121832/metrics.json`.
+5× more data lifted HOG from 0.3970 → **0.5381 (+14 pp)**, and the per-class
+pattern held (`automobile` best, `cat` worst) — but the gap to ResNet
+(−39.8 pp) remains abyssal: manual features do not scale, and they still cost
+more time than fine-tuning. Artifacts: `experiments/artifacts/hog_cifar10_20260908_121832/metrics.json`.
 
-### 5.2 Multi-label de Pets — 4 Abordagens (animal-classifier.ipynb)
+### 5.2 Multi-label pets — 4 approaches (animal-classifier.ipynb)
 
-| Métrica | ResNet18 + Aug | VGG16 | CLIP zero-shot | EfficientNet + Aug |
+| Metric | ResNet18 + Aug | VGG16 | CLIP zero-shot | EfficientNet + Aug |
 |---------|:--------------:|:-----:|:--------------:|:------------------:|
 | **Exact Match** | **1.000** | 0.429 | 0.000 | 0.714 |
 | **Hamming Loss** | 0.000 | 0.286 | 0.500 | 0.143 |
 | **F1-micro** | **1.000** | 0.714 | 0.667 | 0.833 |
 | **F1-macro** | **1.000** | 0.714 | 0.664 | 0.829 |
-| Precisão micro | 1.000 | 0.714 | 0.500 | 1.000 |
-| Recall micro | 1.000 | 0.714 | 1.000 | 0.714 |
+| Micro precision | 1.000 | 0.714 | 0.500 | 1.000 |
+| Micro recall | 1.000 | 0.714 | 1.000 | 0.714 |
 
-**Detalhes por fluxo:**
-- **ResNet18**: desempenho perfeito (F1-macro 1.000), resultado da baixa complexidade de generalização (7 imagens de teste); fine-tuning seletivo (layer4+FC) suficiente e BCEWithLogitsLoss adequada para multi-label.
-- **VGG16**: vencedor por 0.714; superior para Frida (F1=0.86) vs Dime (0.57); backbone congelado limita adaptação ao domínio (−28.6 pp vs ResNet18).
-- **CLIP**: F1-macro 0.664, recall 1.0, precisão 0.5, exact match 0.0; threshold 0.75 excessivas permissives (falsos positivos); protótipos capturam as classes, mas a calibração do limiar é crítica.
-- **EfficientNet+Aug**: 2º lugar (0.829), +11.5 pp sobre VGG16, perfil conservador (precisão 1.0, recall 0.714) — omite 28.6% das previsões positivas; escalonamento compound precisa de mais fine-tuning para calibrar sigmoid.
+**Details per flow:**
+- **ResNet18**: perfect performance (F1-macro 1.000), a result of the low generalization complexity (7 test images); selective fine-tuning (layer4+FC) is sufficient and BCEWithLogitsLoss is adequate for multi-label.
+- **VGG16**: winner at 0.714; better for Frida (F1=0.86) than for Dime (0.57); the frozen backbone limits domain adaptation (−28.6 pp vs ResNet18).
+- **CLIP**: F1-macro 0.664, recall 1.0, precision 0.5, exact match 0.0; the 0.75 threshold is too permissive (false positives); the prototypes capture the classes, but threshold calibration is critical.
+- **EfficientNet+Aug**: 2nd place (0.829), +11.5 pp over VGG16, conservative profile (precision 1.0, recall 0.714) — it omits 28.6% of the positive predictions; compound scaling needs more fine-tuning to calibrate the sigmoid.
 
 ### 5.3 Face Recognition App (face_recognition_app.ipynb)
 
-- Fluxo embutido no notebook: coleta de faces por upload, treino (LBPH/CNN/YuNet) e predição por upload com visualização.
-- Avaliação objetiva: `eval_detection.py::classification_metrics(y_true, y_pred)` (accuracy, F1-macro/micro, matriz de confusão) sobre split rotulado; `face_verification_metrics(distances, same_person)` varre o limiar de distância e retorna melhor acc + curva. Testes em `tests/test_eval_detection.py`.
-- Modos: `lbph` (baseline OpenCV), `cnn` (CNN pequena), `transfer_yunet` (MobileNetV2 + YuNet).
+- Flow embedded in the notebook: face collection by upload, training (LBPH/CNN/YuNet) and prediction by upload with visualization.
+- Objective evaluation: `eval_detection.py::classification_metrics(y_true, y_pred)` (accuracy, F1-macro/micro, confusion matrix) on a labeled split; `face_verification_metrics(distances, same_person)` sweeps the distance threshold and returns the best acc + curve. Tests in `tests/test_eval_detection.py`.
+- Modes: `lbph` (OpenCV baseline), `cnn` (small CNN), `transfer_yunet` (MobileNetV2 + YuNet).
 
 ### 5.4 YOLO (yolo_notebook.ipynb)
 
-- Classificação/detecção por upload usando YOLOv3-tiny COCO via OpenCV DNN; classes custom exibidas quando modelo treinado baixado.
-- Avaliação objetiva: `eval_detection.py::detection_map(pred_boxes, pred_scores, true_boxes, iou_thr=0.5)` (mAP uma classe + AP por imagem). Anotar um subset de validação com boxes e rodar o harness — sem depender de inspeção visual.
+- Classification/detection by upload using YOLOv3-tiny COCO via OpenCV DNN; the custom classes are shown when a trained model is downloaded.
+- Objective evaluation: `eval_detection.py::detection_map(pred_boxes, pred_scores, true_boxes, iou_thr=0.5)` (single-class mAP + AP per image). Annotate a validation subset with boxes and run the harness — without relying on visual inspection.
 
-## 6. Discussão
+## 6. Discussion
 
-- **Features manuais não escalam**: HOG+SVM obtém 0,3970 em CIFAR-10; a representação de gradientes é suficiente para formas rígidas (automobile) mas não para a variabilidade dos gatos — e o custo (27 min) nem compensa.
-- **Transformers ≈ novo padrão**: ViT supera ResNet18 por 4,4 pp com apenas 1 época. No 16.º experimento (DistilBERT vs TF-IDF+SVC em NLP) o salto arquitetural foi menor (0,9 pp), sugerindo que em visão o pré-treinamento em 21k classes dá vantagem qualitativa maior sobre dados de porte médio (50k).
-- **Fine-tuning supervisionado domina multi-label**, mas o dataset de 44 imagens impede conclusões fortes; os resultados perfeitos de ResNet18 devem ser lidos com cautela (overfitting benéfico).
-- **Zero-shot é opção para zero-dados**, porém a calibração do threshold é o fator decisivo: com 0.75 o CLIP ganhou recall e perdeu precisão (exact match 0.000).
-- **Limitações**: espaço para budgets de hardware (GPU obrigatória no comparativo CIFAR-10); face app e YOLO agora com protocolo de métricas em `eval_detection.py` (requer subset anotado para mAP).
+- **Manual features do not scale**: HOG+SVM reaches 0.3970 on CIFAR-10; the gradient representation is sufficient for rigid shapes (automobile) but not for the variability of cats — and the cost (27 min) does not even compensate.
+- **Transformers ≈ the new standard**: ViT beats ResNet18 by 4.4 pp with just 1 epoch. In the 16th experiment (DistilBERT vs TF-IDF+SVC in NLP) the architectural jump was smaller (0.9 pp), suggesting that in vision pretraining on 21k classes gives a larger qualitative advantage over mid-sized data (50k).
+- **Supervised fine-tuning dominates multi-label**, but the 44-image dataset prevents strong conclusions; ResNet18's perfect results should be read with caution (beneficial overfitting).
+- **Zero-shot is an option for zero data**, yet threshold calibration is the decisive factor: at 0.75 CLIP gained recall and lost precision (exact match 0.000).
+- **Limitations**: room for hardware budgets (GPU mandatory in the CIFAR-10 comparison); face app and YOLO now have a metrics protocol in `eval_detection.py` (requires an annotated subset for mAP).
 
-## 7. Conclusões e Recomendações
+## 7. Conclusions and Recommendations
 
-- Para **classificação de imagens de médio porte**: use ViT para máxima acurácia (~0,985+ com 3 épocas, ~50 min) ou ResNet18 para prototipagem rápida (0,9362, 12,5 min); evite HOG (não recomendado).
-- Para **multi-label em poucos dados**: preferir fine-tune supervisionado seletivo (ResNet18) que reduziu de fine com data augmentation; se não houver rótulos, CLIP zero-shot exige calibração cuidadosa do threshold (0.75 é permissivo demais).
-- Para **aplicativos de produção**: o notebook face app funciona em CPU (LBPH roda em CPU; `transfer_yunet` acelera com GPU, mas também funciona em CPU) e o YOLO viabiliza detecção de objetos via OpenCV DNN sem treinamento.
+- For **medium-sized image classification**: use ViT for maximum accuracy (~0.985+ with 3 epochs, ~50 min) or ResNet18 for fast prototyping (0.9362, 12.5 min); avoid HOG (not recommended).
+- For **multi-label with few data**: prefer selective supervised fine-tuning (ResNet18), which reduced overfitting with data augmentation; if there are no labels, CLIP zero-shot requires careful threshold calibration (0.75 is too permissive).
+- For **production applications**: the face app notebook runs on CPU (LBPH runs on CPU; `transfer_yunet` is faster with a GPU, but also works on CPU) and YOLO enables object detection via OpenCV DNN without training.
 
-## 8. Referências e Arquivos
+## 8. References and Files
 
-- Notebooks (relativos a esta pasta):
-  - `./cv-methods-comparison.ipynb` — comparativo CIFAR-10 (HOG+SVM / ResNet18 / ViT)
+- Notebooks (relative to this folder):
+  - `./cv-methods-comparison.ipynb` — CIFAR-10 comparison (HOG+SVM / ResNet18 / ViT)
   - `./animal-classifier.ipynb` — multi-label pets (ResNet18, VGG16, CLIP, EfficientNet)
-  - `./face_recognition_app.ipynb` — aplicativo de reconhecimento facial (LBPH / CNN / transfer_yunet)
-  - `./yolo_notebook.ipynb` — detecção YOLO via OpenCV DNN
-- Referências: Deng et al. (2009) CIFAR-10; He et al. (2016) *Deep Residual Learning*; Dosovitskiy et al. (2021) *An Image is Worth 16x16 Words*; Radford et al. (2021) *Learning Transferable Visual Models From Natural Language Supervision* (CLIP); Tan & Le (2019) *EfficientNet: Rethinking Model Scaling*; Sedhain et al. (2015) — ver também documentos em `docs/modelo-academico-readme.md`.
+  - `./face_recognition_app.ipynb` — face recognition app (LBPH / CNN / transfer_yunet)
+  - `./yolo_notebook.ipynb` — YOLO detection via OpenCV DNN
+- References: Deng et al. (2009) CIFAR-10; He et al. (2016) *Deep Residual Learning*; Dosovitskiy et al. (2021) *An Image is Worth 16x16 Words*; Radford et al. (2021) *Learning Transferable Visual Models From Natural Language Supervision* (CLIP); Tan & Le (2019) *EfficientNet: Rethinking Model Scaling*; Sedhain et al. (2015) — see also the documents in `docs/modelo-academico-readme.md`.
