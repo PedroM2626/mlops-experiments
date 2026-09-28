@@ -417,6 +417,8 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hypothesis: correlated tasks (J
 - `twitter-entity-sentiment/NLP-twitter-methods-comparasion.ipynb` — Twitter Methods
   Comparison (5 paradigms).
 - `nlp-multi-task-classification.ipynb` — MMoE multi-task (go_emotions).
+- `twitter-entity-sentiment/run_twitter_mamba.ipynb` — Mamba/SSM candidate that was
+  measured and discarded (no executed outputs; see §5.5).
 - `generative-text-markov/markov_sentiment_generator.py` — sentiment-conditioned Markov
   text generator (CLI: `python generative-text-markov/markov_sentiment_generator.py --help`).
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parameters documented in §5.2).

@@ -55,10 +55,21 @@ The project is organized as follows to guarantee modularity and clarity:
 │   ├── forecaster_class.py     # Main pipeline class (SalesForecasterV2)
 │   ├── train.py                # Training script with Optuna and MLflow
 │   ├── predict.py              # Forecast generation script
+│   ├── forecaster_sktime.py    # sktime flavour of the same forecaster
+│   ├── train_sktime.py         # sktime training driver
+│   ├── coldstart_metadata.py   # cold-start features (category/brand metadata)
 │   ├── ae_valid.py             # AE exp.: baseline vs naive embeddings
 │   ├── ae_valid2.py            # AE exp.: baseline vs naive vs causal
 │   └── ae_cluster.py           # AE exp.: clustering of series (k=3,5,8)
-├── ae_embedding_experiments.ipynb  # Documentation of the AE experiments
+├── strategic_visualization/    # Post-hoc charts over the saved forecasts
+│   ├── 01_momentum_analysis.py
+│   ├── 02_performance_by_category.py
+│   └── 03_global_heatmap.py    # geocodes PDVs, then plots the global heatmap
+├── Predictive_Sales_Pipeline.ipynb      # end-to-end pipeline walkthrough
+├── ae_embedding_experiments.ipynb       # AE experiment write-up (markdown only)
+├── decomposition_vs_regression.ipynb    # decomposition vs LightGBM
+├── imputation_experiments.ipynb         # lag/rolling imputation + missing-data robustness
+├── rl_proxy_sales_full.ipynb            # RL hyper-parameter search on the full proxy
 ├── tests/
 │   └── test_forecaster.py      # 10 automated tests with Pytest
 ├── Dockerfile                  # Docker image for environment isolation

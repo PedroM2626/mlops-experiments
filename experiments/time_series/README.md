@@ -276,5 +276,12 @@ Notebooks (in this same folder):
 - [`deepar-probabilistic-forecast.ipynb`](deepar-probabilistic-forecast.ipynb) — probabilistic DeepAR (GluonTS/PyTorch) vs point baselines.
 - [`deepar-generative/deepar-generative-futures.ipynb`](deepar-generative/deepar-generative-futures.ipynb) — DeepAR as a generative model: 500 trajectories, scenarios, probabilities.
 - `sktime_vs_hybrid_ts.ipynb` — comparison of the library vs a custom reference hybrid TS.
+- `forecast_comparison.ipynb` — Prophet vs LightGBM head-to-head on one protocol.
+- `anomaly_detection_optimized.ipynb` — vectorised/optimised variant of the anomaly study.
+- `anomaly_detection_enhanced.ipynb` — single-cell variant of the 4-paradigm anomaly
+  study that lives at `experiments/anomaly_detection_enhanced.ipynb`; that multi-cell
+  notebook is the documented one, this copy is kept as the compact rerun.
+- `run_deepar_conformal.py`, `run_tsnlp_edgar.py`, `run_tsnlp_real.py` — drivers that
+  write the artifact folders under `experiments/artifacts/`.
 
 References: Taylor & Letham, "Forecasting at Scale" (Prophet, 2018); Salinas et al., "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks" (2020); Bromet et al., ROCKET (2020), Diebold & Mariano (1995); Hinton et al., Distilling the Knowledge (2015); UEA Archive, GunPoint/ArrowHead/ECG5000.

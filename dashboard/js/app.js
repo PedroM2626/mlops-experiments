@@ -1090,6 +1090,81 @@ const App = (() => {
       models: ["DeepAR (GluonTS/PyTorch)"],
       dataset: "Benchmark TS (CO2/Nile/Sunspots/Synthetic)",
       details: "Extends the probabilistic DeepAR: massive sampling, scenario bands and P(event) for decision-making."
+    },
+    {
+      id: 603,
+      title: "Causal Inference — Delivery Delay vs Review Sentiment (Olist)",
+      category: "causal",
+      categoryLabel: "Causal Inference",
+      status: "completed",
+      description: "Does delivering after the estimated date cause negative sentiment in the review text? ATE/CATE with LPM, matching, IPW, AIPW and S/T-learners on real data.",
+      techniques: ["Potential Outcomes", "Propensity Score", "IPW-Hajek", "AIPW", "Honest Causal Tree", "Lexicon NLP"],
+      metric: {"label": "ATE (AIPW)", "value": "+41.7 p.p.", "percent": 42},
+      script: "experiments/causal_nlp_olist/causal_nlp_olist.ipynb",
+      readme: "experiments/causal_nlp_olist/README.md",
+      models: ["Logit", "RandomForest nuisances", "Causal Tree"],
+      dataset: "Olist 39,068 orders with review text",
+      details: "Naive +43.5 p.p. survives every adjustment (Logit AME +32.5 the most conservative); stable under bootstrap, placebo and trimming; positive in all causal-tree leaves."
+    },
+    {
+      id: 604,
+      title: "Lag Imputation Strategies (Sales Forecast)",
+      category: "timeseries",
+      categoryLabel: "Time Series",
+      status: "completed",
+      description: "How to fill missing lags/rolling features, and how robust each choice is to simulated missing data.",
+      techniques: ["Zero-fill", "Median", "Mean", "Iterative", "KNN", "LightGBM"],
+      metric: null,
+      script: "experiments/sales-forecast/imputation_experiments.ipynb",
+      readme: "experiments/sales-forecast/README.md",
+      models: ["LightGBM"],
+      dataset: "Sales 2022 (top 100 PDVs)",
+      details: "Best strategy: zero (MAE 1.4617). With 5%/10% simulated missing, doing nothing (none) still wins: 1.4746 / 1.4776."
+    },
+    {
+      id: 605,
+      title: "Probabilistic DeepAR — Coverage and CRPS",
+      category: "timeseries",
+      categoryLabel: "Time Series",
+      status: "completed",
+      description: "DeepAR (GluonTS/PyTorch) against SARIMA, Prophet and LightGBM with 100 sampled trajectories per series.",
+      techniques: ["DeepAR", "GluonTS", "Sampling", "Coverage", "CRPS"],
+      metric: {"label": "Coverage (CO2, 90%)", "value": "90.0%", "percent": 90},
+      script: "experiments/time_series/deepar-probabilistic-forecast.ipynb",
+      readme: "experiments/time_series/README.md",
+      models: ["DeepAR", "SARIMA", "Prophet", "LightGBM"],
+      dataset: "Benchmark TS (CO2/Nile/Sunspots/Synthetic)",
+      details: "DeepAR wins on Sunspots (15.22) and Synthetic (4.09) but not on point accuracy overall; its value is native intervals (CRPS 2.41 on CO2)."
+    },
+    {
+      id: 606,
+      title: "Anomaly Detection, 4 Paradigms (single-cell variant)",
+      category: "anomaly",
+      categoryLabel: "Anomalies",
+      status: "completed",
+      description: "Compact one-cell re-implementation of the 4-paradigm NAB anomaly study, kept next to the tabular version.",
+      techniques: ["RandomForest", "IsolationForest", "LOF", "OCSVM", "SMOTE", "NACA"],
+      metric: null,
+      script: "experiments/time_series/anomaly_detection_enhanced.ipynb",
+      readme: "experiments/time_series/README.md",
+      models: ["Supervised + semi-supervised + unsupervised"],
+      dataset: "NAB machine_temperature_system_failure",
+      details: "Same experiment as experiments/anomaly_detection_enhanced.ipynb assembled as a single cell; the multi-cell notebook is the documented one."
+    },
+    {
+      id: 607,
+      title: "Mamba (SSM 130M) on Senti-Pred — tried and discarded",
+      category: "nlp-sentiment",
+      categoryLabel: "NLP - Sentiment",
+      status: "blocked",
+      description: "State-space model candidate for the Twitter sentiment task; measured, then dropped.",
+      techniques: ["Mamba", "SSM", "kagglehub"],
+      metric: null,
+      script: "experiments/nlp/twitter-entity-sentiment/run_twitter_mamba.ipynb",
+      readme: "experiments/nlp/README.md",
+      models: ["Mamba 130M"],
+      dataset: "Twitter Entity Sentiment",
+      details: "No executed outputs: mamba-ssm does not install on Windows (no Triton) and the RTX 3060 run was impractical. See the measurement in experiments/nlp/README.md §5.5."
     }
   ];
 
@@ -1108,6 +1183,7 @@ const App = (() => {
     'timeseries': { label: 'Time Series', icon: '\u{1F4C8}', color: '#34d399' },
     'anomaly': { label: 'Anomalies', icon: '\u{1F50D}', color: '#a78bfa' },
     'clustering': { label: 'Clustering', icon: '\u{1F52E}', color: '#c4b5fd' },
+    'causal': { label: 'Causal Inference', icon: '\u{1F9ED}', color: '#fde047' },
     'regression': { label: 'Tabular Regression', icon: '\u{1F4CA}', color: '#f87171' },
     'ibm': { label: 'IBM Watsonx / Databricks', icon: '\u2601\uFE0F', color: '#fbbf24' },
     'mlops': { label: 'MLOps Production', icon: '\u{1F680}', color: '#4ade80' },
@@ -1207,6 +1283,7 @@ const App = (() => {
         <button class="filter-btn ${state.statusFilter==='all'?'active':''}" onclick="App.setStatus('all')">All</button>
         <button class="filter-btn ${state.statusFilter==='completed'?'active':''}" onclick="App.setStatus('completed')">Completed</button>
         <button class="filter-btn ${state.statusFilter==='partial'?'active':''}" onclick="App.setStatus('partial')">Partial</button>
+        <button class="filter-btn ${state.statusFilter==='blocked'?'active':''}" onclick="App.setStatus('blocked')">Blocked</button>
         <button class="filter-btn ${state.statusFilter==='external'?'active':''}" onclick="App.setStatus('external')">External</button>
       </div>`;
   }

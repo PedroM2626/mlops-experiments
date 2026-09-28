@@ -19,6 +19,7 @@ For the documentation standard, see
 | **NLP group** (senti-pred, A/B/C pipelines, Twitter Methods, multiclass Logistic, MMoE, AG News, FE NLP) | Sentiment/topic classification and text representations | TF-IDF + n-grams ~0.98 F1; transformers win in low-data | [see README](experiments/nlp/README.md) |
 | **NLP in Regression — Wine (Kaggle)** | wine scoring from text | Ridge MAE 1.33 / R² 0.69 vs LightGBM 1.47 / 0.63 | [see](experiments/nlp-regression-wine/README.md) |
 | **Senti-Pred variations** | Variations of the sentiment pipeline | record 97.80% (TF-IDF 100k, 4-grams) | [see](experiments/nlp/twitter-entity-sentiment/senti-pred-variations/README.md) |
+| **Twitter Entity Sentiment** (sub-index) | the folder that holds every pipeline of that dataset | A/B/C compared with significance tests | [see](experiments/nlp/twitter-entity-sentiment/README.md) |
 | **Hierarchical 20 Newsgroups** | flat vs hierarchical classification, clustering | flat acc 0.7188 vs hierarchical 0.6953 | [see](experiments/hierarchical/README.md) |
 
 ### 🤖 Reinforcement Learning / AutoML
@@ -90,6 +91,47 @@ For the documentation standard, see
   above. `ensemble_pyramid.ipynb` also dumps `ensemble_pyramid_best.pkl` (model + TF-IDF +
   label encoder); `*.pkl` is gitignored, so that file comes back only by re-running it.
 - **Experiment dashboard**: `dashboard/index.html` (open in the browser).
+
+## Environments, and what a fresh clone does not have
+
+Four dependency layers exist on purpose; they do **not** pin the same versions,
+because each one records a different moment:
+
+| File | What it is for |
+|---|---|
+| `requirements.txt` | the analysis environment that produced the recorded results (kept in sync with the working venv; `pip freeze`-verified) |
+| `requirements-mlops.txt` | the serving image (`Dockerfile`): FastAPI + MLflow + monitor/retrain, no research stack |
+| `requirements_ensemble.txt` | `Dockerfile_ensemble`, the ensemble-serving variant |
+| `experiments/sales-forecast/requirements.txt`, `.../senti-pred-exp1/requirements.txt` | the project environment **at the time that experiment ran** (e.g. the hackathon ran on MLflow 2.17.2 / numpy 1.24.3, while the root env is on MLflow 3.11.1 / numpy 1.26.4) |
+
+The ground truth for any single result is the freeze file stored with it:
+`experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`.
+
+**Not in git** (`.gitignore` keeps them out; download or regenerate before
+reproducing):
+
+- `experiments/sales-forecast/data/` (~134 MB of raw/processed parquet; the Google
+  Drive folder is linked from `data/raw/Path_to_normalized_data.txt`);
+- `experiments/causal_nlp_olist/data/` (the Olist datasets, from
+  https://www.kaggle.com/olistbr/brazilian-ecommerce);
+- `experiments/computer_vision/data/cifar-10-python.tar.gz` (downloaded by the
+  notebooks on first use) and `experiments/time_series/.tsnlp_cache/`;
+- serialized models: `*.joblib`, `*.pkl` (`sales_forecaster_v2_final.joblib`,
+  `ensemble_pyramid_best.pkl`, `tfidf_vectorizer.pkl`, `champion.joblib`);
+- MLflow stores: `experiments/mlruns/` (legacy file store, kept browsable by the
+  `mlflow_ui` service) and `experiments/mlops_tracking.db` (the SQLite backend
+  used by `mlops/`, `MLFLOW_TRACKING_URI` overrides it).
+
+**Libraries some notebooks import but this environment does not have** are listed
+commented-out at the bottom of `requirements.txt`, next to the experiment that
+needs them (Sentence-BERT, `mord`, `tsfresh`, `aeon`, `scikit-surprise`,
+`Boruta-Shap`, `yfinance`, `open-clip-torch`, Django + DRF for the `senti-pred-exp1`
+API, `auto-sklearn` which needs Linux/WSL). Install them before running those
+notebooks; otherwise they fail at import.
+
+Credentials are never committed: copy `.env.example` to `.env` (DagsHub, W&B,
+Hugging Face, Databricks, AWS). Only `experiments/databricks-forecast/`
+(`download_artifacts.py`) and the DagsHub/W&B tracking paths need them.
 
 ## Repository standards
 

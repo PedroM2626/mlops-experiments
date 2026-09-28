@@ -133,5 +133,6 @@ no approach beat the v2 plateau (limiting factor = dataset size).
 
 - `feature-engineering-tabular.ipynb` -- tabular FE study.
 - `price-prediction-multiple-linear-regression.ipynb` -- v1->v3 pipeline.
+- `california-house-regression.ipynb` -- California Housing baselines and FE.
 - `ibm-watsonx-local-automl.ipynb` -- local equivalent of the Watsonx AutoML.
 - Model x FE cross-study in the root README (Feature Engineering section).

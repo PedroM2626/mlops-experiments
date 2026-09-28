@@ -43,7 +43,11 @@ Central hypothesis: for tweets, **a feature pipeline + robust linear models outp
 ### 4.3 Compared methods
 From the TF-IDF 10k + LR baseline model through KNN, LinearSVC, MultinomialNB, Random Forest (Optuna), stacking (Chi2 + feature sel.), FLAML AutoML and voting ensembles; as well as RoBERTa (transformer baseline). Variations isolated in two subfolders:
 
-- `Senti-pred-exp1/` — complete pipeline (scripts `01_eda.py` → `04_evaluation.py`, src/api) with containerization (Dockerfile/form).
+- `Senti-pred-exp1/` — complete pipeline: `src/scripts/01_eda.py` →
+  `src/scripts/04_evaluation.py`, the Django API (`src/api/views.py`,
+  `src/api/urls.py`) and containerization (`Dockerfile`, `docker-compose.yml`).
+- `Senti-Pred-remake2/` — Pipeline C as a package: `src/data/preprocess.py`
+  (vectorizer-centric cleaning) and `src/models/train.py` / `src/models/predict.py`.
 - `Senti-Pred-remake2/` — remake with modular `src/` + `data/raw/`.
 
 ### 4.4 Evaluation / MLOps
