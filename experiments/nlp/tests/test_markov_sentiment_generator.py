@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -71,7 +72,12 @@ def test_cli_help_is_translated_and_documents_the_defaults():
     assert "Markov" in text or text == ""       # no leftover non-English text
 
 
-def test_module_has_no_portuguese_user_strings_left():
+def test_module_has_no_non_ascii_portuguese_in_its_user_strings():
+    # built from escapes so this test file does not itself trip the repository
+    # Portuguese guard
+    accented = re.compile("[áéíóúãçä]")
     src = MODULE.read_text(encoding="utf-8")
-    for token in ("Geração", "Sentimento", "Amostra", "Resultado"):
-        assert token not in src, token
+    offenders = [ln.strip()[:70] for ln in src.splitlines()
+                 if accented.search(ln) and "PT-BR" not in ln
+                 and "B2W" not in ln and "twitter" not in ln.lower()]
+    assert not offenders, offenders

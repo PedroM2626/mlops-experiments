@@ -284,4 +284,7 @@ Notebooks (in this same folder):
 - `run_deepar_conformal.py`, `run_tsnlp_edgar.py`, `run_tsnlp_real.py` — drivers that
   write the artifact folders under `experiments/artifacts/`.
 
+- `tests/test_deepar_conformal_helpers.py` — unit tests for the conformal driver's
+  offline helpers (coverage, synthetic dataset, dataset registry).
+
 References: Taylor & Letham, "Forecasting at Scale" (Prophet, 2018); Salinas et al., "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks" (2020); Bromet et al., ROCKET (2020), Diebold & Mariano (1995); Hinton et al., Distilling the Knowledge (2015); UEA Archive, GunPoint/ArrowHead/ECG5000.

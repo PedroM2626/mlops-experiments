@@ -422,4 +422,7 @@ Notebook: `nlp-multi-task-classification.ipynb`. Hypothesis: correlated tasks (J
 - `generative-text-markov/markov_sentiment_generator.py` — sentiment-conditioned Markov
   text generator (CLI: `python generative-text-markov/markov_sentiment_generator.py --help`).
 - `../ensemble_pyramid.ipynb` — Ensemble Pyramid / Versatile Ensemble Pyramid (parameters documented in §5.2).
-- References: Devlin et al. (BERT); Sanh et al. (DistilBERT); see the MMoE papers (Ma et al., SIGIR 2018) and Lin et al. (Focal Loss, ICCV 2017).
+- `tests/test_pipelines_abc_core.py` — unit tests for the three A/B/C cleaners.
+- `tests/test_markov_sentiment_generator.py` — unit tests for the Markov model.
+
+References: Devlin et al. (BERT); Sanh et al. (DistilBERT); see the MMoE papers (Ma et al., SIGIR 2018) and Lin et al. (Focal Loss, ICCV 2017).

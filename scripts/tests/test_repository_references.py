@@ -102,13 +102,15 @@ PT_WORDS = re.compile(
     r"previsao|classificação|classificacao|avaliação|avaliacao|métrica|metrica|"
     r"hierarquico|hierarquica|visualizacao|estrategica|classificacao|dados|"
     r"código|codigo|arquivo|pasta|experimento|amostra|conjunto|treino)\b", re.I)
+# this file itself has to spell the Portuguese words it looks for
+SELF = Path(__file__).resolve().relative_to(ROOT).as_posix()
 EXEMPT = re.compile(r"(datasets/|artifacts/|ibm-experiments/assets/|"
                     r"README_mlops|strategic_visualization|\.lock)")
 
 
 @pytest.mark.parametrize("rel", [f for f in tracked("*.md", "*.py", "*.js", "*.html",
                                                     "*.css", "*.yml", "*.yaml", "*.txt")
-                                 if not EXEMPT.search(f)],
+                                 if not EXEMPT.search(f) and f != SELF],
                          ids=lambda x: x)
 def test_no_portuguese_prose_left_in_documentation(rel: str):
     """Prose is English; only real data (corpora, dataset dumps, model assets)
