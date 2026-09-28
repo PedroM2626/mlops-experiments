@@ -13,14 +13,17 @@ services:
       timeout: 5s
       retries: 3
     # real serving of the champion via FastAPI + local MLflow registry
-    # tracking URI used by the code: <repo>/experiments/mlruns (mlops/config.py)
+    # tracking URI used by the code: experiments/mlops_tracking.db (SQLite,
+    # mlops/config.py; override with MLFLOW_TRACKING_URI). This service only
+    # browses the legacy file store in experiments/mlruns.
     volumes:
       - ./experiments:/app/experiments
       - ./experiments/artifacts/mlops_sales:/app/experiments/artifacts/mlops_sales
     command: ["python", "-m", "mlops.serve"]
 
   mlflow_ui:
-    image: ghcr.io/mlflow/mlflow:v2.17.2
+    # matches the mlflow client pinned in requirements.txt
+    image: ghcr.io/mlflow/mlflow:v3.11.1
     container_name: mlflow_ui
     ports:
       - "5000:5000"

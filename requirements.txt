@@ -1,51 +1,50 @@
 # MLOps & Tracking
-mlflow==3.9.0
+mlflow==3.11.1
 dagshub==0.6.5
 wandb==0.24.2
 zenml==0.93.2
-fastapi==0.128.7
-uvicorn==0.40.0
-python-dotenv==1.2.1
+fastapi==0.135.1
+uvicorn==0.41.0
+python-dotenv==1.2.2
 gradio==6.5.1
 
 # Core Dependencies
-numpy==1.25.2
-pandas==1.5.3
-matplotlib==3.6.0
+numpy==1.26.4
+pandas==2.1.4
+matplotlib==3.7.5
 seaborn==0.13.2
 tf_keras==2.20.1
 
 # Data Science & AutoML
-scikit-learn==1.2.2
-xgboost==3.1.3
-TPOT==1.1.0
-autogluon==1.5.0
+scikit-learn==1.4.2
+xgboost==3.2.0
+TPOT==0.12.2
+autogluon==1.6.1
 FLAML==2.5.0
 h2o==3.46.0.9
-pycaret==3.2.0
+pycaret==3.3.2
 lightautoml==0.2.7
-# auto-sklearn  # Note: Usually requires Linux/WSL
 optuna==4.7.0
 shap==0.49.1
 lime==0.2.0.1
 evidently==0.7.20
-scipy==1.10.1
+scipy==1.11.4
 
 # Export & Serving
 onnx==1.20.1
 ml_dtypes==0.5.4
 onnxruntime==1.24.1
 skl2onnx==1.20.0
-Flask==3.1.2
+Flask==3.1.3
 
 # Computer Vision & NLP
 ultralytics==8.4.14
 opencv-python==4.11.0.86
 opencv-contrib-python==4.11.0.86
-torchvision==0.24.1
-transformers==4.57.6
-datasets==2.2.1
-pillow==11.3.0
+torchvision==0.26.0
+transformers==5.5.3
+datasets==5.0.1
+pillow==12.1.1
 accelerate==1.12.0
 evaluate==0.4.6
 
@@ -56,4 +55,61 @@ httpx==0.28.1
 # Time Series
 prophet==1.3.0
 
-kagglehub
+kagglehub==1.0.0
+
+# =====================================================================
+# Experiment libraries used by the notebooks (added when the index was
+# audited: they were imported by tracked code but declared nowhere).
+# Versions are the ones installed in the environment that produced the
+# recorded results; `requirements.txt` was also re-synced to it above.
+# =====================================================================
+
+
+# Time series and forecasting
+gluonts==0.17.0
+pywavelets==1.9.0
+sktime==0.26.0
+statsmodels==0.14.6
+
+# Feature engineering / evolutionary search
+deap==1.4.4
+nltk==3.10.3
+
+# Deep learning used by the CV and RecSys notebooks
+tensorflow==2.20.0
+timm==1.0.3
+torch==2.11.0
+
+# Notebook UI, plotting and helpers
+beautifulsoup4==4.14.3
+imbalanced-learn==0.14.2
+ipywidgets==8.1.8
+joblib==1.3.2
+kaleido==1.3.0
+nbclient==0.11.0
+nbformat==5.11.1
+psutil==7.2.2
+scikit-image==0.25.2
+
+# Serving / AutoML extras that are installed
+catboost==1.2.10
+hyperopt==0.2.7
+lightgbm==4.6.0
+optuna-integration==4.7.0
+
+# ---------------------------------------------------------------------
+# Imported by some notebooks but NOT installed in this environment, so
+# no version is claimed here. The experiments that need them cannot run
+# until they are installed explicitly:
+# aeon   # experiments/time_series (classification paradigms)
+# auto-sklearn   # experiments/nlp/.../senti-pred-exp1 scripts (Linux/WSL only)
+# boruta-shap   # experiments/feature_selection_ea (Boruta baseline)
+# django   # experiments/nlp/.../senti-pred-exp1 (the serving API app)
+# djangorestframework   # experiments/nlp/.../senti-pred-exp1 (the serving API app)
+# mord   # experiments/ordinal_classification (LogisticAT/IT learners)
+# open-clip-torch   # experiments/computer_vision (CLIP zero-shot on the pets set)
+# scikit-surprise   # experiments/recommender_systems (SVD via scikit-surprise)
+# sentence-transformers   # experiments/nlp (Sentence-BERT embeddings)
+# tsfresh   # experiments/ts_fe (automatic feature extraction phases)
+# yfinance   # experiments/time_series (stock series for the TS+NLP fusion)
+# auto-sklearn additionally requires Linux/WSL.
