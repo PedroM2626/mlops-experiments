@@ -13,6 +13,9 @@ scikit-learn==1.7.1
 scipy==1.16.1
 lightgbm==4.6.0
 optuna==4.6.0
+# forecaster_class.py imports LightGBMPruningCallback from here;
+# without it `python -m mlops.serve` dies at import inside this image.
+optuna-integration==4.6.0
 joblib==1.5.2
 matplotlib==3.10.3
 python-dotenv==1.0.1
