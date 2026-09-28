@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -22,17 +23,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKIP_DIRS = {".venv", ".venv311", ".git", ".states", ".kilo", ".qoder",
              "mlruns", "node_modules", "__pycache__"}
 EXTERNAL_DIRS = {"ibm-experiments", "databricks-forecast"}
+# the EXT marker must be a whole word: "Text"/"NEXT"/"CONTEXT" are not markers.
+# in file names the separator may also be "_", which is a word character.
+EXT_MARKER = re.compile(r"\bEXT\b")
+EXT_NAME_MARKER = re.compile(r"(?<![A-Z0-9])EXT(?![A-Z0-9])")
 
 
 def is_external(path: Path, nb: dict) -> bool:
     if any(part in EXTERNAL_DIRS for part in path.parts):
         return True
-    if "EXT" in path.stem.upper():
+    if EXT_NAME_MARKER.search(path.stem.upper()):
         return True
     try:
         first = (nb.get("cells") or [{}])[0]
         src = "".join(first.get("source") or []).upper()
-        return "EXT" in src.split("\n")[0][:60]
+        return bool(EXT_MARKER.search(src.split("\n")[0][:60]))
     except Exception:
         return False
 
@@ -43,7 +48,7 @@ def check_notebook(path: Path) -> dict:
     except Exception as e:
         return {"path": str(path), "ok": False, "ext": False, "error": f"invalid JSON: {e}"}
     if not isinstance(nb, dict) or nb.get("nbformat", 0) < 4:
-        return {"path": str(path), "ok": False, "ext": False, "error": "nbformat ausente ou < 4"}
+        return {"path": str(path), "ok": False, "ext": False, "error": "nbformat missing or < 4"}
     cells = nb.get("cells") or []
     n_code = sum(1 for c in cells if c.get("cell_type") == "code")
     if n_code == 0:
