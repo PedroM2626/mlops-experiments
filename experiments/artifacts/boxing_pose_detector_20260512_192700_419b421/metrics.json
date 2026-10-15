@@ -1,0 +1,55 @@
+{
+  "experiment": "boxing_pose_detector",
+  "area": "Computer Vision",
+  "task": "4-class boxing stance classification from MediaPipe Holistic pose landmarks",
+  "provenance": {
+    "source_repository": "PedroM2626/boxing-pose-detector (migrated 2026-10-15)",
+    "source_commit": "419b421577a336fa1b4f6ee8c1c8d02bf0f15df9",
+    "run_dates_utc": ["2026-05-12T18:46:33", "2026-05-12T18:57:53", "2026-05-12T19:27:00"],
+    "note": "Original runs logged to MLflow under mlruns/, which this monorepo gitignores. The classification reports and confusion matrices below were copied out of those run artifacts so the evidence stays in git."
+  },
+  "data": {
+    "collections": [
+      {"file": "pose_features_20260512_184633.npy", "samples": 400, "features": 19, "per_class": {"Hitman": 100, "Peek-a-Boo": 100, "No Guard": 100, "Cross Guard": 100}},
+      {"file": "pose_features_20260512_185753.npy", "samples": 400, "features": 19, "per_class": {"Hitman": 100, "Peek-a-Boo": 100, "No Guard": 100, "Cross Guard": 100}}
+    ],
+    "collection": "self-collected through data_collector.py from a webcam; one person, auto-capture every 5th frame",
+    "split": "train_test_split(test_size=0.2, random_state=42), not stratified; test n=80 with class counts 26/18/18/18"
+  },
+  "results_recorded": [
+    {"model": "RandomForest", "dataset": "20260512_184633", "accuracy": 0.95, "correct_of_80": 76, "evidence": "rf_run_7535870b_classification_report.txt + rf_run_7535870b_confusion_matrix.png"},
+    {"model": "RandomForest", "dataset": "20260512_185753", "accuracy": 0.975, "correct_of_80": 78, "evidence": "rf_run_6e292fe0_classification_report.txt + rf_run_6e292fe0_confusion_matrix.png"},
+    {"model": "RandomForest", "dataset": "20260512_185753", "comparison_run": true, "accuracy": 0.975, "correct_of_80": 78, "evidence": "compare_RandomForest_confusion_matrix.png"},
+    {"model": "XGBoost", "dataset": "20260512_185753", "comparison_run": true, "accuracy": 0.9875, "correct_of_80": 79, "evidence": "compare_XGBoost_confusion_matrix.png"},
+    {"model": "LightGBM", "dataset": "20260512_185753", "comparison_run": true, "accuracy": 0.975, "correct_of_80": 78, "evidence": "compare_LightGBM_confusion_matrix.png"}
+  ],
+  "accuracy_derivation": "The compare_models runs committed only their confusion matrix artifact (the MLflow metrics/ files were not in git), so their accuracies are read off the annotated matrices as diagonal/80. These values match the two classification reports that were committed for the RandomForest runs.",
+  "shipped_model": {
+    "file": "pose_classifier_model.pkl (gitignored here, regenerate by training)",
+    "identified_as": "XGBoost",
+    "how": "488,684 bytes, identical to mlruns model m-193baba3c9db46f39776055a188dfc88, and the pickle stream names XGBClassifier/xgboost.sklearn; that model's logged requirements list xgboost==2.1.4 while the other two logged models do not"
+  },
+  "recorded_environment": {
+    "source": "MLmodel + logged requirements.txt of m-193baba3c9db46f39776055a188dfc88 (see mlflow_logged_requirements.txt)",
+    "python": "3.13.1",
+    "scikit_learn": "1.7.1",
+    "numpy": "2.4.4",
+    "xgboost": "2.1.4",
+    "mlflow": "3.8.1"
+  },
+  "reproduction_2026_10_15": {
+    "environment": "D:/mlops-experiments/.venv - python 3.11.9, numpy 1.26.4, scikit-learn 1.4.2, xgboost 3.2.0, lightgbm 4.6.0, mlflow 3.11.1",
+    "code": "experiments/computer_vision/boxing_pose_detector/pose_classifier.py, unmodified",
+    "compare_models_on_20260512_185753": {"RandomForest": 0.975, "XGBoost": 0.9875, "LightGBM": 0.975},
+    "train_model_on_20260512_184633": 0.95,
+    "train_model_on_20260512_185753": 0.975,
+    "verdict": "all five recorded numbers reproduced exactly under a different library stack"
+  },
+  "caveats": [
+    "test n=80: one sample is 1.25 pp, so XGBoost (79/80) versus RandomForest and LightGBM (78/80) is a single-sample difference, not evidence of a better model",
+    "single split, single seed, no cross-validation and no confidence interval",
+    "frames were captured continuously from the same takes, so a frame-level split puts near-duplicate frames on both sides of the split; accuracy is optimistic for a new person, new room or new camera",
+    "one collector only, so the four classes are that person's execution of a stance",
+    "labels are self-declared at capture time (the key pressed), not verified by a second annotator"
+  ]
+}

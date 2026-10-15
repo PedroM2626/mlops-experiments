@@ -51,6 +51,7 @@ For the documentation standard, see
 | **CV Methods (CIFAR-10)** | HOG+SVM vs ResNet18 vs ViT | ViT 0.9805 vs ResNet 0.9362 vs HOG 0.3970 | [see](experiments/computer_vision/README.md) |
 | **Animal multi-label** | 4 approaches (pets Dime/Frida) | ResNet18+aug Exact Match 1.000 | same as above |
 | **Face detection/recognition** | LBPH, CNN, YuNet (app in the notebook) | — | [see](experiments/computer_vision/README.md) |
+| **Boxing stance detector** | MediaPipe Holistic pose → 19 geometric features → RF/XGBoost/LightGBM, 4 stances, live webcam | XGBoost 0.9875 (79/80), one sample above RF and LightGBM (0.9750) | [see](experiments/computer_vision/boxing_pose_detector/README.md) |
 
 ### 🎬 RecSys
 
@@ -102,10 +103,13 @@ because each one records a different moment:
 | `requirements.txt` | the analysis environment that produced the recorded results (kept in sync with the working venv; `pip freeze`-verified) |
 | `requirements-mlops.txt` | the serving image (`Dockerfile`): FastAPI + MLflow + monitor/retrain, no research stack |
 | `requirements_ensemble.txt` | `Dockerfile_ensemble`, the ensemble-serving variant |
-| `experiments/sales-forecast/requirements.txt`, `.../senti-pred-exp1/requirements.txt` | the project environment **at the time that experiment ran** (e.g. the hackathon ran on MLflow 2.17.2 / numpy 1.24.3, while the root env is on MLflow 3.11.1 / numpy 1.26.4) |
+| `experiments/sales-forecast/requirements.txt`, `.../senti-pred-exp1/requirements.txt`, `experiments/computer_vision/boxing_pose_detector/requirements.txt` | the project environment **at the time that experiment ran** (e.g. the hackathon ran on MLflow 2.17.2 / numpy 1.24.3, while the root env is on MLflow 3.11.1 / numpy 1.26.4) |
 
 The ground truth for any single result is the freeze file stored with it:
-`experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`.
+`experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`. The
+`boxing_pose_detector` bundle is the one exception: that project never froze its
+environment, so its bundle carries `mlflow_logged_requirements.txt` instead — the
+dependency set MLflow recorded alongside the shipped model.
 
 **Not in git** (`.gitignore` keeps them out; download or regenerate before
 reproducing):
@@ -116,8 +120,11 @@ reproducing):
   https://www.kaggle.com/olistbr/brazilian-ecommerce);
 - `experiments/computer_vision/data/cifar-10-python.tar.gz` (downloaded by the
   notebooks on first use) and `experiments/time_series/.tsnlp_cache/`;
+- `experiments/computer_vision/boxing_pose_detector/models/holistic_landmarker.task`
+  (13.7 MB MediaPipe bundle; the download command is in that experiment's README);
 - serialized models: `*.joblib`, `*.pkl` (`sales_forecaster_v2_final.joblib`,
-  `ensemble_pyramid_best.pkl`, `tfidf_vectorizer.pkl`, `champion.joblib`);
+  `ensemble_pyramid_best.pkl`, `tfidf_vectorizer.pkl`, `champion.joblib`,
+  `boxing_pose_detector/pose_classifier_model.pkl`);
 - MLflow stores: `experiments/mlruns/` (legacy file store, kept browsable by the
   `mlflow_ui` service) and `experiments/mlops_tracking.db` (the SQLite backend
   used by `mlops/`, `MLFLOW_TRACKING_URI` overrides it).
@@ -125,7 +132,8 @@ reproducing):
 **Libraries some notebooks import but this environment does not have** are listed
 commented-out at the bottom of `requirements.txt`, next to the experiment that
 needs them (Sentence-BERT, `mord`, `tsfresh`, `aeon`, `scikit-surprise`,
-`Boruta-Shap`, `yfinance`, `open-clip-torch`, Django + DRF for the `senti-pred-exp1`
+`Boruta-Shap`, `yfinance`, `open-clip-torch`, `mediapipe` for the
+`boxing_pose_detector` webcam path, Django + DRF for the `senti-pred-exp1`
 API, `auto-sklearn` which needs Linux/WSL). Install them before running those
 notebooks; otherwise they fail at import.
 

@@ -1,0 +1,11 @@
+{
+  "timestamp": "20260512_185753",
+  "num_samples": 400,
+  "pose_labels": {
+    "0": "Hitman",
+    "1": "Peek-a-Boo",
+    "2": "No Guard",
+    "3": "Cross Guard"
+  },
+  "collection_date": "2026-05-12T18:57:53.045401"
+}

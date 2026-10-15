@@ -216,5 +216,7 @@ logs/
 .env.production
 *venv*
 experiments/computer_vision/data/cifar-10-python.tar.gz
+# MediaPipe Holistic bundle (13.7 MB), downloaded by hand - see the experiment README
+experiments/computer_vision/boxing_pose_detector/models/
 
 .qoder/

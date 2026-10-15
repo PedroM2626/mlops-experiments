@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+      Hitman       1.00      0.92      0.96        26
+  Peek-a-Boo       0.90      1.00      0.95        18
+    No Guard       0.90      1.00      0.95        18
+ Cross Guard       1.00      0.89      0.94        18
+
+    accuracy                           0.95        80
+   macro avg       0.95      0.95      0.95        80
+weighted avg       0.96      0.95      0.95        80

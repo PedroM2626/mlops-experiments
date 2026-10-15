@@ -106,6 +106,7 @@ optuna-integration==4.7.0
 # boruta-shap   # experiments/feature_selection_ea (Boruta baseline)
 # django   # experiments/nlp/.../senti-pred-exp1 (the serving API app)
 # djangorestframework   # experiments/nlp/.../senti-pred-exp1 (the serving API app)
+# mediapipe   # experiments/computer_vision/boxing_pose_detector (Holistic landmarker, live webcam path)
 # mord   # experiments/ordinal_classification (LogisticAT/IT learners)
 # open-clip-torch   # experiments/computer_vision (CLIP zero-shot on the pets set)
 # scikit-surprise   # experiments/recommender_systems (SVD via scikit-surprise)

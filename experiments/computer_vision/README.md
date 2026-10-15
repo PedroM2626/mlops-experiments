@@ -8,7 +8,7 @@
 
 ## 1. Abstract
 
-This folder gathers four computer vision notebooks: a comparison of three paradigms (HOG+SVM, ResNet18 and ViT) on CIFAR-10 — won by **ViT with 0.9805 accuracy** —, a multi-label study of pet classification with four approaches (ResNet18, VGG16, CLIP zero-shot and EfficientNet) — won by **ResNet18 with F1-macro 1.000** —, a face recognition app with LBPH/CNN/transfer (YuNet) modes and a detection notebook with YOLO (OpenCV DNN). It is concluded that pretrained transformers and supervised fine-tuning are the highest-accuracy paths, while manual features (HOG) fail on low-resolution images.
+This folder gathers four computer vision notebooks: a comparison of three paradigms (HOG+SVM, ResNet18 and ViT) on CIFAR-10 — won by **ViT with 0.9805 accuracy** —, a multi-label study of pet classification with four approaches (ResNet18, VGG16, CLIP zero-shot and EfficientNet) — won by **ResNet18 with F1-macro 1.000** —, a face recognition app with LBPH/CNN/transfer (YuNet) modes and a detection notebook with YOLO (OpenCV DNN). It is concluded that pretrained transformers and supervised fine-tuning are the highest-accuracy paths, while manual features (HOG) fail on low-resolution images. Besides the notebooks it holds one self-contained sub-project, [`boxing_pose_detector/`](boxing_pose_detector/README.md), which classifies boxing stances from MediaPipe pose landmarks rather than from image pixels.
 
 ## 2. Context and Objectives
 
@@ -155,7 +155,7 @@ more time than fine-tuning. Artifacts: `experiments/artifacts/hog_cifar10_202609
 
 ## 8. References and Files
 
-- Notebooks (relative to this folder):
+- Notebooks and scripts (relative to this folder):
   - `./cv-methods-comparison.ipynb` — CIFAR-10 comparison (HOG+SVM / ResNet18 / ViT)
   - `./animal-classifier.ipynb` — multi-label pets (ResNet18, VGG16, CLIP, EfficientNet)
   - `./face_recognition_app.ipynb` — face recognition app (LBPH / CNN / transfer_yunet)
@@ -165,4 +165,10 @@ more time than fine-tuning. Artifacts: `experiments/artifacts/hog_cifar10_202609
     evaluation used by the YOLO notebook
   - `./tests/test_yolo_inference.py`, `./tests/test_eval_detection.py` — the
     unit tests for both (run with `pytest experiments/computer_vision/tests`)
+- Sub-project with its own documentation: `./boxing_pose_detector/` — boxing
+  stance recognition from MediaPipe Holistic pose landmarks (4 classes, 19
+  features, RandomForest vs XGBoost vs LightGBM, live webcam app, migrated on
+  2026-10-15 from the former `PedroM2626/boxing-pose-detector` repository).
+  See [`./boxing_pose_detector/README.md`](boxing_pose_detector/README.md); its
+  evidence bundle is in `../artifacts/boxing_pose_detector_20260512_192700_419b421/`.
 - References: Deng et al. (2009) CIFAR-10; He et al. (2016) *Deep Residual Learning*; Dosovitskiy et al. (2021) *An Image is Worth 16x16 Words*; Radford et al. (2021) *Learning Transferable Visual Models From Natural Language Supervision* (CLIP); Tan & Le (2019) *EfficientNet: Rethinking Model Scaling*; Sedhain et al. (2015) — see also the documents in `docs/academic-readme-template.md`.

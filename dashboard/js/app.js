@@ -372,6 +372,21 @@ const App = (() => {
       details: "Teacher ResNet18 fine-tuned 224x224 (~0.91). Student CNN ~10x smaller. 5 scenarios compared."
     },
     {
+      id: 608,
+      title: "Boxing Stance Detector (Pose Landmarks)",
+      category: "cv",
+      categoryLabel: "Computer Vision",
+      status: "completed",
+      description: "Four boxing stances recognised from MediaPipe Holistic pose landmarks through 19 geometric features, live on the webcam.",
+      techniques: ["MediaPipe Holistic", "Pose Geometry", "RandomForest", "XGBoost", "LightGBM", "MLflow"],
+      metric: {"label": "XGBoost Acc", "value": "0.9875", "percent": 98.75},
+      script: "experiments/computer_vision/boxing_pose_detector/pose_classifier.py",
+      readme: "experiments/computer_vision/boxing_pose_detector/README.md",
+      models: ["RandomForest", "XGBoost", "LightGBM"],
+      dataset: "Self-collected pose samples (2 sessions x 400, 4 classes)",
+      details: "XGBoost 0.9875 (79/80) vs RandomForest and LightGBM 0.9750 (78/80): a one-sample gap, so the ranking is a tie-break and not a finding. Frame-level split keeps the whole 0.95-0.99 band optimistic."
+    },
+    {
       id: 55,
       title: "MovieLens RecSys (8 Paradigms)",
       category: "recsys",
