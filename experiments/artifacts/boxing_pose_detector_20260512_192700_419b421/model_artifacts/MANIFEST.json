@@ -1,0 +1,42 @@
+{
+  "purpose": "Binary evidence for the boxing_pose_detector experiment, versioned through Git LFS. The standalone source repository PedroM2626/boxing-pose-detector was deleted on 2026-10-15, which makes this directory the only copy of these files outside D:/boxing-pose-detector-archive-2026-10-15.bundle.",
+  "how_to_read_the_store": {
+    "mlflow_ui": "mlflow ui --backend-store-uri sqlite:///experiments/artifacts/boxing_pose_detector_20260512_192700_419b421/model_artifacts/mlflow.db",
+    "python": "import mlflow; mlflow.set_tracking_uri('sqlite:///.../mlflow.db')"
+  },
+  "files": {
+    "mlflow.db": {
+      "bytes": 540672,
+      "sha256": "17a0526dfe645922484eae6065ac2a0bba5b62d35068f6d4c1edeb8dde6b849b",
+      "content": "MLflow SQLite backend: experiment 1 'boxing-pose-classification', 5 FINISHED runs, 5 accuracy metrics, 22 logged parameters. The metrics/ directories under mlruns/ were never committed, so this database is the authoritative record of what each run measured."
+    },
+    "xgboost_best_m-193baba3c9db46f39776055a188dfc88.pkl": {
+      "bytes": 488684,
+      "sha256": "565adb632dac51714341b4fe18e657b69ec5386caff5888cb2fffaba62919908",
+      "class": "xgboost.sklearn.XGBClassifier",
+      "role": "the best_model_XGBoost logged by compare_models; byte-identical to the pose_classifier_model.pkl that the application loads at runtime"
+    },
+    "randomforest_m-c34f40e763894905801586fba82608b3.pkl": {
+      "bytes": 733167,
+      "sha256": "2696950d0163afe4268f9c3ea3e8b169700c0e54f12ee4712006f5b2e166babf",
+      "class": "sklearn.ensemble._forest.RandomForestClassifier",
+      "role": "boxing_pose_classifier_model from run 6e292fe0 (collection B, accuracy 0.975)"
+    },
+    "randomforest_m-df6ba4022b55401dab366f592c45065e.pkl": {
+      "bytes": 237527,
+      "sha256": "cfd31edbb9b55ddaf4d710c3d7d436b2be489f6e0ddf7a8d45d97a7ef255e316",
+      "class": "sklearn.ensemble._forest.RandomForestClassifier",
+      "role": "boxing_pose_classifier_model from run 7535870b (collection A, accuracy 0.95)"
+    }
+  },
+  "runs_as_logged": [
+    {"run_id": "7535870b02c5404db438792eca5798fc", "name": "nebulous-fish-100", "start_utc": "2026-05-12T21:46:42Z", "model_type": "RandomForestClassifier", "accuracy": 0.95, "dataset": "collection A (pose_features_20260512_184633.npy)"},
+    {"run_id": "6e292fe021064749b0cd3d7d4e1d1a54", "name": "magnificent-ox-412", "start_utc": "2026-05-12T21:58:02Z", "model_type": "RandomForestClassifier", "accuracy": 0.975, "dataset": "collection B (pose_features_20260512_185753.npy)"},
+    {"run_id": "ed4ecd3a88ce42098226e5f44e170460", "name": "RandomForest", "start_utc": "2026-05-12T22:27:11Z", "model_type": "RandomForest", "n_estimators": 100, "max_depth": 10, "random_state": 42, "accuracy": 0.975, "dataset": "collection B"},
+    {"run_id": "d15e34fc5e30481e8ab51e151d393871", "name": "XGBoost", "start_utc": "2026-05-12T22:27:12Z", "model_type": "XGBoost", "n_estimators": 150, "max_depth": 6, "random_state": 42, "accuracy": 0.9875, "dataset": "collection B"},
+    {"run_id": "992878c90dbf4f519f122e3fd1ad5372", "name": "LightGBM", "start_utc": "2026-05-12T22:27:13Z", "model_type": "LightGBM", "n_estimators": 150, "max_depth": 6, "random_state": 42, "accuracy": 0.975, "dataset": "collection B"}
+  ],
+  "cross_check": "Every accuracy above was independently derived from the committed confusion matrices (diagonal/80) before this database was opened, and all five match exactly. Both RandomForest runs also logged features_count = 19, which is what pins the 20-dimensional no-pose fallback in extract_features as a real defect rather than a reading error.",
+  "dataset_attribution_caveat": "The runs do not log which .npy they trained on. Collections A and B are attributed to runs 7535870b and 6e292fe0 from the wall-clock order only: those runs started at 21:46:42Z and 21:58:02Z, seconds after the two saves at 21:46:33 and 21:57:53. The three compare_models runs are attributed to collection B because 6e292fe0's RandomForest matrix is identical to the comparison's RandomForest matrix, which only happens on the same data and split.",
+  "note_on_the_third_model": "LightGBM's own pickle was never logged: compare_models only calls mlflow.sklearn.log_model for the winner, so the LightGBM arm survives as its confusion matrix and its mlflow.db metric row, not as a loadable model."
+}

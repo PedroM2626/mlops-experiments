@@ -220,3 +220,11 @@ experiments/computer_vision/data/cifar-10-python.tar.gz
 experiments/computer_vision/boxing_pose_detector/models/
 
 .qoder/
+
+# Boxing pose detector evidence: the MLflow store and the three logged models.
+# The standalone source repository was deleted, so these binaries are versioned
+# here through Git LFS instead of being left out like every other *.pkl / *.db.
+# Exceptions are path-scoped on purpose - the blanket rules above still hold
+# everywhere else in the monorepo.
+!experiments/artifacts/boxing_pose_detector_*/model_artifacts/*.pkl
+!experiments/artifacts/boxing_pose_detector_*/model_artifacts/mlflow.db

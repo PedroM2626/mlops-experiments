@@ -1,0 +1,16 @@
+# Environment recorded by MLflow alongside model m-193baba3c9db46f39776055a188dfc88,
+# the XGBoost model that shipped as pose_classifier_model.pkl.
+# This is the dependency set MLflow logged at model-save time, not a pip freeze —
+# the project never froze its environment.
+
+mlflow==3.8.1
+chromadb==1.5.0
+cloudpickle==3.1.2
+lz4==4.4.5
+numpy==2.4.4
+pandas==2.2.3
+psutil==7.0.0
+pyarrow==22.0.0
+scikit-learn==1.7.1
+scipy==1.16.1
+xgboost==2.1.4

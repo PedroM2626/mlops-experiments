@@ -11,3 +11,7 @@
 
 # IBM Experiments folder - track all files with Git LFS
 experiments/ibm-experiments/** filter=lfs diff=lfs merge=lfs -text
+
+# Path-scoped LFS rule for the boxing detector's MLflow store (*.pkl is already
+# covered by the global rule at the top of this file).
+experiments/artifacts/boxing_pose_detector_*/model_artifacts/mlflow.db filter=lfs diff=lfs merge=lfs -text

@@ -125,6 +125,13 @@ reproducing):
 - serialized models: `*.joblib`, `*.pkl` (`sales_forecaster_v2_final.joblib`,
   `ensemble_pyramid_best.pkl`, `tfidf_vectorizer.pkl`, `champion.joblib`,
   `boxing_pose_detector/pose_classifier_model.pkl`);
+
+The one exception to the last two rules is
+`experiments/artifacts/boxing_pose_detector_*/model_artifacts/`, where the MLflow
+SQLite store and the three logged model pickles are re-included by path and
+tracked with Git LFS — that project's standalone repository was deleted, so
+without them the recorded runs would have no loadable model or logged
+parameters left anywhere.
 - MLflow stores: `experiments/mlruns/` (legacy file store, kept browsable by the
   `mlflow_ui` service) and `experiments/mlops_tracking.db` (the SQLite backend
   used by `mlops/`, `MLFLOW_TRACKING_URI` overrides it).
