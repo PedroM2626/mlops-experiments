@@ -226,5 +226,4 @@ experiments/computer_vision/boxing_pose_detector/models/
 # here through Git LFS instead of being left out like every other *.pkl / *.db.
 # Exceptions are path-scoped on purpose - the blanket rules above still hold
 # everywhere else in the monorepo.
-!experiments/artifacts/boxing_pose_detector_*/model_artifacts/*.pkl
-!experiments/artifacts/boxing_pose_detector_*/model_artifacts/mlflow.db
+!experiments/artifacts/boxing_pose_detector_*/model_artifacts/**

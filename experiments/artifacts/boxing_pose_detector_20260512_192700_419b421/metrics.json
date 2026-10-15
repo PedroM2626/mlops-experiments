@@ -27,7 +27,7 @@
   "accuracy_derivation": "The compare_models runs committed only their confusion matrix artifact, so their accuracies were first read off the annotated matrices as diagonal/80. Opening model_artifacts/mlflow.db afterwards confirmed all five values independently (0.95, 0.975, 0.975, 0.9875, 0.975), so the numbers now have two agreeing sources plus the reproduction run.",
   "shipped_model": {
     "file": "pose_classifier_model.pkl at the experiment root (gitignored; regenerate by training)",
-    "versioned_copy": "model_artifacts/xgboost_best_m-193baba3c9db46f39776055a188dfc88.pkl (Git LFS)",
+    "versioned_copy": "model_artifacts/xgboost_best-m-193baba3c9db46f39776055a188dfc88/model.pkl (Git LFS)",
     "identified_as": "XGBoost",
     "how": "sha256 565adb632dac51714341b4fe18e657b69ec5386caff5888cb2fffaba62919908, byte-identical to mlruns model m-193baba3c9db46f39776055a188dfc88, and the pickle stream names XGBClassifier/xgboost.sklearn; that model's logged requirements list xgboost==2.1.4 while the other two logged models do not"
   },

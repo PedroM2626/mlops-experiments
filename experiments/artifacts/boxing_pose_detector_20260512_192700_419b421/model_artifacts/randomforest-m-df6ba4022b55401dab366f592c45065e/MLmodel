@@ -1,0 +1,22 @@
+artifact_path: file:C:/Users/pedro/Downloads/boxing-pose-detector/mlruns/1/models/m-df6ba4022b55401dab366f592c45065e/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.1
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.1
+mlflow_version: 3.8.1
+model_id: m-df6ba4022b55401dab366f592c45065e
+model_size_bytes: 237527
+model_uuid: m-df6ba4022b55401dab366f592c45065e
+prompts: null
+run_id: 6e292fe021064749b0cd3d7d4e1d1a54
+utc_time_created: '2026-05-12 21:58:03.091436'
