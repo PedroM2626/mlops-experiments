@@ -94,21 +94,20 @@ For the documentation standard, see
   service, drift monitor, retrain, MLflow registry; see
   [`mlops/README_mlops.md`](mlops/README_mlops.md)), packaged by `Dockerfile` /
   `docker-compose.yml` (`ml_api`, `mlflow_ui`, `mlops_monitor`; needs a `.env`
-  copied from `.env.example`). `Dockerfile_ensemble` is the ensemble variant.
+  copied from `.env.example`). `Dockerfile_ensemble` is the ensemble variant (installs the root `requirements.txt` plus `nbconvert`/`ipykernel`, since it executes a notebook).
   `k8s-deployment.yaml` is only a cluster-ready **example**: it points at a
   container-local SQLite file, so its 3 replicas would not share tracking state
   until `MLFLOW_TRACKING_URI` is set to a shared server.
 
 ## Environments, and what a fresh clone does not have
 
-Four dependency layers exist on purpose; they do **not** pin the same versions,
+Three dependency layers exist on purpose; they do **not** pin the same versions,
 because each one records a different moment:
 
 | File | What it is for |
 |---|---|
 | `requirements.txt` | the analysis environment that produced the recorded results (kept in sync with the working venv; `pip freeze`-verified) |
 | `requirements-mlops.txt` | the serving image (`Dockerfile`): FastAPI + MLflow + monitor/retrain, no research stack |
-| `requirements_ensemble.txt` | `Dockerfile_ensemble`, the ensemble-serving variant |
 | `experiments/sales-forecast/requirements.txt`, `.../senti-pred-exp1/requirements.txt`, `experiments/computer_vision/boxing_pose_detector/requirements.txt` | the project environment **at the time that experiment ran** (e.g. the hackathon ran on MLflow 2.17.2 / numpy 1.24.3, while the root env is on MLflow 3.11.1 / numpy 1.26.4) |
 
 Where a freeze was recorded, it is the ground truth for that result:

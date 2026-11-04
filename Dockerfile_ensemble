@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements_ensemble.txt .
+# The notebook only imports joblib/mlflow/numpy/pandas/sklearn, all in the root
+# requirements.txt; running it needs the execution stack on top (nbconvert, ipykernel).
+COPY requirements.txt .
 RUN pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir -r requirements_ensemble.txt
+    pip install --no-cache-dir -r requirements.txt nbconvert==7.17.1 ipykernel==7.2.0
 
 COPY . .
 
