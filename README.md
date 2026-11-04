@@ -167,6 +167,8 @@ Hugging Face, AWS). Only the DagsHub/W&B tracking paths need them.
   stack (torch, mediapipe, ...) run locally.
 - **Docker build context**: `.dockerignore` keeps environments, tracking stores, datasets and
   notebooks out of the images (the ensemble image re-includes the one notebook it executes).
+  `Dockerfile.dockerignore` replaces it for the API image only and also drops the rest of
+  `experiments/`, keeping just `sales-forecast/` and `artifacts/mlops_sales/`.
 
 - **Reproduction**: run each script/notebook from its own folder;
   artifacts in `experiments/artifacts/<experiment>_<timestamp>_<sha>/`
