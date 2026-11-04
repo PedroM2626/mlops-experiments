@@ -65,15 +65,6 @@ def test_markdown_only_notebook_is_flagged_docs_only(tmp_path):
     assert r["ok"] and r.get("docs_only")
 
 
-def test_cloud_directories_are_always_external(tmp_path):
-    p = notebook_md_then_code(tmp_path, "# Something",
-                              name="x.ipynb")
-    folded = tmp_path / "ibm-experiments" / "x.ipynb"
-    folded.parent.mkdir()
-    folded.write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
-    assert vn.is_external(folded, json.loads(folded.read_text(encoding="utf-8")))
-
-
 def test_ext_marker_needs_a_word_boundary(tmp_path):
     """A notebook titled "Hierarchical Text Classification" is a local run.
 

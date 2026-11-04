@@ -69,8 +69,7 @@ def test_root_index_links_every_group_readme():
         assert readme in linked, f"{readme} is not linked from the root index"
 
 
-SKIP_DOC = ("experiments/ibm-experiments/", "experiments/databricks-forecast/",
-            "experiments/artifacts/", "experiments/sales-forecast/tests/")
+SKIP_DOC = ("experiments/artifacts/", "experiments/sales-forecast/tests/")
 
 
 def test_every_experiment_code_file_is_documented():
@@ -104,7 +103,7 @@ PT_WORDS = re.compile(
     r"código|codigo|arquivo|pasta|experimento|amostra|conjunto|treino)\b", re.I)
 # this file itself has to spell the Portuguese words it looks for
 SELF = Path(__file__).resolve().relative_to(ROOT).as_posix()
-EXEMPT = re.compile(r"(datasets/|artifacts/|ibm-experiments/assets/|"
+EXEMPT = re.compile(r"(datasets/|artifacts/|"
                     r"README_mlops|strategic_visualization|\.lock)")
 
 

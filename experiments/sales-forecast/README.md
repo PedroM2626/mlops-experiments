@@ -1,7 +1,6 @@
 # Sales Forecasting Model - Hackathon 2025
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Completo-success)
 ![MLflow](https://img.shields.io/badge/MLOps-MLflow-0194E2.svg)
 
@@ -245,4 +244,4 @@ improving slowly). Artifacts: `experiments/artifacts/sales_coldstart_20260908_13
 
 ## License
 
-This project is licensed under the MIT License.
+This project is covered by the MIT License of the repository root (see [`LICENSE`](../../LICENSE)).

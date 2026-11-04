@@ -35,20 +35,18 @@ For the documentation standard, see
 | **Time Series group** (Prophet, 4×4 benchmark, 6-paradigm classification, TS+NLP, forecast-classification, distillation, anomalies, probabilistic/generative DeepAR, VAR, hierarchical forecast) | TS forecasting, classification and analysis | SARIMA wins 2/4 in the benchmark; ROCKET 3/3; Logistic 0.958 on forecast-direction | [see](experiments/time_series/README.md) |
 | **5 Feature Engineering Phases (TS)** | manual vs automatic vs signals vs embeddings | DWT + manual: MAE 54.19 (best) | [see](experiments/ts_fe/README.md) |
 | **Sales Forecast (Hackathon)** | weekly sales forecasting | LightGBM V2.2 MAE 1.4218 | [see](experiments/sales-forecast/README.md) |
-| **Databricks Forecast (cloud)** | Prophet/DeepAR imported (Databricks) | local equivalents in time_series | [see](experiments/databricks-forecast/README.md) |
 
-### 🖥️ Cloud → Local Equivalents (Watsonx & Databricks)
+### 🖥️ Local open-source AutoML / forecast pipelines
 
 | Experiment | Objective | Read more |
 |---|---|---|
-| **IBM Watsonx (cloud originals)** | Boston Housing, Electric_Production, sentiment | [see](experiments/ibm-experiments/README.md) |
-| **Local open-source equivalents** | replicate cloud AutoML/forecast (FLAML, TPOT, Prophet+Optuna, GluonTS) | [time_series](experiments/time_series/README.md) · [tabular](experiments/tabular_regression/README.md) |
+| **Local equivalents of cloud AutoML** | open-source stand-ins for managed AutoML/forecast services (FLAML, TPOT, Prophet+Optuna, GluonTS); the cloud originals (Watsonx, Databricks) were removed because they could not be executed or reproduced here | [time_series](experiments/time_series/README.md) · [tabular](experiments/tabular_regression/README.md) |
 
 ### 🐱🖼️ Computer Vision
 
 | Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **CV Methods (CIFAR-10)** | HOG+SVM vs ResNet18 vs ViT | ViT 0.9805 vs ResNet 0.9362 vs HOG 0.3970 | [see](experiments/computer_vision/README.md) |
+| **CV Methods (CIFAR-10)** | HOG+SVM vs ResNet18 vs ViT | ViT 0.9805 vs ResNet 0.9362 vs HOG 0.3970 (0.5381 with the full 50k train set) | [see](experiments/computer_vision/README.md) |
 | **Animal multi-label** | 4 approaches (pets Dime/Frida) | ResNet18+aug Exact Match 1.000 | same as above |
 | **Face detection/recognition** | LBPH, CNN, YuNet (app in the notebook) | — | [see](experiments/computer_vision/README.md) |
 | **Boxing stance detector** | MediaPipe Holistic pose → 19 geometric features → RF/XGBoost/LightGBM, 4 stances, live webcam | XGBoost 0.9875 (79/80), one sample above RF and LightGBM (0.9750) | [see](experiments/computer_vision/boxing_pose_detector/README.md) |
@@ -115,7 +113,7 @@ because each one records a different moment:
 
 Where a freeze was recorded, it is the ground truth for that result:
 `experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`. Only the
-`ag_news_classification_*` bundles carry one; the other bundles
+`ag_news_classification_*` and `image_recommender_*` bundles carry one; the other bundles
 (`kd_cifar10`, `pipelines_abc`, `hog_cifar10`, `deepar_conformal`, `hier_calibrate`,
 `sales_coldstart`, `tsnlp_edgar`) record `seed`/`git_sha`/`run_timestamp` but no
 freeze, so for those the root `requirements.txt` is the closest reference. The
@@ -157,10 +155,18 @@ API, `auto-sklearn` which needs Linux/WSL). Install them before running those
 notebooks; otherwise they fail at import.
 
 Credentials are never committed: copy `.env.example` to `.env` (DagsHub, W&B,
-Hugging Face, Databricks, AWS). Only `experiments/databricks-forecast/`
-(`download_artifacts.py`) and the DagsHub/W&B tracking paths need them.
+Hugging Face, AWS). Only the DagsHub/W&B tracking paths need them.
 
 ## Repository standards
+
+- **License**: MIT, a single `LICENSE` at the repository root; sub-projects carry no
+  licenses of their own.
+- **Continuous integration**: `.github/workflows/tests.yml` runs the repository guards
+  (`scripts/tests`), notebook validation, `mlops/tests` and the RecSys tests on every push
+  and pull request, installing only `requirements-mlops.txt`; tests that need the research
+  stack (torch, mediapipe, ...) run locally.
+- **Docker build context**: `.dockerignore` keeps environments, tracking stores, datasets and
+  notebooks out of the images (the ensemble image re-includes the one notebook it executes).
 
 - **Reproduction**: run each script/notebook from its own folder;
   artifacts in `experiments/artifacts/<experiment>_<timestamp>_<sha>/`

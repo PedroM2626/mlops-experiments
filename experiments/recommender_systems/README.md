@@ -8,7 +8,7 @@
 
 ## 1. Abstract
 
-This folder compares **10 recommendation approaches** on MovieLens 100k (sparsity 93.7%), combining the 8-paradigm comparison of `movielens-recsys.ipynb` with **AutoRec** (item/user) from `movielens-autorec.ipynb`. **Item-AutoRec** won with RMSE 0.9054, followed by **Two-Tower (0.9297)** and **SVD (0.9352)**; BPR, despite its last place in RMSE (1.1138), is the suitable choice for ranking tasks. The folder also includes `image_recommender.ipynb`, a visual-similarity recommendation system (ResNet embeddings + cosine), with no built-in quality metrics (**TBD**).
+This folder compares **10 recommendation approaches** on MovieLens 100k (sparsity 93.7%), combining the 8-paradigm comparison of `movielens-recsys.ipynb` with **AutoRec** (item/user) from `movielens-autorec.ipynb`. **Item-AutoRec** won with RMSE 0.9054, followed by **Two-Tower (0.9297)** and **SVD (0.9352)**; BPR, despite its last place in RMSE (1.1138), is the suitable choice for ranking tasks. The folder also includes `image_recommender.ipynb`, a visual-similarity recommendation system (ResNet50 embeddings + cosine). Scored with class-as-relevance retrieval on 2,000 CIFAR-10 test images (`eval_image_recommender.py`), it reaches **precision@5 0.740 and hit-rate@5 0.955**, against 0.226 / 0.588 for raw-pixel cosine and 0.098 / 0.399 for a random ranking.
 
 ## 2. Context and Objectives
 
@@ -36,7 +36,7 @@ The experiment seeks to answer which recommendation paradigm predicts ratings be
 - **MovieLens 100k:** 100,000 ratings (1–5 scale) from 943 users over 1,682 movies; sparsity of **93.7%**. Loaded through the surprise `u.data` file (`~/.surprise_data/ml-100k/ml-100k`).
 - Split of the neural comparison: `train_test_split` 80/20 with `random_state=42` (80,000 training / 20,000 test) — the same split for NCF, LightGBM and Two-Tower.
 - **Anti-leakage (AutoRec):** test ratings never enter the training matrix (zeroed when building `R_tr`).
-- **Images (image_recommender):** local dataset of ~30 images (embedding dim 2048) used to index/demonstrate.
+- **Images (image_recommender):** local dataset of ~30 images (embedding dim 2048) used to index/demonstrate; quality is measured separately on a stratified CIFAR-10 test subset (200 images × 10 classes, seed 42), where "relevant" means "same class as the query".
 
 ### 4.2 Preprocessing
 
@@ -113,6 +113,15 @@ A new user rated Star Wars 5, Fargo 4, Shining 3 → SVD recommended **Empire St
 
 - Pipeline: collection → ResNet embedding extraction → L2 normalization → cosine top-K → JSONL output.
 - Observed indexing benchmark: **30 images indexed in 4.229 s, dim 2048**.
+- **Retrieval quality** (`eval_image_recommender.py`, bundle `experiments/artifacts/image_recommender_20261104_145507_e62ec23/`): the notebook's own pipeline (torchvision ResNet50 `IMAGENET1K_V2`, `fc` removed → 2048-d, cosine) on 2,000 CIFAR-10 test images, every image used once as the query against the other 1,999 (199 relevant each). Embedding took 82 s on CPU.
+
+| Ranking | P@5 | P@10 | P@20 | Hit-rate@5 | nDCG@5 | nDCG@20 |
+|---|---|---|---|---|---|---|
+| **ResNet50 embedding + cosine** | **0.7403** | **0.7118** | **0.6768** | **0.9545** | **0.7488** | **0.6966** |
+| Raw pixels (flattened) + cosine | 0.2255 | 0.2126 | 0.1967 | 0.5875 | 0.2295 | 0.2058 |
+| Random | 0.0976 | 0.0991 | 0.1006 | 0.3985 | 0.0974 | 0.0997 |
+
+  The random row sits at the chance level (199/1,999 ≈ 0.10), so the table is anchored. Recall@K is not a useful column here (K ≤ 20 against 199 relevant items caps it at 0.10; the full values are in `metrics.json`). Caveats: relevance is a class label, not human judgement (a visually similar item of another class counts as an error); CIFAR-10 images are 32×32 upscaled to 224×224, which handicaps an ImageNet model; one seed, one subset, no confidence interval; the 30 local images of the demo are not in git, so the demo itself has no score.
 - Ranking evaluation: use `ranking_metrics.py` (`ranking_report(y_score, y_relevant, ks=(5,10,20))` → precision/recall@K, hit-rate@K, nDCG@K). Mask training items with score −inf before ranking.
 
 ### 5.4 Ranking evaluation (BPR and others) — `ranking_metrics.py`
@@ -132,7 +141,7 @@ with `scores` (n_users × n_items) and binary `rel` (1 = relevant in the test se
 - **LightGBM+FE** proves that manual FE (u_std, u_mean) competes with the neural models (0.9406), besides being interpretable (SHAP/feature importance).
 - **Sparsity hurts similarity methods** (KNN ~1.02); the model is also a sample of the wins of tabular Feature Engineering: trees gain less from FE than linear models (see the `tabular_regression` folder).
 - **BPR should not be evaluated by RMSE** — its function is top-K; the ranking measurement is implemented in `ranking_metrics.py` (§5.4).
-- **Limitations:** single dataset (100k); `image_recommender` evaluated through the ranking protocol (`ranking_metrics.py`), with no external quality baseline — a demonstration of the pipeline.
+- **Limitations:** single dataset (100k); `image_recommender` is scored with a class-label proxy on CIFAR-10 (§5.3), not on the notebook's own demo images and not with human relevance judgements.
 
 ## 7. Conclusions and Recommendations
 
@@ -140,12 +149,12 @@ with `scores` (n_users × n_items) and binary `rel` (1 = relevant in the test se
 - **Best production trade-off:** **Two-Tower** for scale (ANN) — the ~0.93 RMSE cost is the best option when retrieval over a massive catalog is needed.
 - **Interpretability:** **LightGBM+m3** with 8 features (u_mean/u_std) is strong (0.9406) and provides SHAP.
 - **Ranking (top-K):** **BPR** (pairwise) — measured by precision/recall@K and nDCG through `ranking_metrics.py`, not by RMSE.
-- Suggestion: version the score matrix per model to re-evaluate ranking without retraining, and evaluate `image_recommender` with precision@K on a labeled dataset.
+- Suggestion: version the score matrix per model to re-evaluate ranking without retraining, and repeat the `image_recommender` evaluation over several seeds and a second backbone (ResNet18 is already supported by the notebook) to put an interval on the 0.74.
 - **Cold-start:** popularity + content hybrid until the user accumulates interactions.
 
 ## 8. References and Files
 
 - Notebooks: `./movielens-recsys.ipynb`, `./movielens-autorec.ipynb`, `./image_recommender.ipynb`.
-- Code: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`.
+- Code: `./ranking_metrics.py` + `./tests/test_ranking_metrics.py`; `./eval_image_recommender.py` + `./tests/test_eval_image_recommender.py` (`python eval_image_recommender.py`, then see `experiments/artifacts/image_recommender_*/`).
 - References: Sedhain et al. (2015) *AutoRec: Autoencoders Meet Collaborative Filtering*; Koren et al. (2009) *Matrix Factorization Techniques for Recommender* (SVD); Rendle et al. (2009) *BPR*; He et al. (2017) *Neural Collaborative Filtering* (NeuMF); Grafer et al. for Two-Tower/DLRM; Harley et al. (2022) for visual recommendation embeddings (ResNet).
 - Group reference document: `docs/academic-readme-template.md`.

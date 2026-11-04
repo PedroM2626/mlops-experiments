@@ -18,6 +18,11 @@ import seaborn as sns
 # Load environment variables
 load_dotenv()
 
+# Number of geometric features `extract_features` produces for a detected pose;
+# the recorded datasets and the logged models all use 19.
+N_FEATURES = 19
+
+
 class PoseClassifier:
     def __init__(self, model_path=None):
         """
@@ -54,7 +59,7 @@ class PoseClassifier:
             features: Extracted feature vector
         """
         if pose_landmarks is None:
-            return np.zeros(20)  # Return zeros if no pose detected
+            return np.zeros(N_FEATURES)  # Return zeros if no pose detected
         
         # Convert to numpy array if needed
         landmarks = np.array(pose_landmarks)
@@ -238,16 +243,17 @@ class PoseClassifier:
     def predict(self, pose_landmarks):
         if not self._is_model_trained():
             return "No Model", 0.0
-            
+        if pose_landmarks is None:
+            return "No Pose", 0.0
+
+        # No blanket `except` here: a feature-count mismatch between the model and
+        # `extract_features` must fail loudly instead of reading as "No Model".
         features = self.extract_features(pose_landmarks)
         features = features.reshape(1, -1)
 
-        try:
-            prediction = self.model.predict(features)[0]
-            probabilities = self.model.predict_proba(features)[0]
-            confidence = np.max(probabilities)
-        except Exception:
-            return "No Model", 0.0
+        prediction = self.model.predict(features)[0]
+        probabilities = self.model.predict_proba(features)[0]
+        confidence = np.max(probabilities)
         
         pose_name = self.pose_labels.get(prediction, "Unknown")
         return pose_name, confidence
@@ -256,14 +262,14 @@ class PoseClassifier:
         if not self._is_model_trained():
             return {}
         
+        if pose_landmarks is None:
+            return {}
+
         features = self.extract_features(pose_landmarks)
         features = features.reshape(1, -1)
 
-        try:
-            probabilities = self.model.predict_proba(features)[0]
-        except Exception:
-            return {}
-        
+        probabilities = self.model.predict_proba(features)[0]
+
         confidences = {}
         for i, prob in enumerate(probabilities):
             if i in self.pose_labels:

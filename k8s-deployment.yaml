@@ -9,12 +9,15 @@ metadata:
   labels:
     app: mlops-api
 spec:
-  replicas: 3
+  # One replica on purpose: tracking is a SQLite file and both volumes are
+  # ReadWriteOnce, so a second pod would either fail to mount them or write to
+  # the same SQLite file concurrently. Recreate (not RollingUpdate) because the
+  # new pod cannot attach the volumes while the old one still holds them.
+  # To scale out, point MLFLOW_TRACKING_URI at a shared server (e.g. Postgres),
+  # move the data volume to ReadWriteMany storage, then raise `replicas`.
+  replicas: 1
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       app: mlops-api
@@ -32,7 +35,8 @@ spec:
           name: http
         env:
         - name: MLFLOW_TRACKING_URI
-          value: "sqlite:////app/experiments/mlops_tracking.db"
+          # lives on the mlops-data volume so it survives pod restarts
+          value: "sqlite:////app/experiments/artifacts/mlops_sales/mlops_tracking.db"
         - name: API_PORT
           value: "8000"
         envFrom:

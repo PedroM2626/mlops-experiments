@@ -1,0 +1,75 @@
+{
+  "experiment": "image_recommender",
+  "protocol": "leave-one-out retrieval on a stratified CIFAR-10 test subset; relevant = same class",
+  "gallery_size": 2000,
+  "per_class": 200,
+  "relevant_per_query": 199,
+  "embedding": "torchvision ResNet50 IMAGENET1K_V2, fc removed (2048-d), cosine",
+  "embedding_seconds": 82.0,
+  "device": "cpu",
+  "seed": 42,
+  "git_sha": "e62ec23",
+  "run_timestamp": "20261104_145507",
+  "results": {
+    "resnet50_cosine": {
+      "5": {
+        "precision": 0.7403,
+        "recall": 0.0186,
+        "hit_rate": 0.9545,
+        "ndcg": 0.7488
+      },
+      "10": {
+        "precision": 0.7118,
+        "recall": 0.0358,
+        "hit_rate": 0.9835,
+        "ndcg": 0.7262
+      },
+      "20": {
+        "precision": 0.6768,
+        "recall": 0.068,
+        "hit_rate": 0.995,
+        "ndcg": 0.6966
+      }
+    },
+    "raw_pixels_cosine": {
+      "5": {
+        "precision": 0.2255,
+        "recall": 0.0057,
+        "hit_rate": 0.5875,
+        "ndcg": 0.2295
+      },
+      "10": {
+        "precision": 0.2126,
+        "recall": 0.0107,
+        "hit_rate": 0.7335,
+        "ndcg": 0.2193
+      },
+      "20": {
+        "precision": 0.1967,
+        "recall": 0.0198,
+        "hit_rate": 0.8435,
+        "ndcg": 0.2058
+      }
+    },
+    "random": {
+      "5": {
+        "precision": 0.0976,
+        "recall": 0.0025,
+        "hit_rate": 0.3985,
+        "ndcg": 0.0974
+      },
+      "10": {
+        "precision": 0.0991,
+        "recall": 0.005,
+        "hit_rate": 0.646,
+        "ndcg": 0.0985
+      },
+      "20": {
+        "precision": 0.1006,
+        "recall": 0.0101,
+        "hit_rate": 0.879,
+        "ndcg": 0.0997
+      }
+    }
+  }
+}

@@ -7,9 +7,8 @@ Usage:
 Rules:
 - Every `*.ipynb` (outside .venv/.git/mlruns/artifacts) must be valid JSON in
   nbformat>=4 with at least 1 code cell.
-- External notebooks (cloud originals: `ibm-experiments/`, `databricks-forecast/`,
-  or with `EXT` in the name/first cell) are marked as EXT and exempted from the
-  output requirement (they run outside the repo, with cloud credentials).
+- External notebooks (those with `EXT` in the name/first cell) are marked as EXT
+  and exempted from the output requirement (they run outside the repo).
 """
 from __future__ import annotations
 
@@ -22,7 +21,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKIP_DIRS = {".venv", ".venv311", ".git", ".states", ".kilo", ".qoder",
              "mlruns", "node_modules", "__pycache__"}
-EXTERNAL_DIRS = {"ibm-experiments", "databricks-forecast"}
 # the EXT marker must be a whole word: "Text"/"NEXT"/"CONTEXT" are not markers.
 # in file names the separator may also be "_", which is a word character.
 EXT_MARKER = re.compile(r"\bEXT\b")
@@ -30,8 +28,6 @@ EXT_NAME_MARKER = re.compile(r"(?<![A-Z0-9])EXT(?![A-Z0-9])")
 
 
 def is_external(path: Path, nb: dict) -> bool:
-    if any(part in EXTERNAL_DIRS for part in path.parts):
-        return True
     if EXT_NAME_MARKER.search(path.stem.upper()):
         return True
     try:
