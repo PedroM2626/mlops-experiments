@@ -124,7 +124,10 @@ resolves in the registry and is independent of the `source` style.
 
 ## Registered model
 
-Champion: `use_log_target=False` (val_mae **1.5074** measured without Optuna). The committed
-joblib (`sales_forecaster_v2_final.joblib`, use_log_target=True, val_mae 2.71)
-is the version discarded in the repo README — we registered the true champion, the
+Champion: `use_log_target=False` (val_mae **1.5074** measured without Optuna; the
+**1.4218** quoted for V2.2 in `experiments/sales-forecast/README.md` is a different
+run (presumably the Optuna-tuned one), so the two figures are not comparable). The locally generated joblib
+(`sales_forecaster_v2_final.joblib`, use_log_target=True, val_mae 2.71; gitignored, so
+it only exists after training or as the `model_wrapper` fallback) is the version
+discarded in the sales-forecast README — we registered the true champion, the
 kind of divergence a model registry exists to capture.

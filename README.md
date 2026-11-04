@@ -17,7 +17,7 @@ For the documentation standard, see
 | Experiment | What it does | Main result | Read more |
 |---|---|---|---|
 | **NLP group** (senti-pred, A/B/C pipelines, Twitter Methods, multiclass Logistic, MMoE, AG News, FE NLP) | Sentiment/topic classification and text representations | TF-IDF + n-grams ~0.98 F1; transformers win in low-data | [see README](experiments/nlp/README.md) |
-| **NLP in Regression — Wine (Kaggle)** | wine scoring from text | Ridge MAE 1.33 / R² 0.69 vs LightGBM 1.47 / 0.63 | [see](experiments/nlp-regression-wine/README.md) |
+| **NLP in Regression — Wine (Kaggle)** | wine scoring from text | Ridge MAE 1.33 / R² 0.70 vs LightGBM 1.48 / 0.63 | [see](experiments/nlp-regression-wine/README.md) |
 | **Senti-Pred variations** | Variations of the sentiment pipeline | record 97.80% (TF-IDF 100k, 4-grams) | [see](experiments/nlp/twitter-entity-sentiment/senti-pred-variations/README.md) |
 | **Twitter Entity Sentiment** (sub-index) | the folder that holds every pipeline of that dataset | A/B/C compared with significance tests | [see](experiments/nlp/twitter-entity-sentiment/README.md) |
 | **Hierarchical 20 Newsgroups** | flat vs hierarchical classification, clustering | flat acc 0.7188 vs hierarchical 0.6953 | [see](experiments/hierarchical/README.md) |
@@ -57,7 +57,7 @@ For the documentation standard, see
 
 | Experiment | Objective | Main result | Read more |
 |---|---|---|---|
-| **MovieLens RecSys — 8 approaches** | MF, neural networks, similarity, heuristic | Two-Tower RMSE 0.9297; SVD most efficient | [see](experiments/recommender_systems/README.md) |
+| **MovieLens RecSys — 10 approaches** | MF, neural networks, autoencoders (AutoRec), similarity, heuristic | Item-AutoRec RMSE 0.9054; Two-Tower 0.9297; SVD 0.9352 | [see](experiments/recommender_systems/README.md) |
 
 ### 🏎️ Tabular Regression & local AutoML
 
@@ -92,6 +92,14 @@ For the documentation standard, see
   above. `ensemble_pyramid.ipynb` also dumps `ensemble_pyramid_best.pkl` (model + TF-IDF +
   label encoder); `*.pkl` is gitignored, so that file comes back only by re-running it.
 - **Experiment dashboard**: `dashboard/index.html` (open in the browser).
+- **Serving / MLOps stack** for the sales-forecast champion: `mlops/` (FastAPI
+  service, drift monitor, retrain, MLflow registry; see
+  [`mlops/README_mlops.md`](mlops/README_mlops.md)), packaged by `Dockerfile` /
+  `docker-compose.yml` (`ml_api`, `mlflow_ui`, `mlops_monitor`; needs a `.env`
+  copied from `.env.example`). `Dockerfile_ensemble` is the ensemble variant.
+  `k8s-deployment.yaml` is only a cluster-ready **example**: it points at a
+  container-local SQLite file, so its 3 replicas would not share tracking state
+  until `MLFLOW_TRACKING_URI` is set to a shared server.
 
 ## Environments, and what a fresh clone does not have
 
@@ -105,11 +113,15 @@ because each one records a different moment:
 | `requirements_ensemble.txt` | `Dockerfile_ensemble`, the ensemble-serving variant |
 | `experiments/sales-forecast/requirements.txt`, `.../senti-pred-exp1/requirements.txt`, `experiments/computer_vision/boxing_pose_detector/requirements.txt` | the project environment **at the time that experiment ran** (e.g. the hackathon ran on MLflow 2.17.2 / numpy 1.24.3, while the root env is on MLflow 3.11.1 / numpy 1.26.4) |
 
-The ground truth for any single result is the freeze file stored with it:
-`experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`. The
-`boxing_pose_detector` bundle is the one exception: that project never froze its
-environment, so its bundle carries `mlflow_logged_requirements.txt` instead — the
-dependency set MLflow recorded alongside the shipped model.
+Where a freeze was recorded, it is the ground truth for that result:
+`experiments/artifacts/<experiment>_<timestamp>_<sha>/pip_freeze.txt`. Only the
+`ag_news_classification_*` bundles carry one; the other bundles
+(`kd_cifar10`, `pipelines_abc`, `hog_cifar10`, `deepar_conformal`, `hier_calibrate`,
+`sales_coldstart`, `tsnlp_edgar`) record `seed`/`git_sha`/`run_timestamp` but no
+freeze, so for those the root `requirements.txt` is the closest reference. The
+`boxing_pose_detector` bundle never froze its environment either; it carries
+`logged_model_env_record.txt` instead — the dependency set MLflow recorded
+alongside the shipped model.
 
 **Not in git** (`.gitignore` keeps them out; download or regenerate before
 reproducing):
