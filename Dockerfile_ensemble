@@ -25,10 +25,7 @@ ENV HOME=/home/appuser \
     PYTHONUNBUFFERED=1
 
 # Batch execution of the existing ensemble (6 layers, TF-IDF + meta-ensembles)
-CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute",
-     "experiments/ensemble_pyramid.ipynb",
-     "--output", "experiments/ensemble_pyramid.executed.ipynb",
-     "--ExecutePreprocessor.timeout=3600"]
+CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute",      "experiments/ensemble_pyramid.ipynb",      "--output", "experiments/ensemble_pyramid.executed.ipynb",      "--ExecutePreprocessor.timeout=3600"]
 
 # Alternative (once a streamlit app is committed):
 # EXPOSE 8501

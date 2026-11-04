@@ -1,0 +1,42 @@
+# Keep the build context small: the images only need mlops/, the requirement
+# files and the sales-forecast code; data, envs and tracking stores come from
+# volumes (see docker-compose.yml) or are not needed at all.
+.git
+.gitattributes
+.venv
+.venv311
+.kilo
+.qoder
+.states
+.pytest_cache
+**/__pycache__
+**/*.pyc
+.env
+logs.log
+mlflow.db
+mlruns.db
+mlruns
+experiments/mlruns
+**/mlruns
+experiments/mlops_tracking.db
+experiments/artifacts/ag_news_classification_*
+experiments/artifacts/boxing_pose_detector_*
+experiments/artifacts/kd_cifar10_*
+experiments/artifacts/pipelines_abc_*
+experiments/computer_vision
+experiments/sales-forecast/data
+experiments/**/*.ipynb
+# the ensemble image executes this one at run time
+!experiments/ensemble_pyramid.ipynb
+experiments/ensemble_pyramid_best.pkl
+dashboard
+docs
+
+# --- API image only (Dockerfile.dockerignore replaces .dockerignore for it) ---
+# It needs mlops/, the sales-forecast code and artifacts/mlops_sales; everything
+# else under experiments/ is research material or arrives through volumes.
+experiments/*
+!experiments/sales-forecast
+!experiments/artifacts
+experiments/artifacts/*
+!experiments/artifacts/mlops_sales
